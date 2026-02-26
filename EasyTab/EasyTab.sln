@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyTab.API", "EasyTab.API\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyTab.Model", "EasyTab.Model\EasyTab.Model.csproj", "{16C4D400-BD96-4973-9256-DFBB420D1B82}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyTab.Serivces", "EasyTab.Serivces\EasyTab.Serivces.csproj", "{33266797-1058-4292-ADC5-7C21849376BD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyTab.Services", "EasyTab.Services\EasyTab.Services.csproj", "{53E842E0-D516-4DD6-BCB1-E898AB599468}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,10 +23,10 @@ Global
 		{16C4D400-BD96-4973-9256-DFBB420D1B82}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{16C4D400-BD96-4973-9256-DFBB420D1B82}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{16C4D400-BD96-4973-9256-DFBB420D1B82}.Release|Any CPU.Build.0 = Release|Any CPU
-		{33266797-1058-4292-ADC5-7C21849376BD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{33266797-1058-4292-ADC5-7C21849376BD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{33266797-1058-4292-ADC5-7C21849376BD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{33266797-1058-4292-ADC5-7C21849376BD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{53E842E0-D516-4DD6-BCB1-E898AB599468}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53E842E0-D516-4DD6-BCB1-E898AB599468}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53E842E0-D516-4DD6-BCB1-E898AB599468}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53E842E0-D516-4DD6-BCB1-E898AB599468}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

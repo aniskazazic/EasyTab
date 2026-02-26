@@ -1,4 +1,4 @@
-﻿namespace EasyTab.Serivces
+﻿namespace EasyTab.Services
 {
     public class Class1
     {

@@ -15,7 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EasyTab.Model\EasyTab.Model.csproj" />
-    <ProjectReference Include="..\EasyTab.Serivces\EasyTab.Serivces.csproj" />
+    <ProjectReference Include="..\EasyTab.Services\EasyTab.Services.csproj" />
   </ItemGroup>
 
 </Project>

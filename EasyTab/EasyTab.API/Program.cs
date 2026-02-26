@@ -1,4 +1,4 @@
-using EasyTab.Serivces;
+using EasyTab.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 

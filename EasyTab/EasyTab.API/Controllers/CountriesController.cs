@@ -1,5 +1,5 @@
 ﻿using EasyTab.Model;
-using EasyTab.Serivces;
+using EasyTab.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EasyTab.API.Controllers

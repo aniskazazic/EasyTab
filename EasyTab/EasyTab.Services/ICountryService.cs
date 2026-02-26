@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EasyTab.Serivces
+namespace EasyTab.Services
 {
     public interface ICountryService
     {
