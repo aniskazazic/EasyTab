@@ -1,4 +1,5 @@
 ﻿using EasyTab.Model;
+using EasyTab.Services.Database;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,16 +10,25 @@ namespace EasyTab.Services
 {
     public class CountryService : ICountryService
     {
-        public List<Countries> Countries = new List<Countries>
-        {
-            new Countries { CountryId = 1, Name = "United States" },
-            new Countries { CountryId = 2, Name = "Canada" },
-            new Countries { CountryId = 3, Name = "Mexico" },
-        };
+        public _220030Context Context { get; set; }
+        public CountryService(_220030Context context) { 
+            Context = context;
+        }
 
-        public List<Countries> GetCountries()
+        public virtual List<Model.Countries> GetCountries()
         {
-            return Countries;
+            var list = Context.Countries.ToList();
+            var result = new List<Model.Countries>();
+            list.ForEach(item =>
+            {
+                result.Add(new Model.Countries()
+                {
+                    CountryId = item.Id,
+                    Name = item.Name
+                });
+            });
+
+            return result;
         }
     }
 }
