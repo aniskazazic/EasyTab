@@ -18,13 +18,13 @@ namespace EasyTab.API.Controllers.BaseControllers
 
         
         [HttpPost]
-        public TModel Insert(TInsert request)
+        public virtual TModel Insert(TInsert request)
         {
             return _service.Insert(request);
         }
 
         [HttpPut("{id}")]
-        public TUpdate Update(int id, TUpdate request)
+        public virtual TUpdate Update(int id, TUpdate request)
         {
             return _service.Update(id, request);
         }

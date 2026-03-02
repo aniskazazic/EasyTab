@@ -91,5 +91,26 @@ namespace EasyTab.Services.Services
 
             
         }
+
+        public Users Login(string username, string password)
+        {
+            var entity = Context.Users.Include(x=>x.UserRoles).ThenInclude(y => y.Role).FirstOrDefault(x=>x.Username == username);
+
+            if (entity == null)
+            {
+                return null;
+            }
+            var hash = GenerateHash(entity.PasswordSalt, password);
+
+            if (hash != entity.PasswordHash)
+            {
+                return null;
+            }
+            else
+            {
+                return Mapper.Map<Users>(entity);
+            }
+
+        }
     }
 }
