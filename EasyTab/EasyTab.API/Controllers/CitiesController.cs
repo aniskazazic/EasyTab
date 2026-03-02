@@ -2,7 +2,6 @@
 using EasyTab.Model;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
-using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,8 +9,8 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class CountriesController : BaseCRUDController<Countries, CountrySearchObject, CountryUpsertRequest, CountryUpsertRequest>
+    public class CitiesController : BaseCRUDController<Cities, CitySearchObject, CityInsertRequest, CityUpdateRequest>
     {
-        public CountriesController(ICountryService service) : base(service) { }
+        public CitiesController(ICityService service) : base(service) { }
     }
 }

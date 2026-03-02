@@ -8,9 +8,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EasyTab.Services
+namespace EasyTab.Services.Interfaces
 {
-    public interface ICountryService : ICRUDService<Countries, CountrySearchObject, CountryInsertRequest, CountryUpdateRequest>
+    public interface ICountryService : ICRUDService<Countries, CountrySearchObject, CountryUpsertRequest, CountryUpsertRequest>
     {
     }
 }

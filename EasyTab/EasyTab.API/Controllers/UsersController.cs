@@ -2,7 +2,7 @@
 using EasyTab.Model;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
-using EasyTab.Services;
+using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 

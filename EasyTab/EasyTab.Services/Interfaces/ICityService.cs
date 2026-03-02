@@ -8,9 +8,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EasyTab.Services
+namespace EasyTab.Services.Interfaces
 {
-    public interface ICategoryService : ICRUDService<Categories,CategorySearchObject, CategoryInsertRequest, CategoryUpdateRequest>
+    public interface ICityService : ICRUDService<Cities, CitySearchObject, CityInsertRequest, CityUpdateRequest>
     {
     }
 }

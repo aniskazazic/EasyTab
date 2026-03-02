@@ -12,13 +12,17 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using EasyTab.Services.BaseServices.Implementation;
+using EasyTab.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 
-namespace EasyTab.Services
+namespace EasyTab.Services.Services
 {
     public class UserService : BaseCRUDService<Users, UserSearchObject, User, UserInsertRequest, UserUpdateRequest>, IUserService
     {
-        public UserService(_220030Context context, IMapper mapper) : base(context, mapper)
+        ILogger<IUserService> _logger;
+        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger) : base(context, mapper)
         {
+            _logger = logger;
         }
 
         public override IQueryable<User> AddFilter(IQueryable<User> query, UserSearchObject searchObject)
@@ -42,8 +46,9 @@ namespace EasyTab.Services
 
         public override void BeforeInsert(UserInsertRequest request, User entity)
         {
+            _logger.LogInformation("Inserting user with username: {Username}", request.Username);
             if (request.Password != request.PasswordConfirmation)
-                throw new Exception("Lozinka i potvrda lozinke moraju biti iste !");
+                throw new UserException("Lozinka i potvrda lozinke moraju biti iste !");
 
             entity.PasswordSalt = GenerateSalt();
             entity.PasswordHash = GenerateHash(entity.PasswordSalt, request.Password);
@@ -54,7 +59,7 @@ namespace EasyTab.Services
 
         public static string GenerateSalt()
         {
-            var byteArray = RNGCryptoServiceProvider.GetBytes(16);
+            var byteArray = RandomNumberGenerator.GetBytes(16);
             return Convert.ToBase64String(byteArray);
         }
 
@@ -64,8 +69,8 @@ namespace EasyTab.Services
             byte[] bytes = Encoding.Unicode.GetBytes(password);
             byte[] dst = new byte[src.Length + bytes.Length];
 
-            System.Buffer.BlockCopy(src, 0, dst, 0, src.Length);
-            System.Buffer.BlockCopy(bytes, 0, dst, src.Length, bytes.Length);
+            Buffer.BlockCopy(src, 0, dst, 0, src.Length);
+            Buffer.BlockCopy(bytes, 0, dst, src.Length, bytes.Length);
 
             HashAlgorithm algorithm = HashAlgorithm.Create("SHA1");
             byte[] inArray = algorithm.ComputeHash(dst);

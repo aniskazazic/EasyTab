@@ -3,6 +3,7 @@ using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
+using EasyTab.Services.Interfaces;
 using MapsterMapper;
 using System;
 using System.Collections.Generic;
@@ -10,9 +11,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EasyTab.Services
+namespace EasyTab.Services.Services
 {
-    public class CategoryService : BaseCRUDService<Categories, CategorySearchObject,Category, CategoryInsertRequest, CategoryUpdateRequest>, ICategoryService
+    public class CategoryService : BaseCRUDService<Categories, CategorySearchObject,Category, CategoryUpsertRequest, CategoryUpsertRequest>, ICategoryService
     {
         public CategoryService(_220030Context context, IMapper mapper) : base(context, mapper) { }
 

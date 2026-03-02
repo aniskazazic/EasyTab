@@ -2,11 +2,14 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace EasyTab.Model.Requests
+namespace EasyTab.Model
 {
-    public class CategoryInsertRequest
+    public class Cities
     {
+        public int Id { get; set; }
+
         public string Name { get; set; } = null!;
-        public string? Description { get; set; }
+
+        public int CountryId { get; set; }
     }
 }

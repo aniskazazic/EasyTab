@@ -1,5 +1,7 @@
-using EasyTab.Services;
+using EasyTab.API.Filters;
 using EasyTab.Services.Database;
+using EasyTab.Services.Interfaces;
+using EasyTab.Services.Services;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,9 +12,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddTransient<ICountryService, CountryService>();
 builder.Services.AddTransient<IUserService, UserService>();
 builder.Services.AddTransient<ICategoryService, CategoryService>();
+builder.Services.AddTransient<ICityService, CityService>();
+builder.Services.AddTransient<IRoleService, RoleService>();
 
 var connectionString = builder.Configuration.GetConnectionString("EasyTabConnection");
-builder.Services.AddControllers();
+
+builder.Services.AddControllers( x => {
+    x.Filters.Add<ExceptionFilter>();
+});
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

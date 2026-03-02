@@ -1,12 +1,12 @@
-﻿using EasyTab.Model.SearchObject;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace EasyTab.Model.Requests
 {
-    public class CountryInsertRequest 
+    public class CityUpdateRequest
     {
         public string Name { get; set; }
+        public int CountryId { get; set; }
     }
 }

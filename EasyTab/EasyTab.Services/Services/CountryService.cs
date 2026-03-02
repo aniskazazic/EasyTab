@@ -9,10 +9,11 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Model.Requests;
 using MapsterMapper;
 using System.Threading.Tasks;
+using EasyTab.Services.Interfaces;
 
-namespace EasyTab.Services
+namespace EasyTab.Services.Services
 {
-    public class CountryService : BaseCRUDService<Countries, CountrySearchObject, Country, CountryInsertRequest, CountryUpdateRequest>, ICountryService
+    public class CountryService : BaseCRUDService<Countries, CountrySearchObject, Country, CountryUpsertRequest, CountryUpsertRequest>, ICountryService
     {
         public CountryService(_220030Context context, IMapper mapper) : base(context,mapper) {  }
 
