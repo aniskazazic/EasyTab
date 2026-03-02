@@ -8,8 +8,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddTransient<ICountryService, CountryService>();
-builder.Services.AddTransient<CountryService, CountryService>();
-builder.Services.AddTransient<IUsersService, UsersService>();
+builder.Services.AddTransient<IUserService, UserService>();
+builder.Services.AddTransient<ICategoryService, CategoryService>();
 
 var connectionString = builder.Configuration.GetConnectionString("EasyTabConnection");
 builder.Services.AddControllers();

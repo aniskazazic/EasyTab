@@ -5,15 +5,12 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services;
 using Microsoft.AspNetCore.Mvc;
 
-
 namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class UsersController : BaseCRUDController<Users, UserSearchObject, UserInsertRequest, UserUpdateRequest>
+    public class CategoriesController : BaseCRUDController<Categories, CategorySearchObject, CategoryInsertRequest, CategoryUpdateRequest>
     {
-        public UsersController(IUserService service) : base(service) { }
-        
-       
+        public CategoriesController(ICategoryService service) : base(service) { }
     }
 }

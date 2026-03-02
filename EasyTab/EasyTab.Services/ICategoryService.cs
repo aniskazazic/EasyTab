@@ -1,5 +1,7 @@
 ﻿using EasyTab.Model;
 using EasyTab.Model.Requests;
+using EasyTab.Model.SearchObject;
+using EasyTab.Services.BaseServices.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,10 +10,7 @@ using System.Threading.Tasks;
 
 namespace EasyTab.Services
 {
-    public interface IUsersService
+    public interface ICategoryService : ICRUDService<Categories,CategorySearchObject, CategoryInsertRequest, CategoryUpdateRequest>
     {
-        List<Users> GetUsers();
-        Users Insert(UserInsertRequest request);
-        Users Update(int id, UserUpdateRequest request);
     }
 }

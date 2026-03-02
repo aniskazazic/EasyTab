@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace EasyTab.Services
 {
-    public interface ICountryService : ICRUDService<Countries, CountrySearchObject, CountryInsertRequest, CountryUpdateRequest>
+    public interface IUserService : ICRUDService<Users, UserSearchObject, UserInsertRequest, UserUpdateRequest>
     {
     }
 }

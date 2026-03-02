@@ -1,4 +1,5 @@
 ﻿using EasyTab.Model;
+using EasyTab.Model.SearchObject;
 using EasyTab.Model.Requests;
 using EasyTab.Services.Database;
 using MapsterMapper;
@@ -9,60 +10,47 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using EasyTab.Services.BaseServices.Implementation;
 
 namespace EasyTab.Services
 {
-    public class UsersService : IUsersService
+    public class UserService : BaseCRUDService<Users, UserSearchObject, User, UserInsertRequest, UserUpdateRequest>, IUserService
     {
-        public _220030Context Context { get; set; }
-        public IMapper Mapper { get; set; }
-        public UsersService(_220030Context context, IMapper mapper)
+        public UserService(_220030Context context, IMapper mapper) : base(context, mapper)
         {
-            Context = context;
-            Mapper = mapper;
-        }
-        public virtual List<Users> GetUsers()
-        {
-            List<Users> result = new List<Users>();
-
-            var list = Context.Users.ToList();
-
-            //list.ForEach(item =>
-            //{
-            //    result.Add(new Users()
-            //    {
-            //        FirstName = item.FirstName,
-            //        LastName = item.LastName,
-            //        Email = item.Email,
-            //        Id = item.Id,
-            //        PhoneNumber = item.PhoneNumber,
-            //        ProfilePicture = item.ProfilePicture,
-            //        BirthDate = item.BirthDate,
-            //        Username = item.Username
-            //    });
-            //});
-
-            result = Mapper.Map(list, result);
-
-            return result;
         }
 
-        public Users Insert(UserInsertRequest request)
+        public override IQueryable<User> AddFilter(IQueryable<User> query, UserSearchObject searchObject)
+        {
+            query = base.AddFilter(query, searchObject);
+
+            if (!string.IsNullOrEmpty(searchObject?.FirstNameGTE))
+                query = query.Where(x => x.FirstName.StartsWith(searchObject.FirstNameGTE));
+
+            if (!string.IsNullOrEmpty(searchObject?.LastNameGTE))
+                query = query.Where(x => x.LastName.StartsWith(searchObject.LastNameGTE));
+
+            if (!string.IsNullOrEmpty(searchObject?.Username))
+                query = query.Where(x => x.Username == searchObject.Username);
+
+            if (!string.IsNullOrEmpty(searchObject?.Email))
+                query = query.Where(x => x.Email == searchObject.Email);
+
+            return query;
+        }
+
+        public override void BeforeInsert(UserInsertRequest request, User entity)
         {
             if (request.Password != request.PasswordConfirmation)
                 throw new Exception("Lozinka i potvrda lozinke moraju biti iste !");
 
-            User entity = new User();  
-            Mapper.Map(request, entity);
-
             entity.PasswordSalt = GenerateSalt();
             entity.PasswordHash = GenerateHash(entity.PasswordSalt, request.Password);
 
-            Context.Add(entity);
-            Context.SaveChanges();
-
-            return Mapper.Map<Users>(entity);
+            base.BeforeInsert(request, entity);
         }
+
 
         public static string GenerateSalt()
         {
@@ -84,12 +72,9 @@ namespace EasyTab.Services
             return Convert.ToBase64String(inArray);
         }
 
-        public Users Update(int id, UserUpdateRequest request)
+        public override void BeforeUpdate(UserUpdateRequest request, User entity)
         {
-            var entity = Context.Users.Find(id);
-
-            Mapper.Map(request, entity);
-
+            base.BeforeUpdate(request, entity);
             if (request.Password != null)
             {
                 if (request.Password != request.PasswordConfirmation)
@@ -99,8 +84,7 @@ namespace EasyTab.Services
                 entity.PasswordHash = GenerateHash(entity.PasswordSalt, request.Password);
             }
 
-            Context.SaveChanges();
-            return Mapper.Map<Users>(entity);
+            
         }
     }
 }

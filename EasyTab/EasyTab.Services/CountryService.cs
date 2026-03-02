@@ -1,34 +1,20 @@
 ﻿using EasyTab.Model;
+using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using EasyTab.Model.SearchObject;
+using EasyTab.Model.Requests;
+using MapsterMapper;
 using System.Threading.Tasks;
 
 namespace EasyTab.Services
 {
-    public class CountryService : ICountryService
+    public class CountryService : BaseCRUDService<Countries, CountrySearchObject, Country, CountryInsertRequest, CountryUpdateRequest>, ICountryService
     {
-        public _220030Context Context { get; set; }
-        public CountryService(_220030Context context) { 
-            Context = context;
-        }
+        public CountryService(_220030Context context, IMapper mapper) : base(context,mapper) {  }
 
-        public virtual List<Model.Countries> GetCountries()
-        {
-            var list = Context.Countries.ToList();
-            var result = new List<Model.Countries>();
-            list.ForEach(item =>
-            {
-                result.Add(new Model.Countries()
-                {
-                    CountryId = item.Id,
-                    Name = item.Name
-                });
-            });
-
-            return result;
-        }
     }
 }
