@@ -1,4 +1,4 @@
-﻿using EasyTab.Model;
+﻿using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;

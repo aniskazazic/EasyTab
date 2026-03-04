@@ -1,5 +1,6 @@
 using EasyTab.API.Authentication;
 using EasyTab.API.Filters;
+using EasyTab.API.Helpers;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using EasyTab.Services.Services;
@@ -17,8 +18,23 @@ builder.Services.AddTransient<IUserService, UserService>();
 builder.Services.AddTransient<ICategoryService, CategoryService>();
 builder.Services.AddTransient<ICityService, CityService>();
 builder.Services.AddTransient<IRoleService, RoleService>();
+builder.Services.AddTransient<ILocaleService, LocaleService>();
+builder.Services.AddTransient<IZoneService, ZoneService>();
+builder.Services.AddTransient<ITableService, TableService>();
+builder.Services.AddTransient<IWorkerService, WorkerService>();
+builder.Services.AddTransient<IReservationService, ReservationService>();
+builder.Services.AddTransient<IReviewService, ReviewService>();
+builder.Services.AddTransient<IReactionService, ReactionService>();
+builder.Services.AddTransient<IFavouriteService, FavouriteService>();
 
 var connectionString = builder.Configuration.GetConnectionString("EasyTabConnection");
+
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
+    });
+
 
 builder.Services.AddControllers( x => {
     x.Filters.Add<ExceptionFilter>();
@@ -58,6 +74,7 @@ builder.Services.AddMapster();
 
 builder.Services.AddAuthentication("BasicAuthentication")
     .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
+
 
 var app = builder.Build();
 

@@ -1,20 +1,23 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Text;
 
-namespace EasyTab.Model
+namespace EasyTab.Model.Models
 {
-    public class Roles
+    public class UserRoles
     {
         public int Id { get; set; }
 
-        public string Name { get; set; } = null!;
+        public int UserId { get; set; }
 
-        public string? Description { get; set; }
+        public int RoleId { get; set; }
 
         public bool IsDeleted { get; set; }
 
         public DateTime? DeletedAt { get; set; }
+
+        public virtual Roles Role { get; set; } = null!;
 
     }
 }

@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Interfaces;
 using Microsoft.Extensions.Logging;
+using EasyTab.Model.Models;
 
 namespace EasyTab.Services.Services
 {

@@ -4,6 +4,7 @@ using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Interfaces;
 using EasyTab.Services.Database;
+using EasyTab.Services.Interfaces;
 using MapsterMapper;
 using System;
 using System.Collections.Generic;
@@ -19,7 +20,7 @@ namespace EasyTab.Services.BaseServices.Implementation
         {
         }
 
-        public TModel Insert(TInsert request)
+        public virtual TModel Insert(TInsert request)
         {
             var set = Context.Set<TDbEntity>();
 
@@ -38,7 +39,7 @@ namespace EasyTab.Services.BaseServices.Implementation
         public virtual void BeforeInsert(TInsert request, TDbEntity entity) { }
         
 
-        public TUpdate Update(int id, TUpdate request)
+        public virtual TUpdate Update(int id, TUpdate request)
         {
             var set = Context.Set<TDbEntity>();
 
@@ -54,5 +55,28 @@ namespace EasyTab.Services.BaseServices.Implementation
         }
 
         public virtual void BeforeUpdate(TUpdate request, TDbEntity entity) { }
+
+        public virtual void Delete(int id)
+        {
+            var entity = Context.Set<TDbEntity>().Find(id);
+
+            if (entity == null)
+            {
+                throw new Exception("Unesite postojeci id");
+            }
+
+            if (entity is ISoftDelete softDeleteEntity)
+            {
+                softDeleteEntity.IsDeleted = true;
+                softDeleteEntity.DeletedAt = DateTime.Now;
+                Context.Update(entity);
+            }
+            else
+            {
+                Context.Remove(entity);
+            }
+
+            Context.SaveChanges();
+        }
     }
 }

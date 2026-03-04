@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace EasyTab.Model
+namespace EasyTab.Model.Models
 {
     public class Countries
     {

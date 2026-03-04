@@ -20,4 +20,9 @@
     <ProjectReference Include="..\EasyTab.Services\EasyTab.Services.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="wwwroot\ImageFolder\LocaleImage\" />
+    <Folder Include="wwwroot\ImageFolder\LocaleLogo\" />
+  </ItemGroup>
+
 </Project>

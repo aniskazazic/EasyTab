@@ -1,9 +1,10 @@
-﻿using System;
+﻿using EasyTab.Services.Interfaces;
+using System;
 using System.Collections.Generic;
 
 namespace EasyTab.Services.Database;
 
-public partial class Locale
+public partial class Locale : ISoftDelete
 {
     public int Id { get; set; }
 

@@ -11,5 +11,6 @@ namespace EasyTab.Services.BaseServices.Interfaces
     {
         TModel Insert(TInsert request);
         TUpdate Update(int id, TUpdate request);
+        void Delete(int id);
     }
 }

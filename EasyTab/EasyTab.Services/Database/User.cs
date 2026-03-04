@@ -1,9 +1,10 @@
-﻿using System;
+﻿using EasyTab.Services.Interfaces;
+using System;
 using System.Collections.Generic;
 
 namespace EasyTab.Services.Database;
 
-public partial class User
+public partial class User : ISoftDelete
 {
     public int Id { get; set; }
 

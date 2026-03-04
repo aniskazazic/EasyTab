@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using static System.Collections.Specialized.BitVector32;
 
-namespace EasyTab.Model
+namespace EasyTab.Model.Models
 {
     public partial class Users
     {

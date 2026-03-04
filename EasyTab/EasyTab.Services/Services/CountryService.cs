@@ -1,5 +1,4 @@
-﻿using EasyTab.Model;
-using EasyTab.Services.BaseServices.Implementation;
+﻿using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using System;
 using System.Collections.Generic;
@@ -10,6 +9,7 @@ using EasyTab.Model.Requests;
 using MapsterMapper;
 using System.Threading.Tasks;
 using EasyTab.Services.Interfaces;
+using EasyTab.Model.Models;
 
 namespace EasyTab.Services.Services
 {
