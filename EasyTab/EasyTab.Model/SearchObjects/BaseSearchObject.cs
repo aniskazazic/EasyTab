@@ -6,7 +6,10 @@ namespace EasyTab.Model.SearchObject
 {
     public class BaseSearchObject
     {
-        public int? Page { get; set; }
-        public int? PageSize { get; set; }
+        public string? FTS { get; set; }
+        public int? Page { get; set; } = 0;
+        public int? PageSize { get; set; } = 10;
+        public bool IncludeTotalCount { get; set; } = false;
+        public bool RetrieveAll { get; set; } = false;
     }
 }

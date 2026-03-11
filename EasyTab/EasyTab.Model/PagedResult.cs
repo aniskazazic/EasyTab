@@ -6,7 +6,7 @@ namespace EasyTab.Model
 {
     public class PagedResult<T>
     {
-        public int? Count { get; set; }
-        public IList<T> ResultList { get; set; }
+        public List<T> Items { get; set; } = new List<T>();
+        public int? TotalCount { get; set; }
     }
 }

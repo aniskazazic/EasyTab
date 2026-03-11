@@ -17,13 +17,13 @@ namespace EasyTab.Services.Services
     {
         public CategoryService(_220030Context context, IMapper mapper) : base(context, mapper) { }
 
-        public override IQueryable<Category> AddFilter(IQueryable<Category> query, CategorySearchObject search)
+        protected override IQueryable<Category> ApplyFilter(IQueryable<Category> query, CategorySearchObject search)
         {
             if (!string.IsNullOrWhiteSpace(search?.Name))
             {
                 query = query.Where(x => x.Name.StartsWith(search.Name));
             }
-            return base.AddFilter(query, search);
+            return base.ApplyFilter(query, search);
         }
     }
 }

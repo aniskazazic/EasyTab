@@ -9,7 +9,7 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class FavouritesController : BaseCRUDController<Favourites, FavouriteSearchObject, FavouriteInsertRequest, FavouriteUpdateRequest>
+    public class FavouritesController : BaseController<Favourites, FavouriteSearchObject>
     {
         private readonly IFavouriteService _service;
 

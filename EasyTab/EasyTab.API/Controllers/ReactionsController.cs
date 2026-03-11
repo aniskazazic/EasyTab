@@ -9,7 +9,7 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class ReactionsController : BaseCRUDController<Reactions, ReactionSearchObject, ReactionInsertRequest, ReactionUpdateRequest>
+    public class ReactionsController : BaseController<Reactions, ReactionSearchObject>
     {
         public IReactionService _service;
 

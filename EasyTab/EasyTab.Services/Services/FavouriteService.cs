@@ -24,7 +24,7 @@ namespace EasyTab.Services.Services
             _wh = wh;
         }
 
-        public override IQueryable<Favourite> AddFilter(IQueryable<Favourite> query, FavouriteSearchObject search)
+        protected override IQueryable<Favourite> ApplyFilter(IQueryable<Favourite> query, FavouriteSearchObject search)
         {
             query = query.Include(x => x.Locale)
                         .Include(x => x.User);

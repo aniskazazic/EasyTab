@@ -7,32 +7,35 @@ namespace EasyTab.API.Controllers.BaseControllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class BaseCRUDController<TModel, TSearch, TInsert, TUpdate> : BaseController<TModel, TSearch> where TSearch : BaseSearchObject where TModel : class
+    public class BaseCRUDController<TModel, TSearch, TInsert, TUpdate> : BaseController<TModel, TSearch>
+        where TSearch : BaseSearchObject, new() 
+        where TModel : class, new()
+        where TInsert : class
+        where TUpdate : class
     {
-        protected new ICRUDService<TModel, TSearch, TInsert, TUpdate> _service;
+        protected new readonly ICRUDService<TModel, TSearch, TInsert, TUpdate> _service;
 
         public BaseCRUDController(ICRUDService<TModel, TSearch, TInsert, TUpdate> service) : base(service)
         {
             _service = service;
         }
 
-        
         [HttpPost]
-        public virtual TModel Insert(TInsert request)
+        public async Task<TModel> Create([FromBody] TInsert request)
         {
-            return _service.Insert(request);
+            return await _service.CreateAsync(request);
         }
 
         [HttpPut("{id}")]
-        public virtual TUpdate Update(int id, TUpdate request)
+        public async Task<TModel?> Update(int id, [FromBody] TUpdate request)
         {
-            return _service.Update(id, request);
+            return await _service.UpdateAsync(id, request);
         }
 
         [HttpDelete("{id}")]
-        public virtual void Delete(int id)
+        public async Task<bool> Delete(int id)
         {
-            _service.Delete(id);
+            return await _service.DeleteAsync(id);
         }
     }
 }

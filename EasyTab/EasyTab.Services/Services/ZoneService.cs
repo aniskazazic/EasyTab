@@ -17,7 +17,7 @@ namespace EasyTab.Services.Services
     {
         public ZoneService(_220030Context context, IMapper mapper) : base(context, mapper) { }
 
-        public override IQueryable<Zone> AddFilter(IQueryable<Zone> query, ZoneSearchObject search)
+        protected override IQueryable<Zone> ApplyFilter(IQueryable<Zone> query, ZoneSearchObject search)
         {
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.LocaleId == search.LocaleId);

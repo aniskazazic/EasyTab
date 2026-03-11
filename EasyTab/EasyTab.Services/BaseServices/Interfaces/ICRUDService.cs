@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 
 namespace EasyTab.Services.BaseServices.Interfaces
 {
-    public interface ICRUDService<TModel, TSearch, TInsert, TUpdate> : IService<TModel, TSearch> where TModel : class where TSearch : BaseSearchObject 
+    public interface ICRUDService<TModel, TSearch, TInsert, TUpdate> : IService<TModel, TSearch> where TModel : class where TSearch : BaseSearchObject where TInsert : class where TUpdate : class
     {
-        TModel Insert(TInsert request);
-        TUpdate Update(int id, TUpdate request);
-        void Delete(int id);
+        Task<TModel> CreateAsync(TInsert request);
+        Task<TModel?> UpdateAsync(int id, TUpdate request);
+        Task<bool> DeleteAsync(int id);
     }
 }

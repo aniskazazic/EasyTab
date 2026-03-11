@@ -22,10 +22,10 @@ namespace EasyTab.Services.Services
         {
         }
 
-        public override IQueryable<Worker> AddFilter(IQueryable<Worker> query, WorkerSearchObject search)
+        protected override IQueryable<Worker> ApplyFilter(IQueryable<Worker> query, WorkerSearchObject search)
         {
             query = query.Include(x => x.User)
-                        .Include(x => x.Locale);
+                                    .Include(x => x.Locale);
 
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.LocaleId == search.LocaleId);
@@ -39,16 +39,15 @@ namespace EasyTab.Services.Services
             return query;
         }
 
-        public override void BeforeInsert(WorkerInsertRequest request, Worker entity)
+
+        protected override async Task BeforeInsert(Worker entity, WorkerInsertRequest request)
         {
-            // Provjeri da li korisnik sa ovim emailom/usernameom već postoji
             var existingUser = Context.Users
                 .FirstOrDefault(x => x.Email == request.Email || x.Username == request.Username);
 
             if (existingUser != null)
                 throw new Exception("Korisnik sa ovim emailom ili korisničkim imenom već postoji!");
 
-            // Kreiraj User zapis
             var salt = UserService.GenerateSalt();
             var user = new User
             {
@@ -57,7 +56,7 @@ namespace EasyTab.Services.Services
                 Username = request.Username,
                 Email = request.Email,
                 PhoneNumber = request.PhoneNumber,
-                BirthDate = request.BirthDate,             
+                BirthDate = request.BirthDate,
                 IsDeleted = false
             };
 
@@ -65,17 +64,15 @@ namespace EasyTab.Services.Services
             user.PasswordHash = UserService.GenerateHash(user.PasswordSalt, request.Password);
 
             Context.Users.Add(user);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
-            // Postavi UserId i HireDate na Worker entitetu
             entity.UserId = user.Id;
             entity.HireDate = DateTime.Now;
             entity.LocaleId = request.LocaleId;
         }
 
-        public override void BeforeUpdate(WorkerUpdateRequest request, Worker entity)
+        protected override async Task BeforeUpdate(Worker entity, WorkerUpdateRequest request)
         {
-            // Update User podataka
             var user = Context.Users.Find(entity.UserId);
             if (user == null) return;
 
@@ -108,6 +105,8 @@ namespace EasyTab.Services.Services
                 user.BirthDate = request.BirthDate.Value;
 
             Context.Users.Update(user);
+            await Task.CompletedTask;
         }
+
     }
 }

@@ -9,9 +9,9 @@ namespace EasyTab.API.Controllers.BaseControllers
     [ApiController]
     [Route("[controller]")]
     [Authorize]
-    public class BaseController<TModel, TSearch> : ControllerBase where TSearch : BaseSearchObject
+    public class BaseController<TModel, TSearch> : ControllerBase where TSearch : BaseSearchObject, new()
     {
-        protected IService<TModel, TSearch> _service;
+        protected readonly IService<TModel, TSearch> _service;
 
         public BaseController(IService<TModel, TSearch> service)
         {
@@ -19,14 +19,15 @@ namespace EasyTab.API.Controllers.BaseControllers
         }
 
         [HttpGet]
-        public virtual PagedResult<TModel> GetPaged([FromQuery] TSearch searchObject)
+        public async Task<PagedResult<TModel>> Get([FromQuery] TSearch? search = null)
         {
-            return _service.GetPaged(searchObject);
+            return await _service.GetAsync(search ?? new TSearch());
         }
 
         [HttpGet("{id}")]
-        public virtual TModel GetById(int id){
-            return _service.GetById(id);
+        public async Task<TModel?> GetById(int id) 
+        {
+            return await _service.GetByIdAsync(id);
         }
-}
+    }
 }

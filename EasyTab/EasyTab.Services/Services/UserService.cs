@@ -26,9 +26,9 @@ namespace EasyTab.Services.Services
             _logger = logger;
         }
 
-        public override IQueryable<User> AddFilter(IQueryable<User> query, UserSearchObject searchObject)
+        protected override IQueryable<User> ApplyFilter(IQueryable<User> query, UserSearchObject searchObject)
         {
-            query = base.AddFilter(query, searchObject);
+            query = base.ApplyFilter(query, searchObject);
 
             if (!string.IsNullOrEmpty(searchObject?.FirstNameGTE))
                 query = query.Where(x => x.FirstName.StartsWith(searchObject.FirstNameGTE));
@@ -45,16 +45,17 @@ namespace EasyTab.Services.Services
             return query;
         }
 
-        public override void BeforeInsert(UserInsertRequest request, User entity)
+        protected override async Task BeforeInsert(User entity, UserInsertRequest request)
         {
             _logger.LogInformation("Inserting user with username: {Username}", request.Username);
+
             if (request.Password != request.PasswordConfirmation)
-                throw new UserException("Lozinka i potvrda lozinke moraju biti iste !");
+                throw new UserException("Lozinka i potvrda lozinke moraju biti iste!");
 
             entity.PasswordSalt = GenerateSalt();
             entity.PasswordHash = GenerateHash(entity.PasswordSalt, request.Password);
 
-            base.BeforeInsert(request, entity);
+            await Task.CompletedTask;
         }
 
 
@@ -78,19 +79,18 @@ namespace EasyTab.Services.Services
             return Convert.ToBase64String(inArray);
         }
 
-        public override void BeforeUpdate(UserUpdateRequest request, User entity)
+        protected override async Task BeforeUpdate(User entity, UserUpdateRequest request)
         {
-            base.BeforeUpdate(request, entity);
             if (request.Password != null)
             {
                 if (request.Password != request.PasswordConfirmation)
-                    throw new Exception("Lozinka i potvrda lozinke moraju biti iste !");
+                    throw new Exception("Lozinka i potvrda lozinke moraju biti iste!");
 
                 entity.PasswordSalt = GenerateSalt();
                 entity.PasswordHash = GenerateHash(entity.PasswordSalt, request.Password);
             }
 
-            
+            await Task.CompletedTask;
         }
 
         public Users Login(string username, string password)

@@ -19,7 +19,7 @@ namespace EasyTab.Services.Services
         {
         }
 
-        public override IQueryable<Table> AddFilter(IQueryable<Table> query, TableSearchObject search)
+        protected override IQueryable<Table> ApplyFilter(IQueryable<Table> query, TableSearchObject search)
         {
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.LocaleId == search.LocaleId);

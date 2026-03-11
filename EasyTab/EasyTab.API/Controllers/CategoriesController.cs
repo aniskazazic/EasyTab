@@ -15,16 +15,5 @@ namespace EasyTab.API.Controllers
     {
         public CategoriesController(ICategoryService service) : base(service) { }
 
-        [Authorize(Roles = "Admin")]
-        public override Categories Insert(CategoryUpsertRequest request)
-        {
-            return base.Insert(request);
-        }
-
-        [AllowAnonymous]
-        public override PagedResult<Categories> GetPaged([FromQuery] CategorySearchObject searchObject)
-        {
-            return base.GetPaged(searchObject);
-        }
     }
 }

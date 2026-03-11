@@ -18,7 +18,7 @@ namespace EasyTab.Services.Services
     {
         public ReviewService(_220030Context context, IMapper mapper) : base(context, mapper) { }
 
-        public override IQueryable<Review> AddFilter(IQueryable<Review> query, ReviewSearchObject search)
+        protected override IQueryable<Review> ApplyFilter(IQueryable<Review> query, ReviewSearchObject search)
         {
             query = query.Include(x => x.User)
                          .Include(x => x.Locale);
@@ -56,7 +56,8 @@ namespace EasyTab.Services.Services
             return queryWithReactions.Select(x => x.Review);
         }
 
-        public override void BeforeInsert(ReviewInsertRequest request, Review entity)
+        
+        protected override Task BeforeInsert(Review entity, ReviewInsertRequest request)
         {
             if (request.Rating < 1 || request.Rating > 5)
                 throw new Exception("Rating mora biti između 1 i 5!");
@@ -75,15 +76,20 @@ namespace EasyTab.Services.Services
 
             entity.DateAdded = DateTime.Now;
             entity.IsDeleted = false;
+
+            return Task.CompletedTask;
+
         }
 
-        public override void BeforeUpdate(ReviewUpdateRequest request, Review entity)
+        protected override Task BeforeUpdate(Review entity, ReviewUpdateRequest request)
         {
             if (request.Rating.HasValue && (request.Rating < 1 || request.Rating > 5))
                 throw new Exception("Rating mora biti između 1 i 5!");
 
             if (request.Description != null && string.IsNullOrWhiteSpace(request.Description))
                 throw new Exception("Opis recenzije ne može biti prazan!");
+
+            return Task.CompletedTask;
         }
 
         public ReviewAverage GetAverageRating(int localeId)

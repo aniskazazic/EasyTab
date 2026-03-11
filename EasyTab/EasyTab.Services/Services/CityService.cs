@@ -18,8 +18,7 @@ namespace EasyTab.Services.Services
         public CityService(_220030Context context, IMapper mapper) : base(context,mapper)
         {
         }
-
-        public override IQueryable<City> AddFilter(IQueryable<City> query, CitySearchObject search)
+        protected override IQueryable<City> ApplyFilter(IQueryable<City> query, CitySearchObject search)
         {
             if (!string.IsNullOrEmpty(search?.Name))
                 query = query.Where(x => x.Name.Contains(search.Name));
@@ -27,7 +26,8 @@ namespace EasyTab.Services.Services
             if (search?.CountryId.HasValue == true)
                 query = query.Where(x => x.CountryId == search.CountryId);
 
-            return base.AddFilter(query, search);
+            return base.ApplyFilter(query, search);
         }
+
     }
 }

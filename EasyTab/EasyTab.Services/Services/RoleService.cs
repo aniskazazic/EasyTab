@@ -17,9 +17,9 @@ namespace EasyTab.Services.Services
     {
         public RoleService(_220030Context context, IMapper mapper) : base(context, mapper) { }
 
-        public override IQueryable<Role> AddFilter(IQueryable<Role> query, RoleSearchObject search)
+        protected override IQueryable<Role> ApplyFilter(IQueryable<Role> query, RoleSearchObject search)
         {
-            query = base.AddFilter(query, search);
+            query = base.ApplyFilter(query, search);
 
             if (!string.IsNullOrWhiteSpace(search.NameGTE))
             {

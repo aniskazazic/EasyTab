@@ -25,11 +25,11 @@ namespace EasyTab.Services.Services
             _wh = wh;
         }
 
-        public override IQueryable<Locale> AddFilter(IQueryable<Locale> query, LocaleSearchObject search)
+        protected override IQueryable<Locale> ApplyFilter(IQueryable<Locale> query, LocaleSearchObject search)
         {
             query = query.Include(x => x.City)
-                        .Include(x => x.Category)
-                        .Include(x => x.Owner);
+                                   .Include(x => x.Category)
+                                   .Include(x => x.Owner);
 
             query = query.Where(x => !x.IsDeleted);
 
@@ -48,7 +48,7 @@ namespace EasyTab.Services.Services
             return query;
         }
 
-        public override void BeforeInsert(LocaleInsertRequest request, Locale entity)
+        protected override async Task BeforeInsert(Locale entity, LocaleInsertRequest request)
         {
             if (!string.IsNullOrWhiteSpace(request.Logo) && request.Logo.Contains("base64"))
             {
@@ -64,9 +64,11 @@ namespace EasyTab.Services.Services
 
                 entity.Logo = fileName;
             }
+
+            await Task.CompletedTask;
         }
 
-        public override void BeforeUpdate(LocaleUpdateRequest request, Locale entity)
+        protected override async Task BeforeUpdate(Locale entity, LocaleUpdateRequest request)
         {
             if (!string.IsNullOrWhiteSpace(request.Logo) && request.Logo.Contains("base64"))
             {
@@ -77,14 +79,12 @@ namespace EasyTab.Services.Services
                 var base64 = request.Logo.Split(',')[1];
                 var fileName = $"{Guid.NewGuid()}.png";
                 var savePath = Path.Combine(folderPath, fileName);
-                var bytes = Convert.FromBase64String(base64);
-                File.WriteAllBytes(savePath, bytes);
-
+                File.WriteAllBytes(savePath, Convert.FromBase64String(base64));
                 entity.Logo = fileName;
             }
 
-            // Soft delete ostaje false pri updateu
             entity.IsDeleted = false;
+            await Task.CompletedTask;
         }
     }
 }

@@ -9,8 +9,7 @@ namespace EasyTab.Services.BaseServices.Interfaces
 {
     public interface IService<TModel, TSearch> where TSearch : BaseSearchObject
     {
-        public PagedResult<TModel> GetPaged(TSearch search);
-
-        public TModel GetById(int id);
+        Task<PagedResult<TModel>> GetAsync(TSearch search);
+        Task<TModel?> GetByIdAsync(int id);
     }
 }

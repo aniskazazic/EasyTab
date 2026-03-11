@@ -36,7 +36,7 @@ namespace EasyTab.API.Controllers
         [HttpDelete("soft-delete/{id}")]
         public IActionResult SoftDelete(int id)
         {
-            _service.Delete(id);
+            _service.DeleteAsync(id);
             return Ok(new { Message = "Recenzija obrisana!" });
         }
     }

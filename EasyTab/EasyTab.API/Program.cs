@@ -26,6 +26,9 @@ builder.Services.AddTransient<IReservationService, ReservationService>();
 builder.Services.AddTransient<IReviewService, ReviewService>();
 builder.Services.AddTransient<IReactionService, ReactionService>();
 builder.Services.AddTransient<IFavouriteService, FavouriteService>();
+builder.Services.AddTransient<ILocaleImageService, LocaleImageService>();
+builder.Services.AddTransient<IAdminService, AdminService>();
+builder.Services.AddTransient<IOwnerService, OwnerService>();
 
 var connectionString = builder.Configuration.GetConnectionString("EasyTabConnection");
 

@@ -21,7 +21,7 @@ namespace EasyTab.Services.Services
             
         }
 
-        public override IQueryable<Reaction> AddFilter(IQueryable<Reaction> query, ReactionSearchObject search)
+        protected override IQueryable<Reaction> ApplyFilter(IQueryable<Reaction> query, ReactionSearchObject search)
         {
             if (search?.ReviewId.HasValue == true)
                 query = query.Where(x => x.ReviewId == search.ReviewId);

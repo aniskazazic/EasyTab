@@ -22,50 +22,57 @@ namespace EasyTab.Services.BaseServices.Implementation
             Mapper = mapper;
         }
 
-        public PagedResult<TModel> GetPaged(TSearch search)
+        public virtual async Task<PagedResult<TModel>> GetAsync(TSearch search)
         {
-            List<TModel> result = new List<TModel>();
+            var query = Context.Set<TDbEntity>().AsQueryable();
+            query = ApplyFilter(query, search);
 
-            var querry = Context.Set<TDbEntity>().AsQueryable();
-
-            querry = AddFilter(querry, search);
-
-            int count = querry.Count();
-
-            if (search?.Page.HasValue == true && search?.PageSize.HasValue == true)
+            int? totalCount = null;
+            if (search.IncludeTotalCount)
             {
-                querry = querry.Skip(search.Page.Value * search.PageSize.Value).Take(search.PageSize.Value);
+                totalCount = await query.CountAsync();
             }
 
-            var list = querry.ToList();
-
-            var resultList = Mapper.Map(list, result);
-
-            PagedResult<TModel> response = new PagedResult<TModel>
+            if (!search.RetrieveAll)
             {
-                Count = count,
-                ResultList = resultList
+                if (search.Page.HasValue)
+                {
+                    query = query.Skip(search.Page.Value * search.PageSize.Value);
+                }
+                if (search.PageSize.HasValue)
+                {
+                    query = query.Take(search.PageSize.Value);
+                }
+            }
+
+
+
+            var list = await query.ToListAsync();
+            return new PagedResult<TModel>
+            {
+                Items = list.Select(MapToResponse).ToList(),
+                TotalCount = totalCount
             };
-            return response;
         }
 
-        public virtual IQueryable<TDbEntity> AddFilter(IQueryable<TDbEntity> query, TSearch search)
+        protected virtual IQueryable<TDbEntity> ApplyFilter(IQueryable<TDbEntity> query, TSearch search)
         {
             return query;
         }
 
-        public TModel GetById(int id)
-        {
-            var entity = Context.Set<TDbEntity>().Find(id);
 
-            if (entity != null)
-            {
-                return Mapper.Map<TModel>(entity);
-            }
-            else
-            {
+        public virtual async Task<TModel?> GetByIdAsync(int id)
+        {
+            var entity = await Context.Set<TDbEntity>().FindAsync(id);
+            if (entity == null)
                 return null;
-            }
+
+            return MapToResponse(entity);
+        }
+
+        protected virtual TModel MapToResponse(TDbEntity entity)
+        {
+            return Mapper.Map<TModel>(entity);
         }
     }
 }

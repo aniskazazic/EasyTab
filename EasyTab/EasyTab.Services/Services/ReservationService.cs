@@ -23,10 +23,10 @@ namespace EasyTab.Services.Services
             _wh = wh;
         }
 
-        public override IQueryable<Reservation> AddFilter(IQueryable<Reservation> query, ReservationSearchObject search)
+        protected override IQueryable<Reservation> ApplyFilter(IQueryable<Reservation> query, ReservationSearchObject search)
         {
             query = query.Include(r => r.Table)
-                           .ThenInclude(t => t.Locale);
+                                      .ThenInclude(t => t.Locale);
 
             if (search?.UserId.HasValue == true)
                 query = query.Where(x => x.UserId == search.UserId);
@@ -46,7 +46,7 @@ namespace EasyTab.Services.Services
                 var now = DateTime.Now;
                 query = query.Where(r =>
                     r.ReservationDate > now.Date ||
-                    (r.ReservationDate == now.Date && r.StartTime > now.TimeOfDay));
+                    (r.ReservationDate == now.Date && r.StartTime > TimeOnly.FromTimeSpan(now.TimeOfDay)));
             }
             // Prošle rezervacije
             else if (search?.IsUpcoming == false)
@@ -54,15 +54,14 @@ namespace EasyTab.Services.Services
                 var now = DateTime.Now;
                 query = query.Where(r =>
                     r.ReservationDate < now.Date ||
-                    (r.ReservationDate == now.Date && r.StartTime < now.TimeOfDay));
+                    (r.ReservationDate == now.Date && r.StartTime < TimeOnly.FromTimeSpan(now.TimeOfDay)));
             }
 
             return query;
         }
 
-        public override void BeforeInsert(ReservationInsertRequest request, Reservation entity)
+        protected override async Task BeforeInsert(Reservation entity, ReservationInsertRequest request)
         {
-            // Provjeri overlap
             var overlaps = Context.Reservations.Any(r =>
                 r.TableId == request.TableId &&
                 r.ReservationDate.Date == request.ReservationDate.Date &&
@@ -75,6 +74,8 @@ namespace EasyTab.Services.Services
 
             entity.CreatedAt = DateTime.Now;
             entity.IsCancelled = false;
+
+            await Task.CompletedTask;
         }
 
         public List<TimeSlots> GetAvailableSlots(int tableId, DateTime date)
