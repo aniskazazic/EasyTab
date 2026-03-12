@@ -21,19 +21,19 @@ namespace EasyTab.API.Controllers.BaseControllers
         }
 
         [HttpPost]
-        public async Task<TModel> Create([FromBody] TInsert request)
+        public virtual async Task<TModel> Create([FromBody] TInsert request)
         {
             return await _service.CreateAsync(request);
         }
 
         [HttpPut("{id}")]
-        public async Task<TModel?> Update(int id, [FromBody] TUpdate request)
+        public virtual async Task<TModel?> Update(int id, [FromBody] TUpdate request)
         {
             return await _service.UpdateAsync(id, request);
         }
 
         [HttpDelete("{id}")]
-        public async Task<bool> Delete(int id)
+        public virtual async Task<bool> Delete(int id)
         {
             return await _service.DeleteAsync(id);
         }

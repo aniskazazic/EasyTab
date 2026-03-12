@@ -14,7 +14,9 @@ using System.Threading.Tasks;
 
 namespace EasyTab.Services.BaseServices.Implementation
 {
-    public abstract class BaseCRUDService<TModel, TSearch, TDbEntity, TInsert, TUpdate> : BaseService<TModel, TSearch, TDbEntity> where TModel : class where TSearch : BaseSearchObject where TDbEntity : class, new() where TInsert : class where TUpdate : class
+    public abstract class BaseCRUDService<TModel, TSearch, TDbEntity, TInsert, TUpdate>
+    : BaseService<TModel, TSearch, TDbEntity>, ICRUDService<TModel, TSearch, TInsert, TUpdate>
+    where TModel : class where TSearch : BaseSearchObject where TDbEntity : class, new() where TInsert : class where TUpdate : class
     {
 
         protected readonly _220030Context _context;

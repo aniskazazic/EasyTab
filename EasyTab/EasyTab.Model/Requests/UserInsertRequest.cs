@@ -21,7 +21,8 @@ namespace EasyTab.Model.Requests
         public string? PhoneNumber { get; set; }
 
         public DateTime? BirthDate { get; set; }
+        public List<int>? RoleIds { get; set; }
 
-    
+
     }
 }

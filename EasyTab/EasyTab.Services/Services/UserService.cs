@@ -45,6 +45,34 @@ namespace EasyTab.Services.Services
             return query;
         }
 
+        public override async Task<Users> CreateAsync(UserInsertRequest request)
+        {
+            var result = await base.CreateAsync(request);
+
+            // Dodaj role ako su proslijeđene
+            if (request.RoleIds != null && request.RoleIds.Count > 0)
+            {
+                var user = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+                if (user != null)
+                {
+                    foreach (var roleId in request.RoleIds)
+                    {
+                        if (await Context.Roles.AnyAsync(r => r.Id == roleId))
+                        {
+                            Context.UserRoles.Add(new UserRole
+                            {
+                                UserId = user.Id,
+                                RoleId = roleId
+                            });
+                        }
+                    }
+                    await Context.SaveChangesAsync();
+                }
+            }
+
+            return result;
+        }
+
         protected override async Task BeforeInsert(User entity, UserInsertRequest request)
         {
             _logger.LogInformation("Inserting user with username: {Username}", request.Username);
@@ -52,8 +80,16 @@ namespace EasyTab.Services.Services
             if (request.Password != request.PasswordConfirmation)
                 throw new UserException("Lozinka i potvrda lozinke moraju biti iste!");
 
+            // Provjeri duplikate
+            if (await Context.Users.AnyAsync(u => u.Email == request.Email))
+                throw new UserException("Korisnik sa ovim emailom već postoji!");
+
+            if (await Context.Users.AnyAsync(u => u.Username == request.Username))
+                throw new UserException("Korisnik sa ovim korisničkim imenom već postoji!");
+
             entity.PasswordSalt = GenerateSalt();
             entity.PasswordHash = GenerateHash(entity.PasswordSalt, request.Password);
+            entity.IsDeleted = false;
 
             await Task.CompletedTask;
         }
@@ -112,6 +148,25 @@ namespace EasyTab.Services.Services
                 return Mapper.Map<Users>(entity);
             }
 
+        }
+
+        public async Task<Users?> AuthenticateAsync(UserLoginRequest request)
+        {
+            if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+                return null;
+
+            var entity = await Context.Users
+                .Include(x => x.UserRoles)
+                .ThenInclude(y => y.Role)
+                .FirstOrDefaultAsync(x => x.Username == request.Username);
+
+            if (entity == null) return null;
+
+            var hash = GenerateHash(entity.PasswordSalt, request.Password);
+
+            if (hash != entity.PasswordHash) return null;
+
+            return Mapper.Map<Users>(entity);
         }
     }
 }

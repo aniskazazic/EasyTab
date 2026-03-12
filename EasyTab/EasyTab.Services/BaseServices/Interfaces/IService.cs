@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EasyTab.Services.BaseServices.Interfaces
 {
-    public interface IService<TModel, TSearch> where TSearch : BaseSearchObject
+    public interface IService<TModel, TSearch> where TModel : class where TSearch : BaseSearchObject
     {
         Task<PagedResult<TModel>> GetAsync(TSearch search);
         Task<TModel?> GetByIdAsync(int id);

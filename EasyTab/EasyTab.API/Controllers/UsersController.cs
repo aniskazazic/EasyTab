@@ -1,8 +1,10 @@
-﻿using EasyTab.API.Controllers.BaseControllers;
+﻿using Azure.Core;
+using EasyTab.API.Controllers.BaseControllers;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,14 +15,17 @@ namespace EasyTab.API.Controllers
     [Route("[controller]")]
     public class UsersController : BaseCRUDController<Users, UserSearchObject, UserInsertRequest, UserUpdateRequest>
     {
-        public UsersController(IUserService service) : base(service) { }
+        private readonly IUserService _service;
+        public UsersController(IUserService service) : base(service) { _service = service; }
 
         [HttpPost("login")]
         [AllowAnonymous]
-        public Users Login(string username, string password)
+        public async Task<ActionResult<Users>> Login(UserLoginRequest request)
         {
-            return (_service as IUserService).Login(username, password);
+            var user = await _service.AuthenticateAsync(request);
+            return Ok(user);
         }
+
 
     }
 }

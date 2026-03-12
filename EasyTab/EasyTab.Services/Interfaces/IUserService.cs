@@ -12,6 +12,6 @@ namespace EasyTab.Services.Interfaces
 {
     public interface IUserService : ICRUDService<Users, UserSearchObject, UserInsertRequest, UserUpdateRequest>
     {
-        Users Login(string username, string password);
+        Task<Users?> AuthenticateAsync(UserLoginRequest request);
     }
 }

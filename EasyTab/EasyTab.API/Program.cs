@@ -30,7 +30,15 @@ builder.Services.AddTransient<ILocaleImageService, LocaleImageService>();
 builder.Services.AddTransient<IAdminService, AdminService>();
 builder.Services.AddTransient<IOwnerService, OwnerService>();
 
+builder.Services.AddMapster();
+
+//var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=localhost;Initial Catalog=220030;Integrated Security=True;TrustServerCertificate=True";
+
 var connectionString = builder.Configuration.GetConnectionString("EasyTabConnection");
+
+
+builder.Services.AddAuthentication("BasicAuthentication")
+    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -48,21 +56,24 @@ builder.Services.AddControllers( x => {
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen( c =>
 {
-    c.AddSecurityDefinition("basicAuth", new Microsoft.OpenApi.Models.OpenApiSecurityScheme()
+    c.AddSecurityDefinition("BasicAuthentication", new OpenApiSecurityScheme()
     {
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
         Scheme = "basic",
+        In = ParameterLocation.Header,
+        Description = "Basic Authorization header using the Bearer scheme."
     });
 
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement()
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement()
     {
         {
             new OpenApiSecurityScheme
             {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                Reference = new OpenApiReference
                 {
                     Type = ReferenceType.SecurityScheme,
-                    Id = "basicAuth"
+                    Id = "BasicAuthentication"
                 }
             },
             new string[] {}
@@ -72,11 +83,6 @@ builder.Services.AddSwaggerGen( c =>
 
 builder.Services.AddDbContext<_220030Context>(options =>
     options.UseSqlServer(connectionString));
-
-builder.Services.AddMapster();
-
-builder.Services.AddAuthentication("BasicAuthentication")
-    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>("BasicAuthentication", null);
 
 
 var app = builder.Build();
