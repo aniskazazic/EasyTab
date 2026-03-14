@@ -1,7 +1,113 @@
+import 'package:easytab_desktop/providers/auth_provider.dart';
+import 'package:easytab_desktop/providers/locale_provider.dart';
+import 'package:easytab_desktop/screens/locale_list.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const MyLoginApp());
+}
+
+class MyLoginApp extends StatelessWidget {
+  const MyLoginApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      theme: ThemeData(
+        colorScheme: .fromSeed(seedColor: Colors.blue, primary: Colors.red),
+      ),
+      home: LoginPage(),
+    );
+  }
+}
+
+class LoginPage extends StatelessWidget {
+  LoginPage({super.key});
+
+  final TextEditingController usernameController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      home: Scaffold(
+        appBar: AppBar(centerTitle: true, title: const Text('Login')),
+        body: Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400, maxHeight: 400),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Image.network(
+                      'https://www.fit.ba/content/763cbb87-718d-4eca-a991-343858daf424',
+                      width: 150,
+                      height: 150,
+                    ),
+                    TextField(
+                      controller: usernameController,
+                      decoration: InputDecoration(
+                        hintText: 'Username',
+                        icon: const Icon(Icons.person),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: passwordController,
+                      decoration: InputDecoration(
+                        hintText: 'Password',
+                        icon: const Icon(Icons.password),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: () async {
+                        AuthProvider.username = usernameController.text;
+                        AuthProvider.password = passwordController.text;
+                        try {
+                          print(
+                            'Username: ${AuthProvider.username}, Password: ${AuthProvider.password}',
+                          );
+                          var localeProvider = LocaleProvider();
+                          var locales = await localeProvider.getLocale();
+                          print('Locales');
+                          print(locales);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LocaleListScreen(),
+                            ),
+                          );
+                        } on Exception catch (e) {
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text('Error'),
+                              content: Text(e.toString()),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                        } catch (e) {
+                          print(e);
+                        }
+                      },
+                      child: const Text('Login'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {
@@ -30,7 +136,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MyHomePage(title: 'radi li'),
     );
   }
 }
@@ -104,7 +210,7 @@ class _MyHomePageState extends State<MyHomePage> {
           // wireframe for each widget.
           mainAxisAlignment: .center,
           children: [
-            const Text('You have pushed the button this many times:'),
+            const Text('You have pushed the button this many times:::::'),
             Text(
               '$_counter',
               style: Theme.of(context).textTheme.headlineMedium,
