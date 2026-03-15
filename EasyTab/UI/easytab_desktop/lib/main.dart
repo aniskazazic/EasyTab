@@ -1,10 +1,20 @@
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
-import 'package:easytab_desktop/screens/locale_list.dart';
+import 'package:easytab_desktop/screens/locale_list_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 void main() {
-  runApp(const MyLoginApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<LocaleProvider>(
+          create: (context) => LocaleProvider(),
+        ),
+      ],
+      child: const MyLoginApp(),
+    ),
+  );
 }
 
 class MyLoginApp extends StatelessWidget {
@@ -70,9 +80,7 @@ class LoginPage extends StatelessWidget {
                             'Username: ${AuthProvider.username}, Password: ${AuthProvider.password}',
                           );
                           var localeProvider = LocaleProvider();
-                          var locales = await localeProvider.getLocale();
                           print('Locales');
-                          print(locales);
                           Navigator.push(
                             context,
                             MaterialPageRoute(

@@ -52,5 +52,6 @@ namespace EasyTab.API.Controllers
             await _service.ReactivateLocale(id);
             return Ok(new { Message = "Lokal uspješno reaktiviran." });
         }
+        
     }
 }
