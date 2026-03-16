@@ -54,18 +54,23 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
           ElevatedButton(
             onPressed: () async {
               var filter = {"Name": nameController.text};
-              var locale = await localeProvider.getLocale(filter);
-              debugPrint(
-                locale?.items?.firstOrNull?.endOfWorkingHours != null
-                    ? TimeOfDay.fromDateTime(
-                        locale!.items!.first.startOfWorkingHours!,
-                      ).format(context)
-                    : '',
-              );
+              var locale = await localeProvider.get(filter: filter);
               locales = locale;
               setState(() {});
             },
             child: Text('Search'),
+          ),
+          SizedBox(width: 15),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => LocaleDetailsScreen(locale: null),
+                ),
+              );
+            },
+            child: Text('New'),
           ),
         ],
       ),
@@ -86,7 +91,6 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
               DataColumn(label: Text('Start of Working Hours')),
               DataColumn(label: Text('End of Working Hours')),
               DataColumn(label: Text('Length of Reservation')),
-              DataColumn(label: Text('Logo')),
               DataColumn(label: Text('Phone Number')),
             ],
             rows:
@@ -128,7 +132,6 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
                           DataCell(
                             Text(e.lengthOfReservation?.toString() ?? ''),
                           ),
-                          DataCell(Text(e.logo ?? '')),
                           DataCell(Text(e.phoneNumber ?? '')),
                         ],
                       ),

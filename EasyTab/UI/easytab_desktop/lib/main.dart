@@ -1,4 +1,7 @@
 import 'package:easytab_desktop/providers/auth_provider.dart';
+import 'package:easytab_desktop/providers/category_provider.dart';
+import 'package:easytab_desktop/providers/city_provider.dart';
+import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/screens/locale_list_screen.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +13,15 @@ void main() {
       providers: [
         ChangeNotifierProvider<LocaleProvider>(
           create: (context) => LocaleProvider(),
+        ),
+        ChangeNotifierProvider<CityProvider>(
+          create: (context) => CityProvider(),
+        ),
+        ChangeNotifierProvider<CountryProvider>(
+          create: (context) => CountryProvider(),
+        ),
+        ChangeNotifierProvider<CategoryProvider>(
+          create: (context) => CategoryProvider(),
         ),
       ],
       child: const MyLoginApp(),
@@ -144,7 +156,7 @@ class MyApp extends StatelessWidget {
         // tested with just a hot reload.
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'radi li'),
+      home: const MyLoginApp(),
     );
   }
 }
