@@ -99,7 +99,12 @@ namespace EasyTab.Services.Services
                 CountOfUsers = await _db.Users.CountAsync(),
                 CountOfDeletedUsers = await _db.Users.CountAsync(u => u.IsDeleted),
                 CountOfActiveUsers = await _db.Users.CountAsync(u => !u.IsDeleted),
-                CountOfLocales = await _db.Locales.CountAsync(l => !l.IsDeleted)
+                CountOfLocales = await _db.Locales.CountAsync(l => !l.IsDeleted),
+                CountOfActiveReservations = await _db.Reservations.CountAsync(x => !x.IsCancelled),
+                CountOfPastReservations = await _db.Reservations.CountAsync(x => x.IsCancelled),
+                CountOfCountries = await _db.Countries.CountAsync(),
+                CountOfCities = await _db.Countries.CountAsync(),
+                CountOfCategories = await _db.Categories.CountAsync(),
             };
         }
 
