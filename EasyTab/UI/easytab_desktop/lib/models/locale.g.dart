@@ -23,6 +23,8 @@ Locale _$LocaleFromJson(Map<String, dynamic> json) => Locale(
   categoryName: json['categoryName'] as String?,
   ownerId: (json['ownerId'] as num?)?.toInt(),
   isDeleted: json['isDeleted'] as bool?,
+  countryName: json['countryName'] as String?,
+  ownerName: json['ownerName'] as String?,
 );
 
 Map<String, dynamic> _$LocaleToJson(Locale instance) => <String, dynamic>{
@@ -40,4 +42,6 @@ Map<String, dynamic> _$LocaleToJson(Locale instance) => <String, dynamic>{
   'categoryName': instance.categoryName,
   'ownerId': instance.ownerId,
   'isDeleted': instance.isDeleted,
+  'countryName': instance.countryName,
+  'ownerName': instance.ownerName,
 };

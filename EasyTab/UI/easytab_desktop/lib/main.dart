@@ -146,6 +146,13 @@ class _LoginPageState extends State<LoginPage> {
         AuthProvider.password = passwordController.text;
         AuthProvider.currentUser = user;
 
+        // Provjeri role — samo Admin i Owner mogu ući
+        if (!AuthProvider.isAdmin && !AuthProvider.isOwner) {
+          AuthProvider.clear(); // Očisti podatke
+          _showError("Nemate dozvolu za pristup ovoj aplikaciji!");
+          return;
+        }
+
         // Navigiraj na dashboard
         if (mounted) {
           Navigator.pushReplacement(

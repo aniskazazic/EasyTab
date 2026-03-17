@@ -20,5 +20,7 @@ namespace EasyTab.Model.Models
         public string? CategoryName { get; set; }
         public int OwnerId { get; set; }
         public bool IsDeleted { get; set; }
+        public string? CountryName { get; set; }
+        public string? OwnerName { get; set; }
     }
 }

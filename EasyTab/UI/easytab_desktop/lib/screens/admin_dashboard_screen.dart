@@ -3,6 +3,7 @@ import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
+import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -20,6 +21,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int countCountries = 0;
   int countCities = 0;
   int countCategories = 0;
+  int countUsers = 0;
+  int countReviews = 0;
 
   @override
   void initState() {
@@ -33,6 +36,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final countryProvider = context.read<CountryProvider>();
       final cityProvider = context.read<CityProvider>();
       final categoryProvider = context.read<CategoryProvider>();
+      final userProvider = context.read<UserProvider>();
 
       final results = await Future.wait([
         localeProvider.get(
@@ -47,6 +51,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         categoryProvider.get(
           filter: {"IncludeTotalCount": true, "RetrieveAll": true},
         ),
+        userProvider.get(
+          filter: {"IncludeTotalCount": true, "RetrieveAll": true},
+        ),
       ]);
 
       setState(() {
@@ -55,6 +62,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         countCities = results[2].totalCount ?? results[2].items?.length ?? 0;
         countCategories =
             results[3].totalCount ?? results[3].items?.length ?? 0;
+        countUsers = results[4].totalCount ?? results[4].items?.length ?? 0;
         isLoading = false;
       });
     } catch (e) {
@@ -64,6 +72,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         countCountries = 0;
         countCities = 0;
         countCategories = 0;
+        countUsers = 0;
         isLoading = false;
       });
     }
@@ -86,8 +95,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   children: [
                     _buildDashboardCard(
                       icon: Icons.home,
+                      label: 'Korisnici',
+                      count: countUsers.toString(),
+                    ),
+                    _buildDashboardCard(
+                      icon: Icons.home,
                       label: 'Lokali',
                       count: countLocales.toString(),
+                    ),
+                    _buildDashboardCard(
+                      icon: Icons.home,
+                      label: 'Recenzije',
+                      count: countReviews.toString(),
                     ),
                     _buildDashboardCard(
                       icon: Icons.public,

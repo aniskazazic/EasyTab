@@ -10,5 +10,6 @@ namespace EasyTab.Model.SearchObject
         public int? CityId { get; set; }
         public int? CategoryId { get; set; }
         public bool? IsDeleted { get; set; }
+        public int? CountryId {  get; set; }
     }
 }

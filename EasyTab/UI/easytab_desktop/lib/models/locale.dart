@@ -4,22 +4,24 @@ part 'locale.g.dart';
 
 @JsonSerializable()
 class Locale {
-  final int? id;
-  final String? name;
-  final String? address;
+  int? id;
+  String? name;
+  String? address;
   @JsonKey(fromJson: _timeOnlyFromJson, toJson: _timeOnlyToJson)
-  final DateTime? startOfWorkingHours;
+  DateTime? startOfWorkingHours;
   @JsonKey(fromJson: _timeOnlyFromJson, toJson: _timeOnlyToJson)
-  final DateTime? endOfWorkingHours;
-  final int? lengthOfReservation;
-  final String? logo;
-  final String? phoneNumber;
-  final int? cityId;
-  final String? cityName;
-  final int? categoryId;
-  final String? categoryName;
-  final int? ownerId;
-  final bool? isDeleted;
+  DateTime? endOfWorkingHours;
+  int? lengthOfReservation;
+  String? logo;
+  String? phoneNumber;
+  int? cityId;
+  String? cityName;
+  int? categoryId;
+  String? categoryName;
+  int? ownerId;
+  bool? isDeleted;
+  String? countryName;
+  String? ownerName;
 
   Locale({
     this.id,
@@ -36,6 +38,8 @@ class Locale {
     this.categoryName,
     this.ownerId,
     this.isDeleted,
+    this.countryName,
+    this.ownerName,
   });
 
   factory Locale.fromJson(Map<String, dynamic> json) => _$LocaleFromJson(json);

@@ -27,7 +27,7 @@ namespace EasyTab.Services.Services
 
         protected override IQueryable<Locale> ApplyFilter(IQueryable<Locale> query, LocaleSearchObject search)
         {
-            query = query.Include(x => x.City)
+            query = query.Include(x => x.City).ThenInclude(x=> x.Country)
                                    .Include(x => x.Category)
                                    .Include(x => x.Owner);
 
@@ -44,6 +44,9 @@ namespace EasyTab.Services.Services
 
             if (search?.IsDeleted.HasValue == true)
                 query = query.Where(x => x.IsDeleted == search.IsDeleted);
+
+            if (search?.CountryId.HasValue == true)
+                query = query.Where(x => x.City.CountryId == search.CountryId);
 
             return query;
         }
@@ -66,6 +69,18 @@ namespace EasyTab.Services.Services
             }
 
             await Task.CompletedTask;
+        }
+
+        protected override Locales MapToResponse(Locale entity)
+        {
+            var model = base.MapToResponse(entity);
+
+            model.CountryName = entity.City?.Country?.Name;
+            model.OwnerName = entity.Owner != null
+                ? $"{entity.Owner.FirstName} {entity.Owner.LastName}"
+                : null;
+
+            return model;
         }
 
         protected override async Task BeforeUpdate(Locale entity, LocaleUpdateRequest request)

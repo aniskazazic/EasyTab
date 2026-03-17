@@ -1,6 +1,12 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
+import 'package:easytab_desktop/models/category.dart';
+import 'package:easytab_desktop/models/city.dart';
+import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/models/locale.dart';
 import 'package:easytab_desktop/models/search_result.dart';
+import 'package:easytab_desktop/providers/category_provider.dart';
+import 'package:easytab_desktop/providers/city_provider.dart';
+import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/screens/locale_details_screen.dart';
 import 'package:flutter/material.dart';
@@ -15,142 +21,423 @@ class LocaleListScreen extends StatefulWidget {
 
 class _LocaleListScreenState extends State<LocaleListScreen> {
   late LocaleProvider localeProvider;
+  late CountryProvider countryProvider;
+  late CityProvider cityProvider;
+  late CategoryProvider categoryProvider;
 
-  TextEditingController nameController = TextEditingController();
+  List<Locale> _allLocales = [];
+  List<Locale> _displayLocales = [];
 
-  SearchResult<Locale>? locales;
+  List<Country> _countries = [];
+  List<City> _allCities = [];
+  List<City> _filteredCities = [];
+
+  final TextEditingController searchController = TextEditingController();
+  int? selectedCountryId;
+  int? selectedCityId;
+  bool showDeleted = false;
+  bool isLoading = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     localeProvider = context.read<LocaleProvider>();
+    countryProvider = context.read<CountryProvider>();
+    cityProvider = context.read<CityProvider>();
+    categoryProvider = context.read<CategoryProvider>();
+    _loadData();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return MasterScreen(
-      title: 'Locale List',
-      child: Center(
-        child: Column(children: [_buildSearch(), _builtResultView()]),
-      ),
-    );
+  void initState() {
+    super.initState();
+    searchController.addListener(_applyFilters);
   }
 
-  Widget _buildSearch() {
-    return Padding(
-      padding: EdgeInsets.all(16.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Name of locale',
-                border: const OutlineInputBorder(),
-              ),
-              controller: nameController,
-            ),
-          ),
-          SizedBox(width: 15),
-          ElevatedButton(
-            onPressed: () async {
-              var filter = {"Name": nameController.text};
-              var locale = await localeProvider.get(filter: filter);
-              locales = locale;
-              setState(() {});
-            },
-            child: Text('Search'),
-          ),
-          SizedBox(width: 15),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => LocaleDetailsScreen(locale: null),
-                ),
-              );
-            },
-            child: Text('New'),
+  @override
+  void dispose() {
+    searchController.removeListener(_applyFilters);
+    searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => isLoading = true);
+    try {
+      final results = await Future.wait([
+        localeProvider.get(filter: {"RetrieveAll": true}),
+        countryProvider.get(filter: {"RetrieveAll": true}),
+        cityProvider.get(filter: {"RetrieveAll": true}),
+      ]);
+
+      setState(() {
+        _allLocales = (results[0] as SearchResult<Locale>).items ?? [];
+        _countries = (results[1] as SearchResult<Country>).items ?? [];
+        _allCities = (results[2] as SearchResult<City>).items ?? [];
+        _filteredCities = _allCities;
+        _applyFilters();
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() => isLoading = false);
+      _showError(e.toString());
+    }
+  }
+
+  void _applyFilters() {
+    final query = searchController.text.toLowerCase();
+
+    setState(() {
+      _displayLocales = _allLocales.where((locale) {
+        final deletedFilter = showDeleted ? true : !(locale.isDeleted ?? false);
+
+        final searchFilter =
+            query.isEmpty ||
+            (locale.name?.toLowerCase().contains(query) ?? false) ||
+            (locale.address?.toLowerCase().contains(query) ?? false);
+
+        final countryFilter =
+            selectedCountryId == null ||
+            _allCities
+                .where((city) => city.countryId == selectedCountryId)
+                .any((city) => city.id == locale.cityId);
+
+        final cityFilter =
+            selectedCityId == null || locale.cityId == selectedCityId;
+
+        return deletedFilter && searchFilter && countryFilter && cityFilter;
+      }).toList();
+    });
+  }
+
+  void _showError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Greška'),
+        content: Text(message.replaceAll("Exception: ", "")),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
           ),
         ],
       ),
     );
   }
 
-  Widget _builtResultView() {
-    return Expanded(
-      child: Container(
-        width: double.infinity,
-        child: SingleChildScrollView(
-          child: DataTable(
-            columns: [
-              DataColumn(label: Text('Name')),
-              DataColumn(label: Text('Address')),
-              DataColumn(label: Text('City Name')),
-              DataColumn(label: Text('Category Name')),
-              DataColumn(label: Text('Start of Working Hours')),
-              DataColumn(label: Text('End of Working Hours')),
-              DataColumn(label: Text('Length of Reservation')),
-              DataColumn(label: Text('Phone Number')),
+  Future<void> _deleteLocale(int id) async {
+    try {
+      await localeProvider.delete(id);
+      await _loadData();
+    } catch (e) {
+      _showError(e.toString());
+    }
+  }
+
+  Future<void> _reactivateLocale(Locale locale) async {
+    try {
+      await localeProvider.update(locale.id!, {
+        "name": locale.name,
+        "address": locale.address,
+        "isDeleted": false,
+      });
+      await _loadData();
+    } catch (e) {
+      _showError(e.toString());
+    }
+  }
+
+  void _confirmDelete(Locale locale) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Brisanje lokala'),
+        content: Text(
+          'Da li ste sigurni da želite obrisati lokal ${locale.name}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Otkaži'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteLocale(locale.id!);
+            },
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmReactivate(Locale locale) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reaktivacija lokala'),
+        content: Text(
+          'Da li ste sigurni da želite reaktivirati lokal ${locale.name}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Otkaži'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: () {
+              Navigator.pop(context);
+              _reactivateLocale(locale);
+            },
+            child: const Text(
+              'Reaktiviraj',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MasterScreen(
+      title: 'Lokali',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSearch(),
+          _buildShowDeletedCheckbox(),
+          const SizedBox(height: 16),
+          isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _buildTable(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearch() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextField(
+            controller: searchController,
+            decoration: InputDecoration(
+              hintText: 'Pretraga',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // Dropdown za državu
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<int>(
+            value: selectedCountryId,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+            hint: const Text('Sve države'),
+            items: [
+              const DropdownMenuItem<int>(
+                value: null,
+                child: Text('Sve države'),
+              ),
+              ..._countries.map(
+                (c) => DropdownMenuItem(value: c.id, child: Text(c.name ?? '')),
+              ),
             ],
-            rows:
-                locales?.items
-                    ?.map(
-                      (e) => DataRow(
-                        onSelectChanged: (value) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  LocaleDetailsScreen(locale: e),
-                            ),
-                          );
-                        },
-                        cells: [
-                          DataCell(Text(e.name ?? '')),
-                          DataCell(Text(e.address ?? '')),
-                          DataCell(Text(e.cityName ?? '')),
-                          DataCell(Text(e.categoryName ?? '')),
-                          DataCell(
-                            Text(
-                              e.startOfWorkingHours != null
-                                  ? TimeOfDay.fromDateTime(
-                                      e.startOfWorkingHours!,
-                                    ).format(context)
-                                  : '',
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              e.endOfWorkingHours != null
-                                  ? TimeOfDay.fromDateTime(
-                                      e.endOfWorkingHours!,
-                                    ).format(context)
-                                  : '',
-                            ),
-                          ),
-                          DataCell(
-                            Text(e.lengthOfReservation?.toString() ?? ''),
-                          ),
-                          DataCell(Text(e.phoneNumber ?? '')),
-                        ],
+            onChanged: (value) {
+              setState(() {
+                selectedCountryId = value;
+                selectedCityId = null;
+                // Gradovi se filtriraju tek kad se odabere država
+                _filteredCities = value == null
+                    ? [] // prazno ako nije odabrana država
+                    : _allCities
+                          .where((city) => city.countryId == value)
+                          .toList();
+              });
+              _applyFilters();
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        // Dropdown za grad — prikazuje se samo ako je odabrana država
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<int>(
+            value: selectedCityId,
+            decoration: InputDecoration(
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+            ),
+            hint: Text(
+              selectedCountryId == null
+                  ? 'Odaberite državu' // ako nije odabrana država
+                  : 'Svi gradovi', // ako je odabrana država
+            ),
+            // Onemogući dropdown ako nije odabrana država
+            onChanged: selectedCountryId == null
+                ? null
+                : (value) {
+                    setState(() => selectedCityId = value);
+                    _applyFilters();
+                  },
+            items: [
+              if (selectedCountryId != null)
+                const DropdownMenuItem<int>(
+                  value: null,
+                  child: Text('Svi gradovi'),
+                ),
+              ..._filteredCities.map(
+                (c) => DropdownMenuItem(value: c.id, child: Text(c.name ?? '')),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1E40AF),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          ),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => LocaleDetailsScreen()),
+          ).then((_) => _loadData()),
+          child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShowDeletedCheckbox() {
+    return Row(
+      children: [
+        const Text('Prikaži izbrisane : '),
+        Checkbox(
+          value: showDeleted,
+          onChanged: (value) {
+            setState(() => showDeleted = value ?? false);
+            _applyFilters();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTable() {
+    if (_displayLocales.isEmpty) {
+      return const Expanded(
+        child: Center(child: Text('Nema lokala za prikaz.')),
+      );
+    }
+
+    return Expanded(
+      child: SingleChildScrollView(
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
+            headingTextStyle: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            columns: const [
+              DataColumn(label: Text('Ime')),
+              DataColumn(label: Text('Država')),
+              DataColumn(label: Text('Grad')),
+              DataColumn(label: Text('Adresa')),
+              DataColumn(label: Text('Kategorija')),
+              DataColumn(label: Text('Vlasnik')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Akcije')),
+            ],
+            rows: _displayLocales.map((locale) {
+              final isDeleted = locale.isDeleted ?? false;
+
+              return DataRow(
+                cells: [
+                  DataCell(Text(locale.name ?? '')),
+                  DataCell(Text(locale.countryName ?? '')),
+                  DataCell(Text(locale.cityName ?? '')),
+                  DataCell(Text(locale.address ?? '')),
+                  DataCell(Text(locale.categoryName ?? '')),
+                  DataCell(Text(locale.ownerName ?? '')),
+                  DataCell(
+                    Text(
+                      isDeleted ? 'Izbrisan' : 'Aktivan',
+                      style: TextStyle(
+                        color: isDeleted ? Colors.red : Colors.green,
+                        fontWeight: FontWeight.w600,
                       ),
-                    )
-                    .toList() ??
-                [],
+                    ),
+                  ),
+                  DataCell(
+                    Row(
+                      children: [
+                        if (!isDeleted)
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            tooltip: 'Uredi',
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    LocaleDetailsScreen(locale: locale),
+                              ),
+                            ).then((_) => _loadData()),
+                          ),
+                        IconButton(
+                          icon: Icon(
+                            isDeleted ? Icons.restore : Icons.delete,
+                            color: isDeleted ? Colors.green : Colors.red,
+                          ),
+                          tooltip: isDeleted ? 'Reaktiviraj' : 'Obriši',
+                          onPressed: () => isDeleted
+                              ? _confirmReactivate(locale)
+                              : _confirmDelete(locale),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
           ),
         ),
       ),
     );
   }
 }
-
-/* za vrijeme lokala
-debugPrint(
-  products?.items?.firstOrNull?.endOfWorkingHours != null
-      ? TimeOfDay.fromDateTime(
-          products!.items!.first.startOfWorkingHours!,
-        ).format(context)
-      : '',
-);
-*/

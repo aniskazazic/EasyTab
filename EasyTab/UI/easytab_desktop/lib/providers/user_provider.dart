@@ -32,4 +32,14 @@ class UserProvider extends BaseProvider<User> {
       throw Exception("Greška na serveru: ${response.statusCode}");
     }
   }
+
+  Future<List<User>> getOwners() async {
+    var result = await get(filter: {"RetrieveAll": true});
+    return result.items
+            ?.where(
+              (u) => u.userRoles?.any((r) => r.role?.name == 'Owner') ?? false,
+            )
+            .toList() ??
+        [];
+  }
 }
