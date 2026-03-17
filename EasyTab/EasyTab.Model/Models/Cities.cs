@@ -11,5 +11,6 @@ namespace EasyTab.Model.Models
         public string Name { get; set; } = null!;
 
         public int CountryId { get; set; }
+        public string? CountryName { get; set; }
     }
 }

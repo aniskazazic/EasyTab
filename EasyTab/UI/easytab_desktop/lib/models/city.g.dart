@@ -10,10 +10,12 @@ City _$CityFromJson(Map<String, dynamic> json) => City(
   id: (json['id'] as num?)?.toInt(),
   name: json['name'] as String?,
   countryId: (json['countryId'] as num?)?.toInt(),
+  countryName: json['countryName'] as String?,
 );
 
 Map<String, dynamic> _$CityToJson(City instance) => <String, dynamic>{
   'id': instance.id,
   'name': instance.name,
   'countryId': instance.countryId,
+  'countryName': instance.countryName,
 };

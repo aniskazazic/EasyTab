@@ -1,83 +1,183 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
+import 'package:easytab_desktop/models/user.dart';
+import 'package:easytab_desktop/models/search_result.dart';
+import 'package:easytab_desktop/providers/user_provider.dart';
+import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-class AdminUserListScreen extends StatefulWidget {
-  const AdminUserListScreen({super.key});
+class AdminUsersListScreen extends StatefulWidget {
+  const AdminUsersListScreen({super.key});
 
   @override
-  State<AdminUserListScreen> createState() => _AdminUserListScreen();
+  State<AdminUsersListScreen> createState() => _AdminUsersListScreenState();
 }
 
-class _AdminUserListScreen extends State<AdminUserListScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  bool _showDeleted = false;
+class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
+  late UserProvider userProvider;
 
-  // Demo podaci (zamijeni providerom kad bude spreman).
-  final List<_UserRow> _allUsers = [
-    _UserRow(
-      ime: 'Admin',
-      prezime: 'Admin',
-      email: 'easytab@gmail.com',
-      korisnickoIme: 'admin',
-      grad: 'Mostar',
-      uloga: 'Admin',
-      status: _UserStatus.aktivan,
-    ),
-    _UserRow(
-      ime: 'User',
-      prezime: 'One',
-      email: 'user@gmail.com',
-      korisnickoIme: 'user',
-      grad: 'Sarajevo',
-      uloga: 'User',
-      status: _UserStatus.aktivan,
-    ),
-    _UserRow(
-      ime: 'Owner',
-      prezime: 'Owner',
-      email: 'owner@gmail.com',
-      korisnickoIme: 'owner',
-      grad: 'Zenica',
-      uloga: 'Owner',
-      status: _UserStatus.aktivan,
-    ),
-    _UserRow(
-      ime: 'Worker',
-      prezime: 'Worker',
-      email: 'worker@gmail.com',
-      korisnickoIme: 'worker',
-      grad: 'Mostar',
-      uloga: 'Worker',
-      status: _UserStatus.izbrisan,
-    ),
-  ];
+  // Svi korisnici sa backenda
+  List<User> _allUsers = [];
+  // Filtrirani korisnici za prikaz
+  List<User> _displayUsers = [];
+
+  final TextEditingController searchController = TextEditingController();
+  bool showDeleted = false;
+  bool isLoading = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    userProvider = context.read<UserProvider>();
+    _loadUsers();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    searchController.addListener(_applyFilters);
+  }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    searchController.removeListener(_applyFilters);
+    searchController.dispose();
     super.dispose();
   }
 
-  List<_UserRow> get _filteredUsers {
-    final q = _searchController.text.trim().toLowerCase();
+  // Dohvati SVE korisnike sa backenda
+  Future<void> _loadUsers() async {
+    setState(() => isLoading = true);
+    try {
+      var result = await userProvider.get(filter: {"RetrieveAll": true});
 
-    Iterable<_UserRow> res = _allUsers;
-    if (!_showDeleted) {
-      res = res.where((u) => u.status != _UserStatus.izbrisan);
+      setState(() {
+        _allUsers = result.items ?? [];
+        _applyFilters();
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() => isLoading = false);
+      _showError(e.toString());
     }
-    if (q.isNotEmpty) {
-      res = res.where(
-        (u) =>
-            u.ime.toLowerCase().contains(q) ||
-            u.prezime.toLowerCase().contains(q) ||
-            u.email.toLowerCase().contains(q) ||
-            u.korisnickoIme.toLowerCase().contains(q) ||
-            u.grad.toLowerCase().contains(q) ||
-            u.uloga.toLowerCase().contains(q),
-      );
-    }
+  }
 
-    return res.toList();
+  // Filtriraj lokalno
+  void _applyFilters() {
+    final query = searchController.text.toLowerCase();
+
+    setState(() {
+      _displayUsers = _allUsers.where((user) {
+        // Filter po showDeleted
+        final deletedFilter = showDeleted ? true : !(user.isDeleted ?? false);
+
+        // Filter po pretrazi
+        final searchFilter =
+            query.isEmpty ||
+            (user.firstName?.toLowerCase().contains(query) ?? false) ||
+            (user.lastName?.toLowerCase().contains(query) ?? false) ||
+            (user.email?.toLowerCase().contains(query) ?? false) ||
+            (user.username?.toLowerCase().contains(query) ?? false);
+
+        return deletedFilter && searchFilter;
+      }).toList();
+    });
+  }
+
+  void _showError(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Greška'),
+        content: Text(message.replaceAll("Exception: ", "")),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteUser(int id) async {
+    try {
+      await userProvider.delete(id);
+      await _loadUsers();
+    } catch (e) {
+      _showError(e.toString());
+    }
+  }
+
+  Future<void> _reactivateUser(User user) async {
+    try {
+      await userProvider.update(user.id!, {
+        "firstName": user.firstName,
+        "lastName": user.lastName,
+        "username": user.username,
+        "email": user.email,
+        "phoneNumber": user.phoneNumber ?? '',
+        "isDeleted": false,
+      });
+      await _loadUsers();
+    } catch (e) {
+      _showError(e.toString());
+    }
+  }
+
+  void _confirmDelete(User user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Brisanje korisnika'),
+        content: Text(
+          'Da li ste sigurni da želite obrisati ${user.firstName} ${user.lastName}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Otkaži'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteUser(user.id!);
+            },
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmReactivate(User user) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reaktivacija korisnika'),
+        content: Text(
+          'Da li ste sigurni da želite reaktivirati ${user.firstName} ${user.lastName}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Otkaži'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            onPressed: () {
+              Navigator.pop(context);
+              _reactivateUser(user);
+            },
+            child: const Text(
+              'Reaktiviraj',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -85,239 +185,164 @@ class _AdminUserListScreen extends State<AdminUserListScreen> {
     return MasterScreen(
       title: 'Korisnici',
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTopBar(),
-          const SizedBox(height: 10),
-          _buildShowDeletedRow(),
-          const SizedBox(height: 10),
-          Expanded(child: _buildTable(context)),
+          _buildSearch(),
+          _buildShowDeletedCheckbox(),
+          const SizedBox(height: 16),
+          isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _buildTable(),
         ],
       ),
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildSearch() {
     return Row(
       children: [
-        SizedBox(
-          width: 280,
-          height: 34,
+        Expanded(
           child: TextField(
-            controller: _searchController,
-            onChanged: (_) => setState(() {}),
+            controller: searchController,
             decoration: InputDecoration(
-              hintText: 'Pretraga',
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              hintText:
+                  'Pretraga po imenu, prezimenu, emailu, korisničkom imenu...',
+              prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide(color: Colors.grey.shade400),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Color(0xFF1E40AF)),
-              ),
-            ),
-          ),
-        ),
-        const Spacer(),
-        SizedBox(
-          height: 34,
-          width: 90,
-          child: ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E40AF),
-              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
-            ),
-            onPressed: () {
-              // TODO: otvori formu za dodavanje korisnika
-            },
-            child: const Text(
-              'Dodaj',
-              style: TextStyle(color: Colors.white, fontSize: 13),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildShowDeletedRow() {
-    return Row(
-      children: [
-        const Text(
-          'Prikaži izbrisane :',
-          style: TextStyle(fontSize: 12, color: Colors.black54),
-        ),
-        const SizedBox(width: 6),
-        SizedBox(
-          width: 18,
-          height: 18,
-          child: Checkbox(
-            value: _showDeleted,
-            onChanged: (v) => setState(() => _showDeleted = v ?? false),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            activeColor: const Color(0xFF1E40AF),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTable(BuildContext context) {
-    final users = _filteredUsers;
-
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 900),
-          child: SingleChildScrollView(
-            child: DataTableTheme(
-              data: DataTableThemeData(
-                headingRowColor: WidgetStateProperty.all(
-                  const Color(0xFF1E40AF),
-                ),
-                headingTextStyle: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-                dataTextStyle: const TextStyle(fontSize: 12),
-                dividerThickness: 1,
-              ),
-              child: DataTable(
-                columnSpacing: 18,
-                headingRowHeight: 38,
-                dataRowMinHeight: 40,
-                dataRowMaxHeight: 46,
-                columns: const [
-                  DataColumn(label: Text('Ime')),
-                  DataColumn(label: Text('Prezime')),
-                  DataColumn(label: Text('Email')),
-                  DataColumn(label: Text('Korisničko ime')),
-                  DataColumn(label: Text('Grad')),
-                  DataColumn(label: Text('Uloga')),
-                  DataColumn(label: Text('Status')),
-                  DataColumn(label: Text('Akcije')),
-                ],
-                rows: users
-                    .map(
-                      (u) => DataRow(
-                        cells: [
-                          DataCell(Text(u.ime)),
-                          DataCell(Text(u.prezime)),
-                          DataCell(Text(u.email)),
-                          DataCell(Text(u.korisnickoIme)),
-                          DataCell(Text(u.grad)),
-                          DataCell(Text(u.uloga)),
-                          DataCell(_statusChip(u.status)),
-                          DataCell(_actionsCell(u)),
-                        ],
-                      ),
-                    )
-                    .toList(),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _statusChip(_UserStatus s) {
-    final text = s == _UserStatus.aktivan ? 'Aktivan' : 'Izbrisan';
-    final color = s == _UserStatus.aktivan ? Colors.green : Colors.red;
-    return Text(
-      text,
-      style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 12),
-    );
-  }
-
-  Widget _actionsCell(_UserRow u) {
-    final isDeleted = u.status == _UserStatus.izbrisan;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          tooltip: 'Uredi',
-          iconSize: 18,
-          splashRadius: 18,
-          onPressed: isDeleted
-              ? null
-              : () {
-                  // TODO: otvori edit formu
-                },
-          icon: Icon(
-            Icons.edit,
-            color: isDeleted ? Colors.grey.shade400 : Colors.black54,
+        const SizedBox(width: 16),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF1E40AF),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
           ),
-        ),
-        IconButton(
-          tooltip: isDeleted ? 'Vrati' : 'Obriši',
-          iconSize: 18,
-          splashRadius: 18,
           onPressed: () {
-            setState(() {
-              final idx = _allUsers.indexOf(u);
-              if (idx == -1) return;
-              _allUsers[idx] = u.copyWith(
-                status: isDeleted ? _UserStatus.aktivan : _UserStatus.izbrisan,
-              );
-            });
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AdminUserDetailsScreen(),
+              ),
+            ).then((_) => _loadUsers());
           },
-          icon: Icon(
-            isDeleted ? Icons.restore : Icons.delete,
-            color: isDeleted ? Colors.green : Colors.red,
-          ),
+          child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
         ),
       ],
     );
   }
-}
 
-enum _UserStatus { aktivan, izbrisan }
+  Widget _buildShowDeletedCheckbox() {
+    return Row(
+      children: [
+        const Text('Prikaži izbrisane : '),
+        Checkbox(
+          value: showDeleted,
+          onChanged: (value) {
+            setState(() {
+              showDeleted = value ?? false;
+            });
+            _applyFilters(); // Filtriraj lokalno
+          },
+        ),
+      ],
+    );
+  }
 
-class _UserRow {
-  const _UserRow({
-    required this.ime,
-    required this.prezime,
-    required this.email,
-    required this.korisnickoIme,
-    required this.grad,
-    required this.uloga,
-    required this.status,
-  });
+  Widget _buildTable() {
+    if (_displayUsers.isEmpty) {
+      return const Expanded(
+        child: Center(child: Text('Nema korisnika za prikaz.')),
+      );
+    }
 
-  final String ime;
-  final String prezime;
-  final String email;
-  final String korisnickoIme;
-  final String grad;
-  final String uloga;
-  final _UserStatus status;
+    return Expanded(
+      child: SingleChildScrollView(
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
+            headingTextStyle: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            columns: const [
+              DataColumn(label: Text('Ime')),
+              DataColumn(label: Text('Prezime')),
+              DataColumn(label: Text('Email')),
+              DataColumn(label: Text('Korisničko ime')),
+              DataColumn(label: Text('Uloga')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Akcije')),
+            ],
+            rows: _displayUsers.map((user) {
+              final isDeleted = user.isDeleted ?? false;
+              final role = user.userRoles?.isNotEmpty == true
+                  ? user.userRoles!.first.role?.name ?? ''
+                  : '';
 
-  _UserRow copyWith({_UserStatus? status}) {
-    return _UserRow(
-      ime: ime,
-      prezime: prezime,
-      email: email,
-      korisnickoIme: korisnickoIme,
-      grad: grad,
-      uloga: uloga,
-      status: status ?? this.status,
+              return DataRow(
+                cells: [
+                  DataCell(Text(user.firstName ?? '')),
+                  DataCell(Text(user.lastName ?? '')),
+                  DataCell(Text(user.email ?? '')),
+                  DataCell(Text(user.username ?? '')),
+                  DataCell(Text(role)),
+                  DataCell(
+                    Text(
+                      isDeleted ? 'Izbrisan' : 'Aktivan',
+                      style: TextStyle(
+                        color: isDeleted ? Colors.red : Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  DataCell(
+                    Row(
+                      children: [
+                        if (!isDeleted)
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            tooltip: 'Uredi',
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      AdminUserDetailsScreen(user: user),
+                                ),
+                              ).then((_) => _loadUsers());
+                            },
+                          ),
+                        IconButton(
+                          icon: Icon(
+                            isDeleted ? Icons.restore : Icons.delete,
+                            color: isDeleted ? Colors.green : Colors.red,
+                          ),
+                          tooltip: isDeleted ? 'Reaktiviraj' : 'Obriši',
+                          onPressed: () => isDeleted
+                              ? _confirmReactivate(user)
+                              : _confirmDelete(user),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ),
+      ),
     );
   }
 }

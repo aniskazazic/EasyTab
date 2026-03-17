@@ -5,6 +5,7 @@ using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using MapsterMapper;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,6 +21,8 @@ namespace EasyTab.Services.Services
         }
         protected override IQueryable<City> ApplyFilter(IQueryable<City> query, CitySearchObject search)
         {
+            query = query.Include(x => x.Country);
+
             if (!string.IsNullOrEmpty(search?.Name))
                 query = query.Where(x => x.Name.Contains(search.Name));
 

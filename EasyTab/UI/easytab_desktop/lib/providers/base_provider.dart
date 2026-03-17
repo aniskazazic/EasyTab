@@ -48,7 +48,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   }
 
   Future<T> insert(dynamic request) async {
-    var url = "$_baseUrl$_endpoint";
+    var url = "$_baseUrl/$_endpoint";
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
@@ -64,7 +64,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   }
 
   Future<T> update(int id, [dynamic request]) async {
-    var url = "$_baseUrl$_endpoint/$id";
+    var url = "$_baseUrl/$_endpoint/$id";
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
@@ -76,6 +76,15 @@ abstract class BaseProvider<T> extends ChangeNotifier {
       return fromJson(data);
     } else {
       throw new Exception("Unknown error");
+    }
+  }
+
+  Future<void> delete(int id) async {
+    var url = "$_baseUrl/$_endpoint/$id";
+    var uri = Uri.parse(url);
+    var response = await http.delete(uri, headers: createHeaders());
+    if (!isValidResponse(response)) {
+      throw Exception("Greška pri brisanju");
     }
   }
 

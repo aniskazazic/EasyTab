@@ -14,6 +14,7 @@ class UserProvider extends BaseProvider<User> {
 
   Future<User> login(String username, String password) async {
     var url = "$baseUrl/Users/login";
+    print(url);
     var uri = Uri.parse(url);
 
     var response = await http.post(

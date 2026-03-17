@@ -4,16 +4,16 @@ import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
+import 'package:easytab_desktop/screens/admin_categories_list_screen.dart';
+import 'package:easytab_desktop/screens/admin_cities_list_screen.dart';
+import 'package:easytab_desktop/screens/admin_country_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_dashboard_screen.dart';
+import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
+import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
 import 'package:easytab_desktop/screens/locale_list_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-/*
-ovo je ono sto sam prateci profesora uradio, ja bi sad prvo i prvo trebao spojiti login s mojim backendom 
-da to radi i sa logina da usmjeravam na admin_dashboard_screen.dart koji cu napraviti,
- volio bi da ti analiziras sve ovo pa da mozemo dalje radit
-*/
 void main() {
   runApp(
     MultiProvider(
@@ -44,9 +44,11 @@ class MyLoginApp extends StatelessWidget {
         '/login': (context) => const LoginPage(),
         '/dashboard': (context) => const AdminDashboardScreen(),
         '/locales': (context) => const LocaleListScreen(),
-        //'/countries': (context) => const CountriesListScreen(),
-        //'/cities': (context) => const CitiesListScreen(),
-        // '/categories': (context) => const CategoriesListScreen(),
+        '/users': (context) => const AdminUsersListScreen(),
+        '/user-details': (context) => const AdminUserDetailsScreen(),
+        '/countries': (context) => const AdminCountriesListScreen(),
+        '/cities': (context) => const AdminCitiesListScreen(),
+        '/categories': (context) => const AdminCategoriesListScreen(),
       },
     );
   }

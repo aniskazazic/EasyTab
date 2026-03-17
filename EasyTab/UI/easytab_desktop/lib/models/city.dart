@@ -7,8 +7,9 @@ class City {
   final int? id;
   final String? name;
   final int? countryId;
+  final String? countryName;
 
-  City({this.id, this.name, this.countryId});
+  City({this.id, this.name, this.countryId, this.countryName});
 
   factory City.fromJson(Map<String, dynamic> json) => _$CityFromJson(json);
 

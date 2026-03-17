@@ -23,6 +23,8 @@ namespace EasyTab.Model.Models
 
         public string? ProfilePicture { get; set; }
 
+        public bool IsDeleted { get; set; }
+
         public virtual ICollection<UserRoles> UserRoles { get; set; } = new List<UserRoles>();
 
     }

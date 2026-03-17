@@ -28,8 +28,10 @@ namespace EasyTab.Services.Services
 
         protected override IQueryable<User> ApplyFilter(IQueryable<User> query, UserSearchObject searchObject)
         {
-            query = base.ApplyFilter(query, searchObject);
+            query = query.Include(x => x.UserRoles)
+                 .ThenInclude(y => y.Role);
 
+            // NE filtriramo IsDeleted automatski — šaljemo sve
             if (!string.IsNullOrEmpty(searchObject?.FirstNameGTE))
                 query = query.Where(x => x.FirstName.StartsWith(searchObject.FirstNameGTE));
 
@@ -41,6 +43,18 @@ namespace EasyTab.Services.Services
 
             if (!string.IsNullOrEmpty(searchObject?.Email))
                 query = query.Where(x => x.Email == searchObject.Email);
+
+            // FTS pretraga
+            if (!string.IsNullOrEmpty(searchObject?.FTS))
+                query = query.Where(x =>
+                    x.FirstName.Contains(searchObject.FTS) ||
+                    x.LastName.Contains(searchObject.FTS) ||
+                    x.Email.Contains(searchObject.FTS) ||
+                    x.Username.Contains(searchObject.FTS));
+
+            // Samo ako eksplicitno tražimo filtriraj po IsDeleted
+            if (searchObject?.IsDeleted == true)
+                query = query.Where(x => x.IsDeleted == searchObject.IsDeleted);
 
             return query;
         }
