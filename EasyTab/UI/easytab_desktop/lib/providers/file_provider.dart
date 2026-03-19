@@ -5,6 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 class FileProvider extends BaseProvider<String> {
+  final String? _baseUrl = const String.fromEnvironment(
+    "baseUrl",
+    defaultValue: "http://localhost:5241",
+  );
   FileProvider() : super("File");
 
   @override
@@ -13,7 +17,7 @@ class FileProvider extends BaseProvider<String> {
   // Upload slike na backend — vraca puni URL
   // subfolder: "ImageFolder/LocaleLogo" ili "ImageFolder/ProfilePictures"
   Future<String> uploadImage(File file, String subfolder) async {
-    final url = Uri.parse('$baseUrl/File?subfolder=$subfolder');
+    final url = Uri.parse('$_baseUrl/File?subfolder=$subfolder');
     final headers = createHeaders()
       ..remove('Content-Type'); // multipart sam postavlja Content-Type
 

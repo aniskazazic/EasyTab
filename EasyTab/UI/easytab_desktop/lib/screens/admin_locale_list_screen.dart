@@ -1,5 +1,4 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
-import 'package:easytab_desktop/models/category.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/models/locale.dart';
@@ -8,7 +7,7 @@ import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
-import 'package:easytab_desktop/screens/locale_details_screen.dart';
+import 'package:easytab_desktop/screens/admin_locale_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 

@@ -3,6 +3,7 @@ import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
+import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/screens/admin_categories_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_cities_list_screen.dart';
@@ -10,8 +11,12 @@ import 'package:easytab_desktop/screens/admin_country_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_dashboard_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
-import 'package:easytab_desktop/screens/locale_list_screen.dart';
+import 'package:easytab_desktop/screens/admin_locale_list_screen.dart';
 import 'package:easytab_desktop/providers/file_provider.dart';
+import 'package:easytab_desktop/screens/admin_locale_list_screen.dart';
+import 'package:easytab_desktop/screens/owner_dashboard_screen.dart';
+import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
+import 'package:easytab_desktop/models/locale.dart' as model;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -25,6 +30,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => FileProvider()),
+        ChangeNotifierProvider(create: (_) => OwnerProvider()),
       ],
       child: const MyLoginApp(),
     ),
@@ -51,6 +57,13 @@ class MyLoginApp extends StatelessWidget {
         '/countries': (context) => const AdminCountriesListScreen(),
         '/cities': (context) => const AdminCitiesListScreen(),
         '/categories': (context) => const AdminCategoriesListScreen(),
+        '/owner-dashboard': (context) => const OwnerDashboardScreen(),
+        '/owner-add-locale': (context) => const OwnerLocaleDetailsScreen(),
+        '/owner-locale-settings': (context) {
+          final locale =
+              ModalRoute.of(context)!.settings.arguments as model.Locale?;
+          return OwnerLocaleDetailsScreen(locale: locale);
+        },
       },
     );
   }
@@ -137,30 +150,35 @@ class _LoginPageState extends State<LoginPage> {
 
     try {
       var userProvider = context.read<UserProvider>();
-      var user = await userProvider.login(
+
+      var user = await userProvider.authenticate(
         usernameController.text,
         passwordController.text,
       );
 
-      if (user != null) {
-        // Spremi kredencijale i usera
-        AuthProvider.username = usernameController.text;
-        AuthProvider.password = passwordController.text;
-        AuthProvider.currentUser = user;
+      AuthProvider.username = usernameController.text;
+      AuthProvider.password = passwordController.text;
+      AuthProvider.currentUser = user;
 
-        // Provjeri role — samo Admin i Owner mogu ući
-        if (!AuthProvider.isAdmin && !AuthProvider.isOwner) {
-          AuthProvider.clear(); // Očisti podatke
-          _showError("Nemate dozvolu za pristup ovoj aplikaciji!");
-          return;
-        }
+      if (!AuthProvider.isAdmin && !AuthProvider.isOwner) {
+        AuthProvider.clear();
+        _showError("Nemate dozvolu za pristup ovoj aplikaciji!");
+        return;
+      }
 
-        // Navigiraj na dashboard
-        if (mounted) {
+      if (mounted) {
+        if (AuthProvider.isAdmin) {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder: (context) => const AdminDashboardScreen(),
+            ),
+          );
+        } else if (AuthProvider.isOwner) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const OwnerDashboardScreen(),
             ),
           );
         }

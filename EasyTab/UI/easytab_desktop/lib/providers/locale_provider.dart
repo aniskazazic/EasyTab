@@ -1,10 +1,4 @@
-import 'dart:convert';
-
 import 'package:easytab_desktop/providers/base_provider.dart';
-import 'package:http/http.dart' as http;
-import 'package:easytab_desktop/providers/auth_provider.dart';
-import 'package:flutter/material.dart';
-import 'package:easytab_desktop/models/search_result.dart';
 import 'package:easytab_desktop/models/locale.dart';
 
 class LocaleProvider extends BaseProvider<Locale> {
@@ -13,5 +7,10 @@ class LocaleProvider extends BaseProvider<Locale> {
   @override
   Locale fromJson(json) {
     return Locale.fromJson(json);
+  }
+
+  Future<List<Locale>> getByOwner(int ownerId) async {
+    var result = await get(filter: {"OwnerId": ownerId, "RetrieveAll": true});
+    return result.items ?? [];
   }
 }

@@ -54,6 +54,9 @@ namespace EasyTab.Services.Services
             if (search?.IsDeleted == true)
                 query = query.Where(x => x.IsDeleted == search.IsDeleted);
 
+            if (search?.OwnerId.HasValue == true)
+                query = query.Where(x => x.OwnerId == search.OwnerId);
+
             return query;
         }
 

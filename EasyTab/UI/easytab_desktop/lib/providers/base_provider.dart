@@ -17,8 +17,6 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     );
   }
 
-  String get baseUrl => _baseUrl ?? "http://localhost:5241";
-
   Future<SearchResult<T>> get({dynamic filter}) async {
     var url = "$_baseUrl/$_endpoint";
 
@@ -90,6 +88,25 @@ abstract class BaseProvider<T> extends ChangeNotifier {
 
   T fromJson(data) {
     throw Exception("Method not implemented");
+  }
+
+  Future<T> login(String username, String password) async {
+    var url = "$_baseUrl/$_endpoint/login";
+    var uri = Uri.parse(url);
+
+    var response = await http.post(
+      uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({"username": username, "password": password}),
+    );
+
+    if (response.statusCode == 200) {
+      return fromJson(jsonDecode(response.body));
+    } else if (response.statusCode == 401) {
+      throw Exception('Pogresno korisnicko ime ili lozinka!');
+    } else {
+      throw Exception('Greska na serveru: \${response.statusCode}');
+    }
   }
 
   bool isValidResponse(Response response) {
