@@ -29,6 +29,7 @@ builder.Services.AddTransient<IFavouriteService, FavouriteService>();
 builder.Services.AddTransient<ILocaleImageService, LocaleImageService>();
 builder.Services.AddTransient<IAdminService, AdminService>();
 builder.Services.AddTransient<IOwnerService, OwnerService>();
+builder.Services.AddTransient<IFileService, FileService>();
 
 builder.Services.AddMapster();
 
@@ -98,6 +99,7 @@ app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
+app.UseStaticFiles();
 app.MapControllers();
 
 app.Run();

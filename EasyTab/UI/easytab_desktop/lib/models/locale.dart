@@ -11,7 +11,7 @@ class Locale {
   DateTime? startOfWorkingHours;
   @JsonKey(fromJson: _timeOnlyFromJson, toJson: _timeOnlyToJson)
   DateTime? endOfWorkingHours;
-  int? lengthOfReservation;
+  double? lengthOfReservation;
   String? logo;
   String? phoneNumber;
   int? cityId;

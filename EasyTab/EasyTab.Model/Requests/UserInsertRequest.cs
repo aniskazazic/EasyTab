@@ -22,6 +22,7 @@ namespace EasyTab.Model.Requests
 
         public DateTime? BirthDate { get; set; }
         public List<int>? RoleIds { get; set; }
+        public string? ProfilePicture { get; set; }
 
 
     }

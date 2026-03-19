@@ -15,6 +15,10 @@ namespace EasyTab.Model.Requests
         public string? PasswordConfirmation { get; set; }
 
         public string? PhoneNumber { get; set; }
+        public string? Email { get; set; }
+        public DateTime? BirthDate { get; set; }
+        public string? ProfilePicture { get; set; }
+        public bool? IsDeleted { get; set; }
 
     }
 }

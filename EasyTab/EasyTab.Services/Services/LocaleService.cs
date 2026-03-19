@@ -7,8 +7,10 @@ using EasyTab.Services.Interfaces;
 using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -18,20 +20,21 @@ namespace EasyTab.Services.Services
 {
     public class LocaleService : BaseCRUDService<Locales, LocaleSearchObject, Locale, LocaleInsertRequest, LocaleUpdateRequest>, ILocaleService
     {
-        
+
         private readonly IWebHostEnvironment _wh;
-        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh) : base(context, mapper)
+        private readonly string _baseUrl;
+
+        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IConfiguration config) : base(context, mapper)
         {
             _wh = wh;
+            _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";
         }
 
         protected override IQueryable<Locale> ApplyFilter(IQueryable<Locale> query, LocaleSearchObject search)
         {
-            query = query.Include(x => x.City).ThenInclude(x=> x.Country)
-                                   .Include(x => x.Category)
-                                   .Include(x => x.Owner);
-
-            query = query.Where(x => !x.IsDeleted);
+            query = query.Include(x => x.City).ThenInclude(x => x.Country)
+                         .Include(x => x.Category)
+                         .Include(x => x.Owner);
 
             if (!string.IsNullOrEmpty(search?.Name))
                 query = query.Where(x => x.Name.Contains(search.Name));
@@ -48,26 +51,50 @@ namespace EasyTab.Services.Services
             if (search?.CountryId.HasValue == true)
                 query = query.Where(x => x.City.CountryId == search.CountryId);
 
+            if (search?.IsDeleted == true)
+                query = query.Where(x => x.IsDeleted == search.IsDeleted);
+
             return query;
+        }
+
+        private static string ExtractBase64(string logo)
+        {
+            if (logo.Contains(','))
+                return logo.Split(',')[1];
+
+            var idx = logo.IndexOf("base64", StringComparison.OrdinalIgnoreCase);
+            if (idx >= 0)
+            {
+                idx += 6; 
+                while (idx < logo.Length
+                       && !char.IsLetterOrDigit(logo[idx])
+                       && logo[idx] != '+'
+                       && logo[idx] != '/')
+                    idx++;
+                return logo.Substring(idx);
+            }
+
+            return logo;
+        }
+
+        private string SaveLogoToDisk(string logoRaw)
+        {
+            string folderPath = Path.Combine(_wh.WebRootPath, "ImageFolder", "LocaleLogo");
+            if (!Directory.Exists(folderPath))
+                Directory.CreateDirectory(folderPath);
+
+            var base64 = ExtractBase64(logoRaw);
+            var fileName = $"{Guid.NewGuid()}.png";
+            var savePath = Path.Combine(folderPath, fileName);
+            File.WriteAllBytes(savePath, Convert.FromBase64String(base64));
+            return fileName;
         }
 
         protected override async Task BeforeInsert(Locale entity, LocaleInsertRequest request)
         {
-            if (!string.IsNullOrWhiteSpace(request.Logo) && request.Logo.Contains("base64"))
-            {
-                string folderPath = Path.Combine(_wh.WebRootPath, "ImageFolder", "LocaleLogo");
-                if (!Directory.Exists(folderPath))
-                    Directory.CreateDirectory(folderPath);
-
-                var base64 = request.Logo.Split(',')[1];
-                var fileName = $"{Guid.NewGuid()}.png";
-                var savePath = Path.Combine(folderPath, fileName);
-                var bytes = Convert.FromBase64String(base64);
-                File.WriteAllBytes(savePath, bytes);
-
-                entity.Logo = fileName;
-            }
-
+            entity.Logo = string.IsNullOrWhiteSpace(request.Logo)
+                ? null
+                : Path.GetFileName(request.Logo);
             await Task.CompletedTask;
         }
 
@@ -80,25 +107,16 @@ namespace EasyTab.Services.Services
                 ? $"{entity.Owner.FirstName} {entity.Owner.LastName}"
                 : null;
 
+            if (!string.IsNullOrEmpty(entity.Logo))
+                model.Logo = $"{_baseUrl}/ImageFolder/LocaleLogo/{entity.Logo}";
+
             return model;
         }
 
         protected override async Task BeforeUpdate(Locale entity, LocaleUpdateRequest request)
         {
-            if (!string.IsNullOrWhiteSpace(request.Logo) && request.Logo.Contains("base64"))
-            {
-                string folderPath = Path.Combine(_wh.WebRootPath, "ImageFolder", "LocaleLogo");
-                if (!Directory.Exists(folderPath))
-                    Directory.CreateDirectory(folderPath);
-
-                var base64 = request.Logo.Split(',')[1];
-                var fileName = $"{Guid.NewGuid()}.png";
-                var savePath = Path.Combine(folderPath, fileName);
-                File.WriteAllBytes(savePath, Convert.FromBase64String(base64));
-                entity.Logo = fileName;
-            }
-
-            entity.IsDeleted = false;
+            if (!string.IsNullOrWhiteSpace(request.Logo))
+                entity.Logo = Path.GetFileName(request.Logo);
             await Task.CompletedTask;
         }
     }

@@ -11,6 +11,7 @@ import 'package:easytab_desktop/screens/admin_dashboard_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
 import 'package:easytab_desktop/screens/locale_list_screen.dart';
+import 'package:easytab_desktop/providers/file_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -23,6 +24,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => CountryProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => FileProvider()),
       ],
       child: const MyLoginApp(),
     ),

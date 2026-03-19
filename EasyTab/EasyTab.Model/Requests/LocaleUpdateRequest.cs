@@ -15,5 +15,6 @@ namespace EasyTab.Model.Requests
         public string? PhoneNumber { get; set; }
         public int? CityId { get; set; }
         public int? CategoryId { get; set; }
+        public bool? IsDeleted { get; set; }
     }
 }

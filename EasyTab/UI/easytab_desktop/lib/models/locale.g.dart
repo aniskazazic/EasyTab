@@ -14,7 +14,7 @@ Locale _$LocaleFromJson(Map<String, dynamic> json) => Locale(
     json['startOfWorkingHours'] as String?,
   ),
   endOfWorkingHours: _timeOnlyFromJson(json['endOfWorkingHours'] as String?),
-  lengthOfReservation: (json['lengthOfReservation'] as num?)?.toInt(),
+  lengthOfReservation: (json['lengthOfReservation'] as num?)?.toDouble(),
   logo: json['logo'] as String?,
   phoneNumber: json['phoneNumber'] as String?,
   cityId: (json['cityId'] as num?)?.toInt(),

@@ -23,6 +23,7 @@
   <ItemGroup>
     <Folder Include="wwwroot\ImageFolder\LocaleImage\" />
     <Folder Include="wwwroot\ImageFolder\LocaleLogo\" />
+    <Folder Include="wwwroot\ImageFolder\ProfilePictures\" />
   </ItemGroup>
 
 </Project>

@@ -14,7 +14,7 @@ namespace EasyTab.Model.SearchObject
 
         public string? Username { get; set; }
         public bool? IsUserRoleIncluded { get; set; }
-        public bool IsDeleted { get; set; }
+        public bool? IsDeleted { get; set; }
 
     }
 }

@@ -64,8 +64,12 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   Future<void> _loadData() async {
     setState(() => isLoading = true);
     try {
+      final localeFilter = showDeleted
+          ? {"RetrieveAll": true}
+          : {"RetrieveAll": true, "IsDeleted": false};
+
       final results = await Future.wait([
-        localeProvider.get(filter: {"RetrieveAll": true}),
+        localeProvider.get(filter: localeFilter),
         countryProvider.get(filter: {"RetrieveAll": true}),
         cityProvider.get(filter: {"RetrieveAll": true}),
       ]);
@@ -270,9 +274,9 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
               setState(() {
                 selectedCountryId = value;
                 selectedCityId = null;
-                // Gradovi se filtriraju tek kad se odabere država
+
                 _filteredCities = value == null
-                    ? [] // prazno ako nije odabrana država
+                    ? []
                     : _allCities
                           .where((city) => city.countryId == value)
                           .toList();
@@ -283,7 +287,6 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
         ),
         const SizedBox(width: 12),
 
-        // Dropdown za grad — prikazuje se samo ako je odabrana država
         Expanded(
           flex: 2,
           child: DropdownButtonFormField<int>(
@@ -298,11 +301,9 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
               ),
             ),
             hint: Text(
-              selectedCountryId == null
-                  ? 'Odaberite državu' // ako nije odabrana država
-                  : 'Svi gradovi', // ako je odabrana država
+              selectedCountryId == null ? 'Odaberite državu' : 'Svi gradovi',
             ),
-            // Onemogući dropdown ako nije odabrana država
+
             onChanged: selectedCountryId == null
                 ? null
                 : (value) {
@@ -346,7 +347,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
           value: showDeleted,
           onChanged: (value) {
             setState(() => showDeleted = value ?? false);
-            _applyFilters();
+            _loadData(); // reload s backenda s ispravnim filterom
           },
         ),
       ],

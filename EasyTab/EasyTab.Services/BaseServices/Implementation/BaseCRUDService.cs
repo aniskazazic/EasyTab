@@ -51,9 +51,9 @@ namespace EasyTab.Services.BaseServices.Implementation
             if (entity == null)
                 return null;
 
-            await BeforeUpdate(entity, request);
-
             MapUpdateToEntity(entity, request);
+
+            await BeforeUpdate(entity, request);
 
             await _context.SaveChangesAsync();
             return MapToResponse(entity);

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/category.dart';
 import 'package:easytab_desktop/models/city.dart';
@@ -9,7 +10,9 @@ import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
+import 'package:easytab_desktop/providers/file_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
@@ -28,6 +31,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
 
   late LocaleProvider localeProvider;
+  late FileProvider fileProvider;
   late CityProvider cityProvider;
   late CountryProvider countryProvider;
   late CategoryProvider categoryProvider;
@@ -42,10 +46,13 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   int? selectedCountryId;
   bool isLoading = true;
 
+  bool get _isInsert => widget.locale == null;
+
   @override
   void initState() {
     super.initState();
     localeProvider = Provider.of<LocaleProvider>(context, listen: false);
+    fileProvider = Provider.of<FileProvider>(context, listen: false);
     categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
     countryProvider = Provider.of<CountryProvider>(context, listen: false);
     cityProvider = Provider.of<CityProvider>(context, listen: false);
@@ -59,24 +66,25 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         categoryProvider.get(filter: {"RetrieveAll": true}),
         countryProvider.get(filter: {"RetrieveAll": true}),
         cityProvider.get(filter: {"RetrieveAll": true}),
-        userProvider.get(filter: {"RetrieveAll": true}),
-      ]);
 
-      final allUsers = (results[3] as SearchResult<User>).items ?? [];
+        if (_isInsert) userProvider.get(filter: {"RetrieveAll": true}),
+      ]);
 
       setState(() {
         _categories = (results[0] as SearchResult<Category>).items ?? [];
         _countries = (results[1] as SearchResult<Country>).items ?? [];
         _allCities = (results[2] as SearchResult<City>).items ?? [];
 
-        // Filtriraj samo ownere
-        _owners = allUsers
-            .where(
-              (u) => u.userRoles?.any((r) => r.role?.name == 'Owner') ?? false,
-            )
-            .toList();
+        if (_isInsert) {
+          final allUsers = (results[3] as SearchResult<User>).items ?? [];
+          _owners = allUsers
+              .where(
+                (u) =>
+                    u.userRoles?.any((r) => r.role?.name == 'Owner') ?? false,
+              )
+              .toList();
+        }
 
-        // Ako je edit, postavi odabranu državu i filtriraj gradove
         if (widget.locale?.cityId != null) {
           final city = _allCities.firstWhere(
             (c) => c.id == widget.locale!.cityId,
@@ -92,14 +100,6 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
 
         isLoading = false;
       });
-      // U _loadData() nakon učitavanja usera dodaj:
-      print("Svi useri: ${allUsers.length}");
-      for (var u in allUsers) {
-        print(
-          "User: ${u.firstName}, Roles: ${u.userRoles?.map((r) => r.role?.name).toList()}",
-        );
-      }
-      print("Owneri: ${_owners.length}");
     } catch (e) {
       setState(() => isLoading = false);
       _showError(e.toString());
@@ -145,18 +145,35 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
     formKey.currentState?.saveAndValidate();
     if (!(formKey.currentState?.validate() ?? false)) return;
 
-    var request = Map<String, dynamic>.from(formKey.currentState?.value ?? {});
+    var request = Map<String, dynamic>.from(formKey.currentState!.value);
 
-    // Ukloni prazna polja
+    if (_image != null) {
+      final imageUrl = await fileProvider.uploadImage(
+        _image!,
+        'ImageFolder/LocaleLogo',
+      );
+      request['logo'] = imageUrl;
+    }
+
+    for (final key in ['startOfWorkingHours', 'endOfWorkingHours']) {
+      final val = request[key];
+      if (val is TimeOfDay) {
+        final h = val.hour.toString().padLeft(2, '0');
+        final m = val.minute.toString().padLeft(2, '0');
+        request[key] = '$h:$m:00';
+      }
+    }
+
     request.removeWhere(
       (key, value) => value == null || value.toString().isEmpty,
     );
 
     try {
-      if (widget.locale == null) {
+      if (_isInsert) {
         await localeProvider.insert(request);
         _showSuccess('Lokal uspješno dodan!');
       } else {
+        request.remove('ownerId');
         await localeProvider.update(widget.locale!.id!, request);
         _showSuccess('Lokal uspješno ažuriran!');
       }
@@ -168,7 +185,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return MasterScreen(
-      title: widget.locale == null ? 'Novi lokal' : 'Uredi lokal',
+      title: _isInsert ? 'Novi lokal' : 'Uredi lokal',
       child: isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
@@ -192,7 +209,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
           ),
           onPressed: _handleSave,
           child: Text(
-            widget.locale == null ? 'Dodaj lokal' : 'Spremi izmjene',
+            _isInsert ? 'Dodaj lokal' : 'Spremi izmjene',
             style: const TextStyle(color: Colors.white, fontSize: 16),
           ),
         ),
@@ -211,13 +228,19 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         "phoneNumber": widget.locale?.phoneNumber ?? '',
         "cityId": widget.locale?.cityId,
         "categoryId": widget.locale?.categoryId,
-        "ownerId": widget.locale?.ownerId,
+        "startOfWorkingHours": widget.locale?.startOfWorkingHours != null
+            ? TimeOfDay.fromDateTime(widget.locale!.startOfWorkingHours!)
+            : null,
+        "endOfWorkingHours": widget.locale?.endOfWorkingHours != null
+            ? TimeOfDay.fromDateTime(widget.locale!.endOfWorkingHours!)
+            : null,
+
+        if (_isInsert) "ownerId": null,
       },
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(30.0),
         child: Column(
           children: [
-            // Naziv i adresa
             Row(
               children: [
                 Expanded(
@@ -249,7 +272,6 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Telefon i duzina rezervacije
             Row(
               children: [
                 Expanded(
@@ -278,10 +300,97 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Država i grad
             Row(
               children: [
-                // Dropdown za državu
+                Expanded(
+                  child: FormBuilderField<TimeOfDay>(
+                    name: "startOfWorkingHours",
+                    validator: FormBuilderValidators.required(
+                      errorText: 'Početak radnog vremena je obavezan',
+                    ),
+                    builder: (field) {
+                      final time = field.value;
+                      return InkWell(
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: time ?? TimeOfDay.now(),
+                          );
+                          if (picked != null) field.didChange(picked);
+                        },
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Početak radnog vremena',
+                            border: const OutlineInputBorder(),
+                            errorText: field.errorText,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                time != null
+                                    ? time.format(context)
+                                    : 'Odaberite vrijeme',
+                                style: TextStyle(
+                                  color: time != null ? null : Colors.grey,
+                                ),
+                              ),
+                              const Icon(Icons.access_time),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: FormBuilderField<TimeOfDay>(
+                    name: "endOfWorkingHours",
+                    validator: FormBuilderValidators.required(
+                      errorText: 'Kraj radnog vremena je obavezan',
+                    ),
+                    builder: (field) {
+                      final time = field.value;
+                      return InkWell(
+                        onTap: () async {
+                          final picked = await showTimePicker(
+                            context: context,
+                            initialTime: time ?? TimeOfDay.now(),
+                          );
+                          if (picked != null) field.didChange(picked);
+                        },
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Kraj radnog vremena',
+                            border: const OutlineInputBorder(),
+                            errorText: field.errorText,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                time != null
+                                    ? time.format(context)
+                                    : 'Odaberite vrijeme',
+                                style: TextStyle(
+                                  color: time != null ? null : Colors.grey,
+                                ),
+                              ),
+                              const Icon(Icons.access_time),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            Row(
+              children: [
                 Expanded(
                   child: DropdownButtonFormField<int>(
                     value: selectedCountryId,
@@ -300,22 +409,18 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                     onChanged: (value) {
                       setState(() {
                         selectedCountryId = value;
-                        // Reset grad i filtriraj gradove
                         _filteredCities = value == null
                             ? []
                             : _allCities
                                   .where((c) => c.countryId == value)
                                   .toList();
                       });
-                      // Reset cityId u formi
                       formKey.currentState?.fields['cityId']?.didChange(null);
                     },
                   ),
                 ),
                 const SizedBox(width: 16),
 
-                // Dropdown za grad
-                // Dropdown za grad
                 Expanded(
                   child: FormBuilderDropdown<int>(
                     name: "cityId",
@@ -348,10 +453,8 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Kategorija i vlasnik
             Row(
               children: [
-                // Dropdown za kategoriju
                 Expanded(
                   child: FormBuilderDropdown<int>(
                     name: "categoryId",
@@ -372,34 +475,116 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                         .toList(),
                   ),
                 ),
-                const SizedBox(width: 16),
-
-                // Dropdown za vlasnika
-                Expanded(
-                  child: FormBuilderDropdown<int>(
-                    name: "ownerId",
-                    decoration: const InputDecoration(
-                      labelText: "Vlasnik",
-                      border: OutlineInputBorder(),
-                    ),
-                    // Ukloni hint — samo labelText
-                    validator: FormBuilderValidators.required(
-                      errorText: 'Vlasnik je obavezan',
-                    ),
-                    items: [
-                      const DropdownMenuItem<int>(
-                        value: null,
-                        child: Text('Odaberite vlasnika'),
+                if (_isInsert) ...[
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FormBuilderDropdown<int>(
+                      name: "ownerId",
+                      decoration: const InputDecoration(
+                        labelText: "Vlasnik",
+                        border: OutlineInputBorder(),
                       ),
-                      ..._owners.map(
-                        (u) => DropdownMenuItem(
-                          value: u.id,
-                          child: Text(
-                            '${u.firstName ?? ''} ${u.lastName ?? ''}',
+                      validator: FormBuilderValidators.required(
+                        errorText: 'Vlasnik je obavezan',
+                      ),
+                      items: [
+                        const DropdownMenuItem<int>(
+                          value: null,
+                          child: Text('Odaberite vlasnika'),
+                        ),
+                        ..._owners.map(
+                          (u) => DropdownMenuItem(
+                            value: u.id,
+                            child: Text(
+                              '${u.firstName ?? ''} ${u.lastName ?? ''}',
+                            ),
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Preview
+                Container(
+                  width: 100,
+                  height: 100,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                    color: Colors.grey.shade100,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: _image != null
+                        ? Image.file(_image!, fit: BoxFit.cover)
+                        : widget.locale?.logo != null
+                        // Puni URL koji dolazi iz MapToResponse
+                        ? Image.network(
+                            widget.locale!.logo!,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (_, child, progress) =>
+                                progress == null
+                                ? child
+                                : const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 36,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.store,
+                              size: 40,
+                              color: Colors.grey,
+                            ),
+                          ),
+                  ),
+                ),
+                // Picker
+                Expanded(
+                  child: InkWell(
+                    onTap: getImage,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Logo lokala',
+                        border: OutlineInputBorder(),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _image != null
+                                ? 'Nova slika odabrana ✓'
+                                : widget.locale?.logo != null
+                                ? 'Promijeni logo'
+                                : 'Odaberite logo',
+                            style: TextStyle(
+                              color: _image != null
+                                  ? Colors.green
+                                  : widget.locale?.logo != null
+                                  ? Colors.blue
+                                  : Colors.grey,
+                            ),
+                          ),
+                          const Icon(Icons.file_upload),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -408,5 +593,16 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         ),
       ),
     );
+  }
+
+  File? _image;
+
+  void getImage() async {
+    var result = await FilePicker.platform.pickFiles(type: FileType.image);
+    if (result != null && result.files.single.path != null) {
+      setState(() {
+        _image = File(result.files.single.path!);
+      });
+    }
   }
 }

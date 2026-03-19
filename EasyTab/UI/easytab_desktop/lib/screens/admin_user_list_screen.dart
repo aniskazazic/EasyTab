@@ -16,9 +16,7 @@ class AdminUsersListScreen extends StatefulWidget {
 class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
   late UserProvider userProvider;
 
-  // Svi korisnici sa backenda
   List<User> _allUsers = [];
-  // Filtrirani korisnici za prikaz
   List<User> _displayUsers = [];
 
   final TextEditingController searchController = TextEditingController();
@@ -45,7 +43,6 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
     super.dispose();
   }
 
-  // Dohvati SVE korisnike sa backenda
   Future<void> _loadUsers() async {
     setState(() => isLoading = true);
     try {
@@ -62,16 +59,13 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
     }
   }
 
-  // Filtriraj lokalno
   void _applyFilters() {
     final query = searchController.text.toLowerCase();
 
     setState(() {
       _displayUsers = _allUsers.where((user) {
-        // Filter po showDeleted
         final deletedFilter = showDeleted ? true : !(user.isDeleted ?? false);
 
-        // Filter po pretrazi
         final searchFilter =
             query.isEmpty ||
             (user.firstName?.toLowerCase().contains(query) ?? false) ||
@@ -111,14 +105,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
 
   Future<void> _reactivateUser(User user) async {
     try {
-      await userProvider.update(user.id!, {
-        "firstName": user.firstName,
-        "lastName": user.lastName,
-        "username": user.username,
-        "email": user.email,
-        "phoneNumber": user.phoneNumber ?? '',
-        "isDeleted": false,
-      });
+      await userProvider.update(user.id!, {"isDeleted": false});
       await _loadUsers();
     } catch (e) {
       _showError(e.toString());
@@ -205,8 +192,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
           child: TextField(
             controller: searchController,
             decoration: InputDecoration(
-              hintText:
-                  'Pretraga po imenu, prezimenu, emailu, korisničkom imenu...',
+              hintText: 'Pretraga...',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
