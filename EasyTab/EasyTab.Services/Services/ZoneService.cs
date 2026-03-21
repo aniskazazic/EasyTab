@@ -69,5 +69,19 @@ namespace EasyTab.Services.Services
 
             Context.SaveChanges();
         }
+
+        protected override Zones MapToResponse(Zone entity)
+        {
+            return new Zones
+            {
+                Id = entity.Id,
+                Name = entity.Name,
+                LocaleId = entity.LocaleId,
+                XCoordinate = entity.Xcoordinate,
+                YCoordinate = entity.Ycoordinate,
+                Width = entity.Width,
+                Height = entity.Height
+            };
+        }
     }
 }

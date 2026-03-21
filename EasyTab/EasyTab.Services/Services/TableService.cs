@@ -27,6 +27,19 @@ namespace EasyTab.Services.Services
             return query;
         }
 
+        protected override Tables MapToResponse(Table entity)
+        {
+            return new Tables
+            {
+                Id = entity.Id,
+                Name = entity.Name,
+                LocaleId = entity.LocaleId,
+                XCoordinate = entity.Xcoordinate,
+                YCoordinate = entity.Ycoordinate,
+                NumberOfGuests = entity.NumberOfGuests
+            };
+        }
+
         public void SaveLayout(TableLayoutRequest request)
         {
             var existingTables = Context.Tables

@@ -169,7 +169,7 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
               _bottomItem(
                 icon: Icons.settings,
                 label: 'Postavke',
-                onTap: () => Navigator.pushNamed(context, '/owner-settings'),
+                //onTap: () => Navigator.pushNamed(context, '/owner-settings'),
               ),
               _bottomItem(
                 icon: Icons.logout,

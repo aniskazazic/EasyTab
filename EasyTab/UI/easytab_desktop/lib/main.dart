@@ -4,7 +4,9 @@ import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
+import 'package:easytab_desktop/providers/table_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
+import 'package:easytab_desktop/providers/zone_provider.dart';
 import 'package:easytab_desktop/screens/admin_categories_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_cities_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_country_list_screen.dart';
@@ -31,6 +33,8 @@ void main() {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => FileProvider()),
         ChangeNotifierProvider(create: (_) => OwnerProvider()),
+        ChangeNotifierProvider(create: (_) => TableProvider()),
+        ChangeNotifierProvider(create: (_) => ZoneProvider()),
       ],
       child: const MyLoginApp(),
     ),
@@ -59,6 +63,7 @@ class MyLoginApp extends StatelessWidget {
         '/categories': (context) => const AdminCategoriesListScreen(),
         '/owner-dashboard': (context) => const OwnerDashboardScreen(),
         '/owner-add-locale': (context) => const OwnerLocaleDetailsScreen(),
+        //'/owner-settings'
         '/owner-locale-settings': (context) {
           final locale =
               ModalRoute.of(context)!.settings.arguments as model.Locale?;

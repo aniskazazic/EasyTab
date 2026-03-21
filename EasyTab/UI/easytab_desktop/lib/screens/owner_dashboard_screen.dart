@@ -3,6 +3,7 @@ import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
+import 'package:easytab_desktop/screens/owner_tables_screen.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -115,7 +116,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         // TODO
         break;
       case 'Stolovi':
-        // TODO
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OwnerTablesScreen(
+              localeId: localeId,
+              localeName: locale.name ?? '',
+            ),
+          ),
+        );
         break;
       case 'Recenzije':
         // TODO
