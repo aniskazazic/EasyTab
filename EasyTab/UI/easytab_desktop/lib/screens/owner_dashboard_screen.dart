@@ -4,6 +4,7 @@ import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
 import 'package:easytab_desktop/screens/owner_tables_screen.dart';
+import 'package:easytab_desktop/screens/owner_workers_screen.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -130,7 +131,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         // TODO
         break;
       case 'Radnici':
-        // TODO
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OwnerWorkersScreen(
+              localeId: localeId,
+              localeName: locale.name ?? '',
+              onSectionTap: _onSectionTap,
+              onRefresh: _refresh,
+            ),
+          ),
+        );
         break;
     }
   }

@@ -1,6 +1,5 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
-import 'package:easytab_desktop/models/search_result.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:flutter/material.dart';
@@ -273,9 +272,12 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
             ],
             rows: _displayUsers.map((user) {
               final isDeleted = user.isDeleted ?? false;
-              final role = user.userRoles?.isNotEmpty == true
-                  ? user.userRoles!.first.role?.name ?? ''
-                  : '';
+              final roles = user.userRoles?.isNotEmpty == true
+                  ? user.userRoles!
+                        .where((r) => r.role?.name != null)
+                        .map((r) => r.role!.name!)
+                        .join(', ')
+                  : 'Korisnik';
 
               return DataRow(
                 cells: [
@@ -283,7 +285,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
                   DataCell(Text(user.lastName ?? '')),
                   DataCell(Text(user.email ?? '')),
                   DataCell(Text(user.username ?? '')),
-                  DataCell(Text(role)),
+                  DataCell(Text(roles)),
                   DataCell(
                     Text(
                       isDeleted ? 'Izbrisan' : 'Aktivan',

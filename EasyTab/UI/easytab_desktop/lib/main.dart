@@ -6,6 +6,7 @@ import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/providers/table_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
+import 'package:easytab_desktop/providers/worker_provider.dart';
 import 'package:easytab_desktop/providers/zone_provider.dart';
 import 'package:easytab_desktop/screens/admin_categories_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_cities_list_screen.dart';
@@ -15,7 +16,6 @@ import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_locale_list_screen.dart';
 import 'package:easytab_desktop/providers/file_provider.dart';
-import 'package:easytab_desktop/screens/admin_locale_list_screen.dart';
 import 'package:easytab_desktop/screens/owner_dashboard_screen.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
@@ -35,6 +35,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => OwnerProvider()),
         ChangeNotifierProvider(create: (_) => TableProvider()),
         ChangeNotifierProvider(create: (_) => ZoneProvider()),
+        ChangeNotifierProvider(create: (_) => WorkerProvider()),
       ],
       child: const MyLoginApp(),
     ),

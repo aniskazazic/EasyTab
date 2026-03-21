@@ -16,5 +16,6 @@ namespace EasyTab.Model.Requests
         public string? PhoneNumber { get; set; }
         public DateTime? HireDate { get; set; }
         public DateTime? BirthDate { get; set; }
+        public string? ProfilePicture { get; set; }
     }
 }

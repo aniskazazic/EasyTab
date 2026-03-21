@@ -37,7 +37,6 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   static const double canvasHeight = 600.0;
   static const double tableSize = 80.0;
 
-  // GlobalKey za canvas da dobijemo poziciju
   final GlobalKey _canvasKey = GlobalKey();
 
   @override
@@ -94,7 +93,6 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
     );
   }
 
-  // Slika stola prema broju gostiju
   Widget _tableImage(int guests) {
     final imagePath = 'assets/tables/${guests}seat.png';
     return Image.asset(
@@ -382,7 +380,6 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
     }
   }
 
-  // Dobij poziciju canvasa na ekranu
   Offset _getCanvasOffset() {
     final RenderBox? box =
         _canvasKey.currentContext?.findRenderObject() as RenderBox?;
@@ -581,9 +578,8 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
       left: x,
       top: y,
       child: GestureDetector(
-        // Dvostruki klik za edit
         onDoubleTap: () => _showTableDialog(table: table, index: index),
-        // Pan (drag) za pomicanje
+
         onPanUpdate: (details) {
           setState(() {
             double newX = (x + details.delta.dx).clamp(
@@ -598,7 +594,7 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
               xCoordinate: newX,
               yCoordinate: newY,
             );
-            // Update lokalne varijable
+
             x = newX;
             y = newY;
           });
@@ -678,7 +674,6 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   }
 }
 
-// Grid painter
 class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {

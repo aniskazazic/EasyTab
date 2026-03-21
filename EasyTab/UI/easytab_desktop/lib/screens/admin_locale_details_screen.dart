@@ -556,35 +556,63 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                 ),
                 // Picker
                 Expanded(
-                  child: InkWell(
-                    onTap: getImage,
-                    borderRadius: BorderRadius.circular(8),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Logo lokala',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _image != null
-                                ? 'Nova slika odabrana ✓'
-                                : widget.locale?.logo != null
-                                ? 'Promijeni logo'
-                                : 'Odaberite logo',
-                            style: TextStyle(
-                              color: _image != null
-                                  ? Colors.green
-                                  : widget.locale?.logo != null
-                                  ? Colors.blue
-                                  : Colors.grey,
-                            ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: getImage,
+                        borderRadius: BorderRadius.circular(8),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Logo lokala',
+                            border: OutlineInputBorder(),
                           ),
-                          const Icon(Icons.file_upload),
-                        ],
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _image != null
+                                    ? 'Nova slika odabrana ✓'
+                                    : widget.locale?.logo != null
+                                    ? 'Promijeni logo'
+                                    : 'Odaberite logo',
+                                style: TextStyle(
+                                  color: _image != null
+                                      ? Colors.green
+                                      : widget.locale?.logo != null
+                                      ? Colors.blue
+                                      : Colors.grey,
+                                ),
+                              ),
+                              const Icon(Icons.file_upload),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      if (!_isInsert &&
+                          widget.locale?.logo != null &&
+                          _image == null)
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          icon: const Icon(Icons.delete, size: 18),
+                          label: const Text('Obriši logo'),
+                          onPressed: () => _deleteImage(
+                            fileUrl: widget.locale!.logo!,
+                            subfolder: 'ImageFolder/LocaleLogo',
+                            onDeleted: () async {
+                              await localeProvider.update(widget.locale!.id!, {
+                                'name': widget.locale!.name,
+                                'address': widget.locale!.address,
+                                'logo': '',
+                              });
+                              if (mounted) Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -604,5 +632,46 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         _image = File(result.files.single.path!);
       });
     }
+  }
+
+  Future<void> _deleteImage({
+    required String fileUrl,
+    required String subfolder,
+    required VoidCallback onDeleted,
+  }) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Brisanje slike'),
+        content: const Text('Da li ste sigurni da želite obrisati sliku?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Otkaži'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await fileProvider.deleteImage(fileUrl, subfolder);
+                onDeleted();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Slika uspješno obrisana!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                _showError(e.toString());
+              }
+            },
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 }
