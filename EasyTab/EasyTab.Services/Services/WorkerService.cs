@@ -31,6 +31,8 @@ namespace EasyTab.Services.Services
             query = query.Include(x => x.User)
                          .Include(x => x.Locale);
 
+            query = query.Where(x => !x.IsDeleted);
+
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.LocaleId == search.LocaleId);
 
@@ -103,18 +105,36 @@ namespace EasyTab.Services.Services
             };
 
             Context.Workers.Add(worker);
-            await Context.SaveChangesAsync();
 
-            var workerRole = Context.Roles.FirstOrDefault(r => r.Name == "Worker");
-            if (workerRole != null)
+
+            if (request.RoleIds != null && request.RoleIds.Any())
             {
-                Context.UserRoles.Add(new UserRole
+                foreach (var roleId in request.RoleIds)
                 {
-                    UserId = user.Id,
-                    RoleId = workerRole.Id
-                });
-                await Context.SaveChangesAsync();
+                    if (await Context.Roles.AnyAsync(r => r.Id == roleId))
+                    {
+                        Context.UserRoles.Add(new UserRole
+                        {
+                            UserId = user.Id,
+                            RoleId = roleId
+                        });
+                    }
+                }
             }
+            else
+            {
+                var workerRole = Context.Roles.FirstOrDefault(r => r.Name == "Radnik");
+                if (workerRole != null)
+                {
+                    Context.UserRoles.Add(new UserRole
+                    {
+                        UserId = user.Id,
+                        RoleId = workerRole.Id
+                    });
+                }
+            }
+
+            await Context.SaveChangesAsync();
 
             return new Workers
             {
@@ -188,6 +208,39 @@ namespace EasyTab.Services.Services
         protected override async Task BeforeUpdate(Worker entity, WorkerUpdateRequest request)
         {
             await Task.CompletedTask;
+        }
+
+        public override async Task<bool> DeleteAsync(int id)
+        {
+            var worker = await Context.Workers
+                .Include(x => x.User)
+                .ThenInclude(u => u.UserRoles)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (worker == null)
+                throw new Exception("Radnik nije pronađen");
+
+            // 1. Soft delete Worker
+            worker.IsDeleted = true;
+            worker.DeletedAt = DateTime.Now;
+            worker.EndDate = DateTime.Now;
+
+            // 2. Soft delete User
+            if (worker.User != null)
+            {
+                worker.User.IsDeleted = true;
+                worker.User.DeletedAt = DateTime.Now;
+
+                // 3. Soft delete UserRoles
+                foreach (var userRole in worker.User.UserRoles)
+                {
+                    userRole.IsDeleted = true;
+                    userRole.DeletedAt = DateTime.Now;
+                }
+            }
+
+            await Context.SaveChangesAsync();
+            return true;
         }
     }
 }

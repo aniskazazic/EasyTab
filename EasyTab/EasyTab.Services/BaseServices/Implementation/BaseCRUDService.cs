@@ -87,7 +87,7 @@ namespace EasyTab.Services.BaseServices.Implementation
             Context.SaveChanges();
         }
 
-        public async Task<bool> DeleteAsync(int id)
+        public virtual async Task<bool> DeleteAsync(int id)
         {
             var entity = await _context.Set<TDbEntity>().FindAsync(id);
 

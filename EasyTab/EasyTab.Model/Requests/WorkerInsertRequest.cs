@@ -17,5 +17,6 @@ namespace EasyTab.Model.Requests
         public DateTime? BirthDate { get; set; }
         public string? ProfilePicture { get; set; }
         public int LocaleId { get; set; }
+        public List<int>? RoleIds { get; set; }
     }
 }

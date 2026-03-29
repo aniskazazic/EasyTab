@@ -9,7 +9,7 @@ class AuthProvider {
       currentUser?.userRoles?.any((r) => r.role?.name == 'Admin') ?? false;
 
   static bool get isOwner =>
-      currentUser?.userRoles?.any((r) => r.role?.name == 'Owner') ?? false;
+      currentUser?.userRoles?.any((r) => r.role?.name == 'Vlasnik') ?? false;
 
   static void clear() {
     username = null;

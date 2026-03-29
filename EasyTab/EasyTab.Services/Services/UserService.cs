@@ -37,6 +37,11 @@ namespace EasyTab.Services.Services
             query = query.Include(x => x.UserRoles)
                  .ThenInclude(y => y.Role);
 
+            // Ako IsDeleted nije true (checkbox nije čekiran) — prikaži samo aktivne
+            // Ako IsDeleted == true (checkbox čekiran) — prikaži SVE (aktivne + obrisane)
+            if (searchObject?.IsDeleted != true)
+                query = query.Where(x => !x.IsDeleted);
+
             if (!string.IsNullOrEmpty(searchObject?.FirstNameGTE))
                 query = query.Where(x => x.FirstName.StartsWith(searchObject.FirstNameGTE));
 
@@ -55,9 +60,6 @@ namespace EasyTab.Services.Services
                     x.LastName.Contains(searchObject.FTS) ||
                     x.Email.Contains(searchObject.FTS) ||
                     x.Username.Contains(searchObject.FTS));
-
-            if (searchObject?.IsDeleted == true)
-                query = query.Where(x => x.IsDeleted == searchObject.IsDeleted);
 
             return query;
         }
@@ -184,6 +186,26 @@ namespace EasyTab.Services.Services
             {
                 entity.IsDeleted = false;
                 entity.DeletedAt = null;
+
+                // Reaktiviraj Worker ako postoji
+                var worker = await _context.Workers
+                    .FirstOrDefaultAsync(x => x.UserId == id);
+                if (worker != null)
+                {
+                    worker.IsDeleted = false;
+                    worker.DeletedAt = null;
+                    worker.EndDate = null;
+                }
+
+                // Reaktiviraj UserRoles
+                var userRoles = await _context.UserRoles
+                    .Where(x => x.UserId == id)
+                    .ToListAsync();
+                foreach (var role in userRoles)
+                {
+                    role.IsDeleted = false;
+                    role.DeletedAt = null;
+                }
             }
             else
             {
@@ -248,6 +270,39 @@ namespace EasyTab.Services.Services
             if (hash != entity.PasswordHash) return null;
 
             return Mapper.Map<Users>(entity);
+        }
+
+        public override async Task<bool> DeleteAsync(int id)
+        {
+            var user = await _context.Users
+                .Include(x => x.UserRoles)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (user == null)
+                throw new Exception("Korisnik nije pronađen");
+
+            // Soft delete User
+            user.IsDeleted = true;
+            user.DeletedAt = DateTime.Now;
+
+            // Soft delete UserRoles
+            foreach (var role in user.UserRoles)
+            {
+                role.IsDeleted = true;
+                role.DeletedAt = DateTime.Now;
+            }
+
+            // Soft delete Worker — direktno iz Context, ne preko navigacije
+            var worker = await _context.Workers
+                .FirstOrDefaultAsync(x => x.UserId == id);
+            if (worker != null)
+            {
+                worker.IsDeleted = true;
+                worker.DeletedAt = DateTime.Now;
+            }
+
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

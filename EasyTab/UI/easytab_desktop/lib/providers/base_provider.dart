@@ -105,7 +105,8 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     } else if (response.statusCode == 401) {
       throw Exception('Pogresno korisnicko ime ili lozinka!');
     } else {
-      throw Exception('Greska na serveru: \${response.statusCode}');
+      throw Exception('Greska na serveru');
+      // throw Exception('Greska na serveru: ${response.statusCode}');
     }
   }
 
