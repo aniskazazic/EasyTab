@@ -12,6 +12,8 @@ class MasterScreen extends StatefulWidget {
   final Widget child;
   final String title;
   final EdgeInsets padding;
+
+  /// Ako je null, u admin shellu se sidebar ne crta (jedan sidebar u [AdminShellScreen]).
   final Widget? sidebar;
 
   @override
@@ -19,9 +21,20 @@ class MasterScreen extends StatefulWidget {
 }
 
 class _MasterScreenState extends State<MasterScreen> {
+  Future<void> _onBackPressed() async {
+    final navigator = Navigator.of(context);
+    final didPop = await navigator.maybePop();
+    if (!didPop && mounted && widget.title != 'Dashboard') {
+      navigator.pushReplacementNamed('/dashboard');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Kao kod owner ekrana: "Nazad" ili zatvara pushani ekran (detalji) ili
+    // vodi na dashboard umjesto praznog/crnog ekrana kad nema routea ispod.
     final canPop = Navigator.canPop(context);
+    final showBack = canPop || widget.title != 'Dashboard';
 
     return Scaffold(
       body: Row(
@@ -36,13 +49,13 @@ class _MasterScreenState extends State<MasterScreen> {
                   // Nazad dugme + naslov u istom redu
                   Row(
                     children: [
-                      if (canPop)
+                      if (showBack)
                         TextButton.icon(
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: _onBackPressed,
                           icon: const Icon(Icons.arrow_back),
                           label: const Text('Nazad'),
                         ),
-                      if (canPop) const SizedBox(width: 16),
+                      if (showBack) const SizedBox(width: 16),
                       Text(
                         widget.title,
                         style: const TextStyle(

@@ -24,9 +24,13 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   late CityProvider cityProvider;
   late CategoryProvider categoryProvider;
 
-  List<Locale> _allLocales = [];
-  List<Locale> _displayLocales = [];
+  // Lokali — server-side
+  List<Locale> _locales = [];
+  int _totalCount = 0;
+  int _currentPage = 0;
+  final int _pageSize = 10;
 
+  // Dropdownovi — učitaj jednom, čuvaj lokalno
   List<Country> _countries = [];
   List<City> _allCities = [];
   List<City> _filteredCities = [];
@@ -37,6 +41,9 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   bool showDeleted = false;
   bool isLoading = false;
 
+  // Debounce za pretragu
+  DateTime? _lastSearchTime;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -44,41 +51,74 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
     countryProvider = context.read<CountryProvider>();
     cityProvider = context.read<CityProvider>();
     categoryProvider = context.read<CategoryProvider>();
-    _loadData();
+    _loadDropdowns();
   }
 
   @override
   void initState() {
     super.initState();
-    searchController.addListener(_applyFilters);
+    searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    searchController.removeListener(_applyFilters);
+    searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    setState(() => isLoading = true);
-    try {
-      final localeFilter = showDeleted
-          ? {"RetrieveAll": true}
-          : {"RetrieveAll": true, "IsDeleted": false};
+  void _onSearchChanged() {
+    final now = DateTime.now();
+    _lastSearchTime = now;
 
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (_lastSearchTime == now) {
+        setState(() => _currentPage = 0);
+        _loadLocales();
+      }
+    });
+  }
+
+  // Učitaj dropdownove samo jednom
+  Future<void> _loadDropdowns() async {
+    try {
       final results = await Future.wait([
-        localeProvider.get(filter: localeFilter),
         countryProvider.get(filter: {"RetrieveAll": true}),
         cityProvider.get(filter: {"RetrieveAll": true}),
       ]);
 
       setState(() {
-        _allLocales = (results[0] as SearchResult<Locale>).items ?? [];
-        _countries = (results[1] as SearchResult<Country>).items ?? [];
-        _allCities = (results[2] as SearchResult<City>).items ?? [];
+        _countries = (results[0] as SearchResult<Country>).items ?? [];
+        _allCities = (results[1] as SearchResult<City>).items ?? [];
         _filteredCities = _allCities;
-        _applyFilters();
+      });
+
+      await _loadLocales();
+    } catch (e) {
+      _showError(e.toString());
+    }
+  }
+
+  // Učitaj lokale sa server-side paginacijom i filterima
+  Future<void> _loadLocales() async {
+    setState(() => isLoading = true);
+    try {
+      final filter = <String, dynamic>{
+        "Page": _currentPage,
+        "PageSize": _pageSize,
+        "IncludeTotalCount": true,
+        if (showDeleted) "IsDeleted": true,
+        if (searchController.text.isNotEmpty) "Name": searchController.text,
+        if (selectedCityId != null) "CityId": selectedCityId,
+        if (selectedCountryId != null && selectedCityId == null)
+          "CountryId": selectedCountryId,
+      };
+
+      final result = await localeProvider.get(filter: filter);
+
+      setState(() {
+        _locales = result.items ?? [];
+        _totalCount = result.totalCount ?? 0;
         isLoading = false;
       });
     } catch (e) {
@@ -87,30 +127,13 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
     }
   }
 
-  void _applyFilters() {
-    final query = searchController.text.toLowerCase();
+  int get _totalPages =>
+      _totalCount == 0 ? 1 : (_totalCount / _pageSize).ceil();
 
-    setState(() {
-      _displayLocales = _allLocales.where((locale) {
-        final deletedFilter = showDeleted ? true : !(locale.isDeleted ?? false);
-
-        final searchFilter =
-            query.isEmpty ||
-            (locale.name?.toLowerCase().contains(query) ?? false) ||
-            (locale.address?.toLowerCase().contains(query) ?? false);
-
-        final countryFilter =
-            selectedCountryId == null ||
-            _allCities
-                .where((city) => city.countryId == selectedCountryId)
-                .any((city) => city.id == locale.cityId);
-
-        final cityFilter =
-            selectedCityId == null || locale.cityId == selectedCityId;
-
-        return deletedFilter && searchFilter && countryFilter && cityFilter;
-      }).toList();
-    });
+  void _goToPage(int page) {
+    if (page < 0 || page >= _totalPages) return;
+    setState(() => _currentPage = page);
+    _loadLocales();
   }
 
   void _showError(String message) {
@@ -132,7 +155,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   Future<void> _deleteLocale(int id) async {
     try {
       await localeProvider.delete(id);
-      await _loadData();
+      await _loadLocales();
     } catch (e) {
       _showError(e.toString());
     }
@@ -145,7 +168,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
         "address": locale.address,
         "isDeleted": false,
       });
-      await _loadData();
+      await _loadLocales();
     } catch (e) {
       _showError(e.toString());
     }
@@ -217,8 +240,11 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
           _buildShowDeletedCheckbox(),
           const SizedBox(height: 16),
           isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                )
               : _buildTable(),
+          if (!isLoading && _totalPages > 1) _buildPagination(),
         ],
       ),
     );
@@ -227,12 +253,14 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   Widget _buildSearch() {
     return Row(
       children: [
+        // Tekstualna pretraga
         Expanded(
           flex: 3,
           child: TextField(
             controller: searchController,
             decoration: InputDecoration(
               hintText: 'Pretraga',
+              prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -273,19 +301,20 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
               setState(() {
                 selectedCountryId = value;
                 selectedCityId = null;
-
                 _filteredCities = value == null
                     ? []
                     : _allCities
                           .where((city) => city.countryId == value)
                           .toList();
+                _currentPage = 0;
               });
-              _applyFilters();
+              _loadLocales();
             },
           ),
         ),
         const SizedBox(width: 12),
 
+        // Dropdown za grad
         Expanded(
           flex: 2,
           child: DropdownButtonFormField<int>(
@@ -302,12 +331,14 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
             hint: Text(
               selectedCountryId == null ? 'Odaberite državu' : 'Svi gradovi',
             ),
-
             onChanged: selectedCountryId == null
                 ? null
                 : (value) {
-                    setState(() => selectedCityId = value);
-                    _applyFilters();
+                    setState(() {
+                      selectedCityId = value;
+                      _currentPage = 0;
+                    });
+                    _loadLocales();
                   },
             items: [
               if (selectedCountryId != null)
@@ -331,7 +362,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
           onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => LocaleDetailsScreen()),
-          ).then((_) => _loadData()),
+          ).then((_) => _loadLocales()),
           child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
         ),
       ],
@@ -345,8 +376,11 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
         Checkbox(
           value: showDeleted,
           onChanged: (value) {
-            setState(() => showDeleted = value ?? false);
-            _loadData(); // reload s backenda s ispravnim filterom
+            setState(() {
+              showDeleted = value ?? false;
+              _currentPage = 0;
+            });
+            _loadLocales();
           },
         ),
       ],
@@ -354,7 +388,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   }
 
   Widget _buildTable() {
-    if (_displayLocales.isEmpty) {
+    if (_locales.isEmpty) {
       return const Expanded(
         child: Center(child: Text('Nema lokala za prikaz.')),
       );
@@ -384,7 +418,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
               DataColumn(label: Text('Status')),
               DataColumn(label: Text('Akcije')),
             ],
-            rows: _displayLocales.map((locale) {
+            rows: _locales.map((locale) {
               final isDeleted = locale.isDeleted ?? false;
 
               return DataRow(
@@ -417,7 +451,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
                                 builder: (context) =>
                                     LocaleDetailsScreen(locale: locale),
                               ),
-                            ).then((_) => _loadData()),
+                            ).then((_) => _loadLocales()),
                           ),
                         IconButton(
                           icon: Icon(
@@ -435,6 +469,90 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
                 ],
               );
             }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPagination() {
+    const int maxVisible = 5;
+    int startPage = (_currentPage - maxVisible ~/ 2).clamp(0, _totalPages - 1);
+    int endPage = (startPage + maxVisible - 1).clamp(0, _totalPages - 1);
+    if (endPage - startPage < maxVisible - 1) {
+      startPage = (endPage - maxVisible + 1).clamp(0, _totalPages - 1);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Ukupno: $_totalCount  |  Stranica ${_currentPage + 1} od $_totalPages',
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          ),
+          const SizedBox(width: 24),
+
+          _pageButton(
+            icon: Icons.first_page,
+            onTap: _currentPage > 0 ? () => _goToPage(0) : null,
+          ),
+          _pageButton(
+            icon: Icons.chevron_left,
+            onTap: _currentPage > 0 ? () => _goToPage(_currentPage - 1) : null,
+          ),
+
+          for (int i = startPage; i <= endPage; i++) _pageNumberButton(i),
+
+          _pageButton(
+            icon: Icons.chevron_right,
+            onTap: _currentPage < _totalPages - 1
+                ? () => _goToPage(_currentPage + 1)
+                : null,
+          ),
+          _pageButton(
+            icon: Icons.last_page,
+            onTap: _currentPage < _totalPages - 1
+                ? () => _goToPage(_totalPages - 1)
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pageButton({required IconData icon, VoidCallback? onTap}) {
+    return IconButton(
+      icon: Icon(icon),
+      onPressed: onTap,
+      color: onTap != null ? const Color(0xFF1E40AF) : Colors.grey.shade400,
+    );
+  }
+
+  Widget _pageNumberButton(int page) {
+    final isActive = page == _currentPage;
+    return GestureDetector(
+      onTap: () => _goToPage(page),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF1E40AF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive ? const Color(0xFF1E40AF) : Colors.grey.shade400,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            '${page + 1}',
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.grey.shade700,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+            ),
           ),
         ),
       ),

@@ -60,17 +60,13 @@ class AdminSidebar extends StatelessWidget {
                     context: context,
                     icon: Icons.calendar_today,
                     label: 'Rezervacije',
-                    onTap: () => Navigator.pushReplacementNamed(
-                      context,
-                      '/reservations',
-                    ),
+                    //onTap: () => Navigator.pushReplacementNamed(context, '/reservations',),
                   ),
                   _item(
                     context: context,
                     icon: Icons.star,
                     label: 'Recenzije',
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/reviews'),
+                    // onTap: () => Navigator.pushReplacementNamed(context, '/reviews'),
                   ),
                   _item(
                     context: context,
@@ -102,6 +98,7 @@ class AdminSidebar extends StatelessWidget {
                   context: context,
                   icon: Icons.settings,
                   label: 'Postavke',
+                  //onTap: () => Navigator.pushReplacementNamed(context,'/admin-settings',),
                 ),
               ],
             ),

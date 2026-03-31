@@ -36,6 +36,11 @@ namespace EasyTab.Services.Services
                          .Include(x => x.Category)
                          .Include(x => x.Owner);
 
+            // Default: prikaži samo aktivne
+            // Ako IsDeleted == true (checkbox čekiran) — prikaži SVE (aktivne + obrisane)
+            if (search?.IsDeleted != true)
+                query = query.Where(x => !x.IsDeleted);
+
             if (!string.IsNullOrEmpty(search?.Name))
                 query = query.Where(x => x.Name.Contains(search.Name));
 
@@ -45,14 +50,8 @@ namespace EasyTab.Services.Services
             if (search?.CategoryId.HasValue == true)
                 query = query.Where(x => x.CategoryId == search.CategoryId);
 
-            if (search?.IsDeleted.HasValue == true)
-                query = query.Where(x => x.IsDeleted == search.IsDeleted);
-
             if (search?.CountryId.HasValue == true)
                 query = query.Where(x => x.City.CountryId == search.CountryId);
-
-            if (search?.IsDeleted == true)
-                query = query.Where(x => x.IsDeleted == search.IsDeleted);
 
             if (search?.OwnerId.HasValue == true)
                 query = query.Where(x => x.OwnerId == search.OwnerId);
@@ -68,7 +67,7 @@ namespace EasyTab.Services.Services
             var idx = logo.IndexOf("base64", StringComparison.OrdinalIgnoreCase);
             if (idx >= 0)
             {
-                idx += 6; 
+                idx += 6;
                 while (idx < logo.Length
                        && !char.IsLetterOrDigit(logo[idx])
                        && logo[idx] != '+'
