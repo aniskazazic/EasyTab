@@ -33,9 +33,10 @@ namespace EasyTab.API.Controllers
         [HttpDelete("delete")]
         public async Task<IActionResult> DeleteFile(
             [FromQuery] string fileUrl,
-            [FromQuery] string subfolder)
+            [FromQuery] string subfolder,
+            [FromQuery] int? userId = null)
         {
-            var success = await _fileService.DeleteFileAsync(fileUrl, subfolder);
+            var success = await _fileService.DeleteFileAsync(fileUrl, subfolder, userId);
             if (!success)
                 return NotFound("File nije pronađen.");
 

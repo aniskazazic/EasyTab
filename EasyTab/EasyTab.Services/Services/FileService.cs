@@ -1,4 +1,5 @@
-﻿using EasyTab.Services.Interfaces;
+﻿using EasyTab.Services.Database;
+using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -14,17 +15,21 @@ namespace EasyTab.Services.Services
     {
         private readonly string _baseUrl;
         private readonly string _webRootPath;
+        private readonly _220030Context _context;
 
-        public FileService(IWebHostEnvironment env, IConfiguration config)
+        public FileService(IWebHostEnvironment env, IConfiguration config, _220030Context context)
         {
             _webRootPath = env.WebRootPath;
             _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";
+            _context= context;
         }
 
-        public async Task<bool> DeleteFileAsync(string fileUrl, string subfolder)
+        public async Task<bool> DeleteFileAsync(string fileUrl, string subfolder, int? userId)
         {
             if (string.IsNullOrEmpty(fileUrl))
+            {
                 return false;
+            }
 
             var fileName = Path.GetFileName(fileUrl);
             var fullPath = Path.Combine(_webRootPath, subfolder, fileName);
@@ -32,6 +37,18 @@ namespace EasyTab.Services.Services
             if (File.Exists(fullPath))
             {
                 await Task.Run(() => File.Delete(fullPath));
+
+                // Očisti iz baze ako je userId proslijeđen
+                if (userId.HasValue)
+                {
+                    var user = await _context.Users.FindAsync(userId.Value);
+                    if (user != null)
+                    {
+                        user.ProfilePicture = null;
+                        await _context.SaveChangesAsync();
+                    }
+                }
+
                 return true;
             }
 

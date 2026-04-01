@@ -10,6 +10,6 @@ namespace EasyTab.Services.Interfaces
     public interface IFileService
     {
         Task<string?> SaveFileAsync(IFormFile file, string subfolder);
-        Task<bool> DeleteFileAsync(string fileUrl, string subfolder);
+        Task<bool> DeleteFileAsync(string fileUrl, string subfolder, int? userId=null);
     }
 }

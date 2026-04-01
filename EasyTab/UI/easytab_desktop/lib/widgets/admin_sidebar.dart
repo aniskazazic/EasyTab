@@ -98,7 +98,10 @@ class AdminSidebar extends StatelessWidget {
                   context: context,
                   icon: Icons.settings,
                   label: 'Postavke',
-                  //onTap: () => Navigator.pushReplacementNamed(context,'/admin-settings',),
+                  onTap: () => Navigator.pushReplacementNamed(
+                    context,
+                    '/admin-settings',
+                  ),
                 ),
               ],
             ),

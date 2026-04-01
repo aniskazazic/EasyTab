@@ -13,6 +13,7 @@ import 'package:easytab_desktop/screens/admin_categories_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_cities_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_country_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_dashboard_screen.dart';
+import 'package:easytab_desktop/screens/admin_settings_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_locale_list_screen.dart';
@@ -66,6 +67,7 @@ class MyLoginApp extends StatelessWidget {
         '/owner-dashboard': (context) => const OwnerDashboardScreen(),
         '/owner-add-locale': (context) => const OwnerLocaleDetailsScreen(),
         '/add-user': (context) => const AdminAddUserScreen(),
+        '/admin-settings': (context) => const AdminSettingsScreen(),
         //'/owner-settings'
         '/owner-locale-settings': (context) {
           final locale =

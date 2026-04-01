@@ -48,11 +48,20 @@ class FileProvider extends BaseProvider<String> {
     }
   }
 
-  Future<void> deleteImage(String fileUrl, String subfolder) async {
+  Future<void> deleteImage(
+    String fileUrl,
+    String subfolder, {
+    int? userId,
+  }) async {
     var url =
         "${BaseProvider.baseUrl}/File/delete"
         "?fileUrl=${Uri.encodeComponent(fileUrl)}"
         "&subfolder=${Uri.encodeComponent(subfolder)}";
+
+    if (userId != null) {
+      url += "&userId=$userId";
+    }
+
     var uri = Uri.parse(url);
     var response = await http.delete(uri, headers: createHeaders());
     if (!isValidResponse(response)) {

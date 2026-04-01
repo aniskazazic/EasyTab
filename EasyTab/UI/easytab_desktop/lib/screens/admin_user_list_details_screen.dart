@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
@@ -91,7 +90,6 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
         formKey.currentState?.value ?? {},
       );
 
-      // Upload na FileController -> dobij puni URL -> backend izvuce filename
       if (_imageFile != null) {
         final imageUrl = await fileProvider.uploadImage(
           _imageFile!,
@@ -406,12 +404,8 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                           onPressed: () => _deleteImage(
                             fileUrl: widget.user!.profilePicture!,
                             subfolder: 'ImageFolder/ProfilePictures',
-                            onDeleted: () async {
-                              await userProvider.update(widget.user!.id!, {
-                                'profilePicture': '',
-                              });
-                              if (mounted) Navigator.pop(context);
-                            },
+                            userId: widget.user!.id,
+                            onDeleted: () {},
                           ),
                         ),
                     ],
@@ -428,6 +422,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   Future<void> _deleteImage({
     required String fileUrl,
     required String subfolder,
+    int? userId,
     required VoidCallback onDeleted,
   }) async {
     showDialog(
@@ -445,15 +440,14 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                await fileProvider.deleteImage(fileUrl, subfolder);
-                onDeleted();
+                await fileProvider.deleteImage(
+                  fileUrl,
+                  subfolder,
+                  userId: userId,
+                );
+                // onDeleted() ← ukloni ovo
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Slika uspješno obrisana!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  _showSuccess('Slika uspješno obrisana!');
                 }
               } catch (e) {
                 _showError(e.toString());

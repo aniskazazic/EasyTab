@@ -176,4 +176,24 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     });
     return query;
   }
+
+  Future<T> getById(int id) async {
+    var url = "$baseUrl/$_endpoint/$id";
+
+    var uri = Uri.parse(url);
+    var headers = createHeaders();
+
+    var response = await http.get(uri, headers: headers);
+    // throw new Exception("Greška");
+    if (isValidResponse(response)) {
+      var data = jsonDecode(response.body);
+
+      // var result = data as T;
+      return fromJson(data);
+      // return result;
+    } else {
+      throw new Exception("Unknown error");
+    }
+    // print("response: ${response.request} ${response.statusCode}, ${response.body}");
+  }
 }
