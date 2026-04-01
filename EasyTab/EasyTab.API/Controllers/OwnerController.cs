@@ -21,49 +21,49 @@ namespace EasyTab.API.Controllers
             return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
         }
 
-        [Authorize(Roles = "Owner")]
+        [Authorize(Roles = "Vlasnik")]
         [HttpGet("today-reservations")]
         public async Task<IActionResult> GetTodaysReservations(int localeId)
         {
             return Ok(await _ownerService.GetTodaysReservations(localeId));
         }
 
-        [Authorize(Roles = "Owner")]
+        [Authorize(Roles = "Vlasnik")]
         [HttpGet("today-guests")]
         public async Task<IActionResult> GetTodaysGuests(int localeId)
         {
             return Ok(await _ownerService.GetTodaysGuests(localeId));
         }
 
-        [Authorize(Roles = "Owner")]
+        [Authorize(Roles = "Vlasnik")]
         [HttpGet("active-tables")]
         public async Task<IActionResult> GetActiveTables(int localeId)
         {
             return Ok(await _ownerService.GetActiveTables(localeId));
         }
 
-        [Authorize(Roles = "Owner")]
+        [Authorize(Roles = "Vlasnik")]
         [HttpGet("total-tables")]
         public async Task<IActionResult> GetTotalTables(int localeId)
         {
             return Ok(await _ownerService.GetTotalTables(localeId));
         }
 
-        [Authorize(Roles = "Owner")]
+        [Authorize(Roles = "Vlasnik")]
         [HttpGet("my-locale/{localeId}")]
         public async Task<IActionResult> GetMyLocale(int localeId)
         {
             return Ok(await _ownerService.GetMyLocale(localeId)); 
         }
 
-        [Authorize(Roles = "Owner")]
+        [Authorize(Roles = "Vlasnik")]
         [HttpGet("table-distribution")]
         public async Task<IActionResult> GetTableDistribution(int localeId)
         {
             return Ok(await _ownerService.GetTableDistribution(localeId));
         }
 
-        [Authorize(Roles = "Owner, Worker")]
+        [Authorize(Roles = "Vlasnik, Radnik")]
         [HttpGet("reservations")]
         public async Task<IActionResult> GetAllReservations(
             [FromQuery] string? q,

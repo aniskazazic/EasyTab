@@ -21,6 +21,7 @@ import 'package:easytab_desktop/providers/file_provider.dart';
 import 'package:easytab_desktop/screens/owner_dashboard_screen.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
+import 'package:easytab_desktop/screens/owner_settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -68,7 +69,7 @@ class MyLoginApp extends StatelessWidget {
         '/owner-add-locale': (context) => const OwnerLocaleDetailsScreen(),
         '/add-user': (context) => const AdminAddUserScreen(),
         '/admin-settings': (context) => const AdminSettingsScreen(),
-        //'/owner-settings'
+        '/owner-settings': (context) => const OwnerSettingsScreen(),
         '/owner-locale-settings': (context) {
           final locale =
               ModalRoute.of(context)!.settings.arguments as model.Locale?;

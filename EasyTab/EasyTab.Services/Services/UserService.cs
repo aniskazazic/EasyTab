@@ -142,6 +142,7 @@ namespace EasyTab.Services.Services
             var oldIsDeleted = entity.IsDeleted;
             var oldPasswordHash = entity.PasswordHash;
             var oldPasswordSalt = entity.PasswordSalt;
+            var oldUsername = entity.Username;
 
             Mapper.Map(request, entity);
 
@@ -150,6 +151,9 @@ namespace EasyTab.Services.Services
 
             if (string.IsNullOrWhiteSpace(request.LastName))
                 entity.LastName = oldLastName;
+
+            if (string.IsNullOrWhiteSpace(request.Username))
+                entity.Username = oldUsername;
 
             if (string.IsNullOrWhiteSpace(request.Email))
                 entity.Email = oldEmail;

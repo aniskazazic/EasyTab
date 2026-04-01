@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:easytab_desktop/widgets/admin_sidebar.dart';
 
@@ -25,7 +26,11 @@ class _MasterScreenState extends State<MasterScreen> {
     final navigator = Navigator.of(context);
     final didPop = await navigator.maybePop();
     if (!didPop && mounted && widget.title != 'Dashboard') {
-      navigator.pushReplacementNamed('/dashboard');
+      // ← provjeri rolu pa navigiraj na pravi dashboard
+      final destination = AuthProvider.isAdmin
+          ? '/dashboard'
+          : '/owner-dashboard';
+      navigator.pushReplacementNamed(destination);
     }
   }
 

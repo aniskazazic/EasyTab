@@ -10,6 +10,7 @@ namespace EasyTab.Model.Requests
 
         public string? LastName { get; set; } = null!;
 
+        public string? Username { get; set; }
         public string? Password { get; set; }
 
         public string? PasswordConfirmation { get; set; }

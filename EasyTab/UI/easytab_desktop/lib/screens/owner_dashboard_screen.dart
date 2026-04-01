@@ -28,6 +28,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   int todayGuests = 0;
   List<Map<String, dynamic>> tableDistribution = [];
   bool isLoading = false;
+  String? statsError;
 
   late OwnerProvider ownerProvider;
   late LocaleProvider localeProvider;
@@ -54,7 +55,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         await _loadStats(locales.first.id!);
       }
     } catch (e) {
-      debugPrint('Error: $e');
+      debugPrint('Error loading locales: $e');
     }
   }
 
@@ -63,20 +64,31 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Future<void> _loadStats(int localeId) async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      statsError = null;
+    });
     try {
       final stats = await ownerProvider.getStats(localeId);
-      setState(() {
-        todayReservations = stats.todayReservations;
-        activeTables = stats.activeTables;
-        totalTables = stats.totalTables;
-        todayGuests = stats.todayGuests;
-        tableDistribution = stats.tableDistribution;
-        isLoading = false;
-      });
+      debugPrint('tableDistribution: ${stats.tableDistribution}');
+      if (mounted) {
+        setState(() {
+          todayReservations = stats.todayReservations;
+          activeTables = stats.activeTables;
+          totalTables = stats.totalTables;
+          todayGuests = stats.todayGuests;
+          tableDistribution = stats.tableDistribution;
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() => isLoading = false);
       debugPrint('Error loading stats: $e');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          statsError = e.toString();
+        });
+      }
     }
   }
 
@@ -104,17 +116,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => OwnerLocaleDetailsScreen(
-              locale: locale,
-              onSaved: () {
-                _refresh(); // Refresh dashboard i sidebar
-              },
-            ),
+            builder: (context) =>
+                OwnerLocaleDetailsScreen(locale: locale, onSaved: _refresh),
           ),
         );
         break;
       case 'Rezervacije':
-        // TODO
         break;
       case 'Stolovi':
         Navigator.push(
@@ -128,7 +135,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         );
         break;
       case 'Recenzije':
-        // TODO
         break;
       case 'Radnici':
         Navigator.push(
@@ -171,9 +177,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                     style: TextStyle(color: Colors.grey[600], fontSize: 14),
                   ),
                   const SizedBox(height: 24),
-                  isLoading
-                      ? const Center(child: CircularProgressIndicator())
-                      : _buildContent(),
+                  Expanded(
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _buildContent(),
+                  ),
                 ],
               ),
             ),
@@ -184,46 +192,61 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Widget _buildContent() {
-    return Expanded(
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.calendar_today,
-                    title: 'Današnje rezervacije',
-                    value: '$todayReservations',
-                    subtitle: 'Broj potvrđenih rezervacija',
-                  ),
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Stat kartice
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  icon: Icons.calendar_today,
+                  title: 'Današnje rezervacije',
+                  value: '$todayReservations',
+                  subtitle: 'Broj potvrđenih rezervacija',
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.table_restaurant,
-                    title: 'Aktivni stolovi',
-                    value: '$activeTables / $totalTables',
-                    subtitle: totalTables > 0
-                        ? '${((activeTables / totalTables) * 100).toStringAsFixed(0)} % popunjenosti'
-                        : '0 % popunjenosti',
-                  ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  icon: Icons.table_restaurant,
+                  title: 'Aktivni stolovi',
+                  value: '$activeTables / $totalTables',
+                  subtitle: totalTables > 0
+                      ? '${((activeTables / totalTables) * 100).toStringAsFixed(0)}% popunjenosti'
+                      : '0% popunjenosti',
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.person,
-                    title: 'Broj gostiju',
-                    value: '$todayGuests',
-                    subtitle: 'Očekivan danas',
-                  ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildStatCard(
+                  icon: Icons.person,
+                  title: 'Broj gostiju',
+                  value: '$todayGuests',
+                  subtitle: 'Očekivan danas',
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+
+          // Pie chart ili poruka
+          if (tableDistribution.isNotEmpty)
+            _buildPieChart()
+          else
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Text(
+                  totalTables == 0
+                      ? 'Nema stolova za ovaj lokal.'
+                      : 'Nema podataka o raspodjeli stolova.',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                ),
+              ),
             ),
-            const SizedBox(height: 32),
-            if (tableDistribution.isNotEmpty) _buildPieChart(),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -313,6 +336,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
             ),
             const SizedBox(height: 24),
             Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 SizedBox(
                   height: 250,
@@ -345,7 +370,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            '${item['seats']}-seater',
+                            '${item['seats']}-mjesta',
                             style: const TextStyle(fontSize: 13),
                           ),
                         ],

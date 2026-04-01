@@ -23,7 +23,7 @@ class OwnerSidebar extends StatefulWidget {
 
 class _OwnerSidebarState extends State<OwnerSidebar> {
   List<models.Locale> _locales = [];
-  Set<int> _expandedLocales = {};
+  Set<int> expandedLocales = {};
 
   @override
   void initState() {
@@ -40,9 +40,9 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
       final locales = await localeProvider.getByOwner(ownerId);
       setState(() {
         _locales = locales;
-        if (locales.isNotEmpty && _expandedLocales.isEmpty) {
-          _expandedLocales.add(locales.first.id!);
-        }
+        /*if (locales.isNotEmpty && expandedLocales.isEmpty) {
+          expandedLocales.add(locales.first.id!);
+        }*/
       });
     } catch (e) {
       debugPrint('Error loading locales: $e');
@@ -169,7 +169,8 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
               _bottomItem(
                 icon: Icons.settings,
                 label: 'Postavke',
-                //onTap: () => Navigator.pushNamed(context, '/owner-settings'),
+                onTap: () =>
+                    Navigator.pushReplacementNamed(context, '/owner-settings'),
               ),
               _bottomItem(
                 icon: Icons.logout,
@@ -184,7 +185,7 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
   }
 
   Widget _buildLocaleItem(models.Locale locale) {
-    final isExpanded = _expandedLocales.contains(locale.id);
+    final isExpanded = expandedLocales.contains(locale.id);
 
     return Column(
       children: [
@@ -237,9 +238,9 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
           onTap: () {
             setState(() {
               if (isExpanded) {
-                _expandedLocales.remove(locale.id);
+                expandedLocales.remove(locale.id);
               } else {
-                _expandedLocales.add(locale.id!);
+                expandedLocales.add(locale.id!);
               }
             });
           },

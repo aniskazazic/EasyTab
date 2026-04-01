@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:easytab_desktop/providers/base_provider.dart';
 import 'package:easytab_desktop/models/locale.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class OwnerStats {
@@ -20,10 +21,6 @@ class OwnerStats {
 }
 
 class OwnerProvider extends BaseProvider<Locale> {
-  final String? _baseUrl = const String.fromEnvironment(
-    "baseUrl",
-    defaultValue: "http://localhost:5241",
-  );
   OwnerProvider() : super("Owner");
 
   @override
@@ -31,38 +28,78 @@ class OwnerProvider extends BaseProvider<Locale> {
 
   Future<OwnerStats> getStats(int localeId) async {
     final headers = createHeaders();
+    final base = BaseProvider.baseUrl;
 
     final results = await Future.wait([
       http.get(
-        Uri.parse('$_baseUrl/Owner/today-reservations?localeId=$localeId'),
+        Uri.parse('$base/Owner/today-reservations?localeId=$localeId'),
         headers: headers,
       ),
       http.get(
-        Uri.parse('$_baseUrl/Owner/active-tables?localeId=$localeId'),
+        Uri.parse('$base/Owner/active-tables?localeId=$localeId'),
         headers: headers,
       ),
       http.get(
-        Uri.parse('$_baseUrl/Owner/total-tables?localeId=$localeId'),
+        Uri.parse('$base/Owner/total-tables?localeId=$localeId'),
         headers: headers,
       ),
       http.get(
-        Uri.parse('$_baseUrl/Owner/today-guests?localeId=$localeId'),
+        Uri.parse('$base/Owner/today-guests?localeId=$localeId'),
         headers: headers,
       ),
       http.get(
-        Uri.parse('$_baseUrl/Owner/table-distribution?localeId=$localeId'),
+        Uri.parse('$base/Owner/table-distribution?localeId=$localeId'),
         headers: headers,
       ),
     ]);
 
+    // Log svaki response za lakši debug
+    for (int i = 0; i < results.length; i++) {
+      debugPrint(
+        'Request $i — status: ${results[i].statusCode}, body: ${results[i].body}',
+      );
+    }
+
+    int safeInt(http.Response r) {
+      if (r.statusCode >= 200 && r.statusCode < 300) {
+        return jsonDecode(r.body) ?? 0;
+      }
+      debugPrint('Greška na requestu: ${r.statusCode} — ${r.body}');
+      return 0;
+    }
+
+    List<Map<String, dynamic>> safeList(http.Response r) {
+      if (r.statusCode >= 200 && r.statusCode < 300) {
+        try {
+          final decoded = jsonDecode(r.body);
+          if (decoded is List) {
+            return List<Map<String, dynamic>>.from(
+              decoded.map(
+                (item) => {
+                  'seats': item['Seats'] ?? item['seats'] ?? 0,
+                  'count': item['Count'] ?? item['count'] ?? 0,
+                  'percentage':
+                      (item['Percentage'] ?? item['percentage'] ?? 0.0)
+                          .toDouble(),
+                },
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('Greška pri parsiranju table-distribution: $e');
+        }
+      } else {
+        debugPrint('table-distribution greška: ${r.statusCode} — ${r.body}');
+      }
+      return [];
+    }
+
     return OwnerStats(
-      todayReservations: jsonDecode(results[0].body) ?? 0,
-      activeTables: jsonDecode(results[1].body) ?? 0,
-      totalTables: jsonDecode(results[2].body) ?? 0,
-      todayGuests: jsonDecode(results[3].body) ?? 0,
-      tableDistribution: List<Map<String, dynamic>>.from(
-        jsonDecode(results[4].body),
-      ),
+      todayReservations: safeInt(results[0]),
+      activeTables: safeInt(results[1]),
+      totalTables: safeInt(results[2]),
+      todayGuests: safeInt(results[3]),
+      tableDistribution: safeList(results[4]),
     );
   }
 }

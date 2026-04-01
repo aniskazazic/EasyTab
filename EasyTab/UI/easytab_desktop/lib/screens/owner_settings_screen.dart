@@ -3,26 +3,28 @@ import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/file_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
-import 'package:easytab_desktop/widgets/admin_sidebar.dart';
+import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:provider/provider.dart';
 
-class AdminSettingsScreen extends StatefulWidget {
-  const AdminSettingsScreen({super.key});
+class OwnerSettingsScreen extends StatefulWidget {
+  const OwnerSettingsScreen({super.key});
 
   @override
-  State<AdminSettingsScreen> createState() => _AdminSettingsScreenState();
+  State<OwnerSettingsScreen> createState() => _OwnerSettingsScreenState();
 }
 
-class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
+class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
   late UserProvider userProvider;
   late FileProvider fileProvider;
   bool isLoading = false;
   File? _imageFile;
+  bool _obscurePassword = true;
+  bool _obscurePasswordConfirmation = true;
 
   @override
   void initState() {
@@ -193,7 +195,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
     return MasterScreen(
       title: 'Postavke',
-      sidebar: const AdminSidebar(),
+      sidebar: const OwnerSidebar(),
       child: Column(
         children: [
           Expanded(
@@ -409,10 +411,21 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                         Expanded(
                           child: FormBuilderTextField(
                             name: 'password',
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Nova lozinka (ostavite prazno)',
-                              border: OutlineInputBorder(),
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText:
+                                  'Nova lozinka (ostavite prazno ukoliko ne mijenjate lozinku)',
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -420,10 +433,21 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                         Expanded(
                           child: FormBuilderTextField(
                             name: 'passwordConfirmation',
-                            obscureText: true,
-                            decoration: const InputDecoration(
+                            obscureText: _obscurePasswordConfirmation,
+                            decoration: InputDecoration(
                               labelText: 'Potvrda nove lozinke',
-                              border: OutlineInputBorder(),
+                              border: const OutlineInputBorder(),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePasswordConfirmation
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                ),
+                                onPressed: () => setState(
+                                  () => _obscurePasswordConfirmation =
+                                      !_obscurePasswordConfirmation,
+                                ),
+                              ),
                             ),
                             validator: (value) {
                               final password =
