@@ -15,17 +15,41 @@ class AdminSidebar extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text(
-                    'EasyTab',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'EasyTab',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          color: Color(0xFF1E40AF),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.table_restaurant,
+                          color: Colors.white,
+                          size: 35,
+                        ),
+                      ),
+                    ],
                   ),
+
+                  const SizedBox(height: 5),
+
                   Text(
                     'Zdravo, ${AuthProvider.currentUser?.firstName ?? "Admin"}',
+                    textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: Colors.blue[100]),
                   ),
                 ],
