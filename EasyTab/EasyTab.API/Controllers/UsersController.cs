@@ -26,6 +26,12 @@ namespace EasyTab.API.Controllers
             return Ok(user);
         }
 
+        [AllowAnonymous]
+        public override Task<Users> Create([FromBody] UserInsertRequest request)
+        {
+            return base.Create(request);
+        }
+
 
     }
 }

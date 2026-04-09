@@ -11,6 +11,9 @@ class AuthProvider {
   static bool get isOwner =>
       currentUser?.userRoles?.any((r) => r.role?.name == 'Vlasnik') ?? false;
 
+  static bool get isWorker =>
+      currentUser?.userRoles?.any((r) => r.role?.name == 'Radnik') ?? false;
+
   static void clear() {
     username = null;
     password = null;

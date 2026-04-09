@@ -13,7 +13,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     _endpoint = endpoint;
     baseUrl = const String.fromEnvironment(
       "baseUrl",
-      defaultValue: "http://localhost:5241",
+      defaultValue: "http://10.0.2.2:5241",
     );
   }
 
@@ -28,7 +28,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
-    var response = await http.get(uri, headers: createHeaders());
+    var response = await http.get(uri, headers: headers);
 
     if (isValidResponse(response)) {
       var data = jsonDecode(response.body);
