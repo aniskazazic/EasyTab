@@ -99,6 +99,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
+  Widget _sectionTitle(String title) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          title,
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: Color(0xFF1E40AF),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -156,196 +173,164 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Widget _buildForm() {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: FormBuilder(
-        key: _formKey,
-        child: Column(
-          children: [
-            const SizedBox(height: 8),
-
-            // Ime + Prezime
-            Row(
-              children: [
-                Expanded(
-                  child: _inputField(
-                    'Ime',
-                    'firstName',
-                    icon: Icons.person_outline,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _inputField(
-                    'Prezime',
-                    'lastName',
-                    icon: Icons.person_outline,
-                  ),
-                ),
-              ],
+    return Transform.translate(
+      offset: const Offset(0, -30),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
             ),
-            const SizedBox(height: 14),
-
-            _inputField(
-              'Korisničko ime',
-              'username',
-              icon: Icons.alternate_email,
-            ),
-            const SizedBox(height: 14),
-
-            _inputField(
-              'Email',
-              'email',
-              icon: Icons.email_outlined,
-              keyboard: TextInputType.emailAddress,
-              validator: FormBuilderValidators.compose([
-                FormBuilderValidators.required(errorText: 'Email je obavezan'),
-                FormBuilderValidators.email(errorText: 'Email nije validan'),
-              ]),
-            ),
-            const SizedBox(height: 14),
-
-            _inputField(
-              'Telefon',
-              'phone',
-              icon: Icons.phone_outlined,
-              keyboard: TextInputType.phone,
-            ),
-            const SizedBox(height: 14),
-
-            // Datum rođenja
-            FormBuilderDateTimePicker(
-              name: 'birthDate',
-              inputType: InputType.date,
-              decoration: _decoration('Datum rođenja', Icons.calendar_today),
-              firstDate: DateTime(1900),
-              lastDate: DateTime.now(),
-              onChanged: (value) {
-                if (value != null) {
-                  int age = DateTime.now().year - value.year;
-                  setState(() {
-                    dateError = (age < 18 || value.isAfter(DateTime.now()))
-                        ? 'Morate imati 18+ godina'
-                        : null;
-                  });
-                }
-              },
-            ),
-            if (dateError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 6, left: 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    dateError!,
-                    style: const TextStyle(color: Colors.red, fontSize: 12),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 14),
-
-            // Lozinka
-            _inputField(
-              'Lozinka',
-              'password',
-              icon: Icons.lock_outline,
-              obscure: _obscurePassword,
-              suffix: IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Potvrda lozinke
-            _inputField(
-              'Potvrda lozinke',
-              'confirmPassword',
-              icon: Icons.lock_outline,
-              obscure: _obscureConfirm,
-              errorText: confirmPasswordError,
-              suffix: IconButton(
-                icon: Icon(
-                  _obscureConfirm
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                ),
-                onPressed: () =>
-                    setState(() => _obscureConfirm = !_obscureConfirm),
-              ),
-              onChanged: (val) {
-                final password =
-                    _formKey.currentState?.fields['password']?.value;
-                setState(() {
-                  confirmPasswordError = val != password
-                      ? 'Lozinke se ne poklapaju'
-                      : null;
-                });
-              },
-            ),
-            const SizedBox(height: 24),
-
-            // Dugme registracija
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleRegister,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E40AF),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Registrujte se',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Nazad na login
-            Center(
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text.rich(
-                  TextSpan(
-                    text: 'Već imate račun? ',
-                    style: TextStyle(color: Colors.black54),
-                    children: [
-                      TextSpan(
-                        text: 'Prijavite se',
-                        style: TextStyle(
-                          color: Color(0xFF1E40AF),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
           ],
+        ),
+        child: FormBuilder(
+          key: _formKey,
+          child: Column(
+            children: [
+              _sectionTitle('Osnovni podaci'),
+
+              Row(
+                children: [
+                  Expanded(
+                    child: _inputField('Ime', 'firstName', icon: Icons.person),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _inputField(
+                      'Prezime',
+                      'lastName',
+                      icon: Icons.person,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 14),
+
+              _inputField(
+                'Korisničko ime',
+                'username',
+                icon: Icons.alternate_email,
+              ),
+              const SizedBox(height: 20),
+              // Datum rođenja
+              FormBuilderDateTimePicker(
+                name: 'birthDate',
+                inputType: InputType.date,
+                decoration: _decoration('Datum rođenja', Icons.calendar_today),
+                firstDate: DateTime(1900),
+                lastDate: DateTime.now(),
+                validator: FormBuilderValidators.compose([
+                  FormBuilderValidators.required(errorText: 'Obavezno polje'),
+                  (value) {
+                    if (value == null) return null;
+
+                    int age = DateTime.now().year - value.year;
+
+                    if (age < 18 || value.isAfter(DateTime.now())) {
+                      return 'Morate imati 18+ godina';
+                    }
+                    return null;
+                  },
+                ]),
+              ),
+
+              const SizedBox(height: 20),
+              _sectionTitle('Kontakt'),
+
+              _inputField('Email', 'email', icon: Icons.email),
+              const SizedBox(height: 14),
+
+              _inputField('Telefon', 'phone', icon: Icons.phone),
+
+              const SizedBox(height: 20),
+              _sectionTitle('Sigurnost'),
+
+              _inputField(
+                'Lozinka',
+                'password',
+                icon: Icons.lock,
+                obscure: _obscurePassword,
+                suffix: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) {
+                    return 'Obavezno polje';
+                  }
+                },
+              ),
+
+              const SizedBox(height: 14),
+
+              _inputField(
+                'Potvrda lozinke',
+                'confirmPassword',
+                icon: Icons.lock,
+                obscure: _obscureConfirm,
+                suffix: IconButton(
+                  icon: Icon(
+                    _obscureConfirm ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
+                ),
+                validator: (val) {
+                  if (val == null || val.isEmpty) {
+                    return 'Obavezno polje';
+                  }
+
+                  final password =
+                      _formKey.currentState?.fields['password']?.value;
+
+                  if (val != password) {
+                    return 'Lozinke se ne poklapaju';
+                  }
+
+                  return null;
+                },
+              ),
+
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _handleRegister,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E40AF),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Registruj se',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Već imaš račun? Prijavi se'),
+              ),
+            ],
+          ),
         ),
       ),
     );

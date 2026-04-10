@@ -1,6 +1,7 @@
 import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/locale_provider.dart';
+import 'package:easytab_mobile/screens/locale_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -199,6 +200,10 @@ class _LocaleCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => LocaleDetailScreen(locale: locale)),
+      ),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
