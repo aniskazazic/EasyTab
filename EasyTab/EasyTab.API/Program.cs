@@ -33,6 +33,8 @@ builder.Services.AddTransient<IFileService, FileService>();
 
 builder.Services.AddMapster();
 
+builder.Services.AddHttpContextAccessor();
+
 //var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=localhost;Initial Catalog=220030;Integrated Security=True;TrustServerCertificate=True";
 
 var connectionString = builder.Configuration.GetConnectionString("EasyTabConnection");

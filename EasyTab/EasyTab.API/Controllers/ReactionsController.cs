@@ -3,6 +3,7 @@ using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EasyTab.API.Controllers
@@ -18,14 +19,16 @@ namespace EasyTab.API.Controllers
             _service = service;
         }
 
-        [HttpPost("react")]
-        public IActionResult React([FromQuery] int reviewId, [FromQuery] int userId, [FromQuery] bool isLike)
+        [HttpPost]
+        [AllowAnonymous]
+        public IActionResult React(ReactionInsertRequest request)
         {
-            var result = _service.React(reviewId, userId, isLike);
+            var result = _service.React(request.ReviewId, request.UserId,   request.IsLike);
             return Ok(result);
         }
 
-        [HttpDelete("remove")]
+        [HttpDelete]
+        [AllowAnonymous]
         public IActionResult RemoveReaction([FromQuery] int reviewId, [FromQuery] int userId)
         {
             _service.RemoveReaction(reviewId, userId);

@@ -6,19 +6,22 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using MapsterMapper;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+
 namespace EasyTab.Services.Services
 {
     public class ReactionService : BaseCRUDService<Reactions, ReactionSearchObject, Reaction, ReactionInsertRequest, ReactionUpdateRequest>, IReactionService
     {
-        public ReactionService(_220030Context context, IMapper mapper) : base(context, mapper)
+        ILogger<IUserService> _logger;
+        public ReactionService(_220030Context context, IMapper mapper, ILogger<IUserService> logger) : base(context, mapper)
         {
-            
+            _logger = logger;
         }
 
         protected override IQueryable<Reaction> ApplyFilter(IQueryable<Reaction> query, ReactionSearchObject search)
@@ -36,6 +39,8 @@ namespace EasyTab.Services.Services
         {
             var existing = Context.Reactions
                             .FirstOrDefault(r => r.ReviewId == reviewId && r.UserId == userId);
+
+            _logger.LogInformation($"User {userId} is reacting to review {reviewId} with {(isLike ? "like" : "dislike")}");
 
             if (existing != null)
             {

@@ -18,4 +18,5 @@ namespace EasyTab.Model.Models
         public int Likes { get; set; }
         public int Dislikes { get; set; }
     }
+
 }

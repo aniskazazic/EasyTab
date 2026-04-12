@@ -1,9 +1,11 @@
-import 'dart:convert';
 import 'package:easytab_mobile/models/locale.dart' as model;
+import 'package:easytab_mobile/models/review.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
-import 'package:easytab_mobile/providers/base_provider.dart';
+import 'package:easytab_mobile/providers/reaction_provider.dart';
+import 'package:easytab_mobile/providers/review_provider.dart';
+import 'package:easytab_mobile/screens/add_review_screen.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:provider/provider.dart';
 
 class LocaleDetailScreen extends StatefulWidget {
   final model.Locale locale;
@@ -14,9 +16,12 @@ class LocaleDetailScreen extends StatefulWidget {
 }
 
 class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
+  late ReviewProvider _reviewProvider;
+  late ReactionProvider _reactionProvider;
+
   bool _isFavourite = false;
   bool _isLoadingReviews = true;
-  List<Map<String, dynamic>> _reviews = [];
+  List<Review> _reviews = [];
   double _averageRating = 0;
   Map<String, int> _ratingCounts = {
     'Odlično': 0,
@@ -27,59 +32,30 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   };
 
   model.Locale get locale => widget.locale;
+  int? get _currentUserId => AuthProvider.currentUser?.id;
 
   @override
   void initState() {
     super.initState();
+    _reviewProvider = context.read<ReviewProvider>();
+    _reactionProvider = context.read<ReactionProvider>();
     _loadReviews();
   }
 
   Future<void> _loadReviews() async {
+    setState(() => _isLoadingReviews = true);
     try {
-      final baseUrl = BaseProvider.baseUrl ?? 'http://10.0.2.2:5241';
-      final headers = _createHeaders();
-
-      final responses = await Future.wait([
-        http.get(
-          Uri.parse('$baseUrl/Reviews?LocaleId=${locale.id}&RetrieveAll=true'),
-          headers: headers,
-        ),
-        http.get(
-          Uri.parse('$baseUrl/Reviews/average/${locale.id}'),
-          headers: headers,
-        ),
-        http.get(
-          Uri.parse('$baseUrl/Reviews/rating-counts/${locale.id}'),
-          headers: headers,
-        ),
+      final results = await Future.wait([
+        _reviewProvider.getByLocale(locale.id!),
+        _reviewProvider.getAverage(locale.id!),
+        _reviewProvider.getRatingCounts(locale.id!),
       ]);
 
-      if (responses[0].statusCode == 200) {
-        final data = jsonDecode(responses[0].body);
-        setState(() {
-          _reviews = List<Map<String, dynamic>>.from(data['items'] ?? []);
-        });
-      }
-
-      if (responses[1].statusCode == 200) {
-        final data = jsonDecode(responses[1].body);
-        setState(
-          () => _averageRating = (data['averageRating'] as num).toDouble(),
-        );
-      }
-
-      if (responses[2].statusCode == 200) {
-        final data = jsonDecode(responses[2].body);
-        setState(() {
-          _ratingCounts = {
-            'Odlično': data['excellent'] ?? 0,
-            'Dobro': data['good'] ?? 0,
-            'Prosječno': data['average'] ?? 0,
-            'Loše': data['poor'] ?? 0,
-            'Užasno': data['terrible'] ?? 0,
-          };
-        });
-      }
+      setState(() {
+        _reviews = results[0] as List<Review>;
+        _averageRating = results[1] as double;
+        _ratingCounts = results[2] as Map<String, int>;
+      });
     } catch (e) {
       debugPrint('Error loading reviews: $e');
     } finally {
@@ -87,20 +63,78 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     }
   }
 
-  Map<String, String> _createHeaders() {
-    final username = AuthProvider.username ?? '';
-    final password = AuthProvider.password ?? '';
-    final basicAuth =
-        'Basic ${base64Encode(utf8.encode('$username:$password'))}';
-    return {'Content-Type': 'application/json', 'Authorization': basicAuth};
+  void _goToAddReview({Review? existingReview}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddReviewScreen(
+          localeId: locale.id!,
+          existingReview: existingReview,
+          onSaved: _loadReviews,
+        ),
+      ),
+    );
+  }
+
+  void _confirmDelete(Review review) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Brisanje recenzije'),
+        content: const Text(
+          'Da li ste sigurni da želite obrisati ovu recenziju?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Otkaži'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await _reviewProvider.deleteReview(review.id!);
+                _loadReviews();
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(e.toString())));
+                }
+              }
+            },
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleReaction(Review review, bool isLike) async {
+    // Ne dozvoli reakciju na vlastitu recenziju
+    if (review.userId == _currentUserId) return;
+
+    debugPrint(
+      'ReviweId: ${review.id}, userId: $_currentUserId, islike: $isLike',
+    );
+
+    try {
+      await _reactionProvider.react(
+        reviewId: review.id!,
+        userId: _currentUserId!,
+        isLike: isLike,
+      );
+      _loadReviews();
+    } catch (e) {
+      debugPrint('Reaction error: $e');
+    }
   }
 
   String _formatTime(DateTime? dt) {
     if (dt == null) return '--';
     return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
   }
-
-  String _dayRange() => 'Pon - Ned';
 
   @override
   Widget build(BuildContext context) {
@@ -186,7 +220,6 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     );
   }
 
-  // ── Hero ──────────────────────────────────────────────────────────────────
   Widget _buildHero() {
     return Container(
       width: double.infinity,
@@ -202,16 +235,13 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     );
   }
 
-  Widget _logoFallback() {
-    return Container(
-      color: const Color(0xFFEFF6FF),
-      child: const Center(
-        child: Icon(Icons.store_outlined, size: 72, color: Color(0xFF1E40AF)),
-      ),
-    );
-  }
+  Widget _logoFallback() => Container(
+    color: const Color(0xFFEFF6FF),
+    child: const Center(
+      child: Icon(Icons.store_outlined, size: 72, color: Color(0xFF1E40AF)),
+    ),
+  );
 
-  // ── Info kartica ──────────────────────────────────────────────────────────
   Widget _buildInfoCard() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -239,8 +269,6 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
             ),
           ),
           const SizedBox(height: 8),
-
-          // Prosječna ocjena
           if (_averageRating > 0) ...[
             Row(
               children: [
@@ -251,44 +279,39 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF0F172A),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 16),
           ],
-
-          _buildInfoRow(
+          _infoRow(
             Icons.category_outlined,
             'Kategorija',
             locale.categoryName ?? '-',
           ),
           const Divider(height: 24),
-
-          _buildInfoRow(
+          _infoRow(
             Icons.access_time_outlined,
             'Radno vrijeme',
-            '${_dayRange()}  ${_formatTime(locale.startOfWorkingHours)} - ${_formatTime(locale.endOfWorkingHours)}',
+            'Pon - Ned  ${_formatTime(locale.startOfWorkingHours)} - ${_formatTime(locale.endOfWorkingHours)}',
           ),
           const Divider(height: 24),
-
-          _buildInfoRow(
+          _infoRow(
             Icons.location_on_outlined,
             'Adresa',
             '${locale.address ?? '-'}, ${locale.cityName ?? ''}',
           ),
-
           if (locale.phoneNumber != null && locale.phoneNumber!.isNotEmpty) ...[
             const Divider(height: 24),
-            _buildInfoRow(Icons.phone_outlined, 'Telefon', locale.phoneNumber!),
+            _infoRow(Icons.phone_outlined, 'Telefon', locale.phoneNumber!),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _infoRow(IconData icon, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -322,9 +345,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     );
   }
 
-  // ── Galerija ──────────────────────────────────────────────────────────────
   Widget _buildGallerySection() {
-    // Placeholder slike za galeriju — zamijeniti sa LocaleImages API-jem
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -357,22 +378,20 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
               scrollDirection: Axis.horizontal,
               itemCount: 3,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, index) {
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    width: 130,
-                    color: const Color(0xFFEFF6FF),
-                    child: const Center(
-                      child: Icon(
-                        Icons.image_outlined,
-                        size: 36,
-                        color: Color(0xFF1E40AF),
-                      ),
+              itemBuilder: (context, i) => ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  width: 130,
+                  color: const Color(0xFFEFF6FF),
+                  child: const Center(
+                    child: Icon(
+                      Icons.image_outlined,
+                      size: 36,
+                      color: Color(0xFF1E40AF),
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ),
         ],
@@ -380,10 +399,8 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     );
   }
 
-  // ── Ocjene ────────────────────────────────────────────────────────────────
   Widget _buildRatingsSection() {
-    final totalReviews = _reviews.length;
-
+    final total = _reviews.length;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -414,9 +431,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Lijeva strana — broj i zvjezdice
                 Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
                       _averageRating.toStringAsFixed(1),
@@ -429,7 +444,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                     _buildStars(_averageRating),
                     const SizedBox(height: 4),
                     Text(
-                      '(${totalReviews} recenzije)',
+                      '($total recenzije)',
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey.shade500,
@@ -438,14 +453,10 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                   ],
                 ),
                 const SizedBox(width: 20),
-
-                // Desna strana — barovi
                 Expanded(
                   child: Column(
                     children: _ratingCounts.entries.map((entry) {
-                      final percent = totalReviews > 0
-                          ? entry.value / totalReviews
-                          : 0.0;
+                      final pct = total > 0 ? entry.value / total : 0.0;
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 3),
                         child: Row(
@@ -464,17 +475,9 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(4),
                                 child: LinearProgressIndicator(
-                                  value: percent.toDouble(),
+                                  value: pct.toDouble(),
                                   backgroundColor: Colors.grey.shade200,
-                                  color: entry.key == 'Odlično'
-                                      ? Colors.green
-                                      : entry.key == 'Dobro'
-                                      ? Colors.lightGreen
-                                      : entry.key == 'Prosječno'
-                                      ? Colors.orange
-                                      : entry.key == 'Loše'
-                                      ? Colors.deepOrange
-                                      : Colors.red,
+                                  color: _barColor(entry.key),
                                   minHeight: 8,
                                 ),
                               ),
@@ -493,7 +496,21 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     );
   }
 
-  // ── Recenzije ─────────────────────────────────────────────────────────────
+  Color _barColor(String label) {
+    switch (label) {
+      case 'Odlično':
+        return Colors.green;
+      case 'Dobro':
+        return Colors.lightGreen;
+      case 'Prosječno':
+        return Colors.orange;
+      case 'Loše':
+        return Colors.deepOrange;
+      default:
+        return Colors.red;
+    }
+  }
+
   Widget _buildReviewsSection() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -512,7 +529,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () => _showAddReviewDialog(),
+                onPressed: () => _goToAddReview(),
                 icon: const Icon(Icons.edit_outlined, size: 14),
                 label: const Text(
                   'Napiši recenziju',
@@ -533,7 +550,6 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
             ],
           ),
           const SizedBox(height: 12),
-
           _isLoadingReviews
               ? const Center(child: CircularProgressIndicator())
               : _reviews.isEmpty
@@ -551,12 +567,12 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     );
   }
 
-  Widget _buildReviewCard(Map<String, dynamic> review) {
-    final rating = (review['rating'] as num?)?.toDouble() ?? 0;
-    final firstName = review['username'] ?? 'Korisnik';
-    final description = review['description'] ?? '';
-    final likes = review['likes'] ?? 0;
-    final dislikes = review['dislikes'] ?? 0;
+  Widget _buildReviewCard(Review review) {
+    final isMyReview = review.userId == _currentUserId;
+    final rating = review.rating ?? 0;
+    final dateStr = review.dateAdded != null
+        ? '${review.dateAdded!.day}.${review.dateAdded!.month}.${review.dateAdded!.year}.'
+        : '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -564,6 +580,9 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
+        border: isMyReview
+            ? Border.all(color: const Color(0xFF1E40AF), width: 1.5)
+            : null,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),
@@ -578,209 +597,134 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                firstName,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Row(children: [_buildStars(rating, size: 14)]),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            description,
-            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-          ),
-          const SizedBox(height: 10),
-
-          // Like/dislike
-          Row(
-            children: [
-              _reactionButton(Icons.thumb_up_outlined, likes.toString()),
-              const SizedBox(width: 12),
-              _reactionButton(Icons.thumb_down_outlined, dislikes.toString()),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _reactionButton(IconData icon, String count) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: Colors.grey.shade600),
-          const SizedBox(width: 4),
-          Text(
-            count,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Add Review Dialog ─────────────────────────────────────────────────────
-  void _showAddReviewDialog() {
-    int selectedRating = 0;
-    final descController = TextEditingController();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.fromLTRB(
-            24,
-            24,
-            24,
-            MediaQuery.of(context).viewInsets.bottom + 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Icon(Icons.close, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Napiši recenziju',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // Zvjezdice za ocjenu
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: selectedRating == 0
-                        ? Colors.red.shade300
-                        : Colors.grey.shade200,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
+              Expanded(
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Ukupna ocjena *',
-                      style: TextStyle(
+                    Text(
+                      review.userFullName ?? 'Korisnik',
+                      style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 2),
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (i) {
-                        return GestureDetector(
-                          onTap: () =>
-                              setModalState(() => selectedRating = i + 1),
-                          child: Icon(
-                            i < selectedRating ? Icons.star : Icons.star_border,
-                            color: const Color(0xFFFBBF24),
-                            size: 36,
+                      children: [
+                        _buildStars(rating.toDouble(), size: 13),
+                        const SizedBox(width: 6),
+                        Text(
+                          dateStr,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
                           ),
-                        );
-                      }),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
 
-              const Text(
-                'Ostavite opis *',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: descController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFF1E40AF)),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    if (selectedRating == 0 || descController.text.isEmpty)
-                      return;
-                    try {
-                      final baseUrl =
-                          BaseProvider.baseUrl ?? 'http://10.0.2.2:5241';
-                      await http.post(
-                        Uri.parse('$baseUrl/Reviews'),
-                        headers: _createHeaders(),
-                        body: jsonEncode({
-                          'localeId': locale.id,
-                          'userId': AuthProvider.currentUser?.id,
-                          'rating': selectedRating,
-                          'description': descController.text,
-                        }),
-                      );
-                      if (mounted) {
-                        Navigator.pop(context);
-                        _loadReviews();
-                      }
-                    } catch (e) {
-                      debugPrint('Error adding review: $e');
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E40AF),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+              // Edit/Delete samo za moje recenzije
+              if (isMyReview)
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: Color(0xFF1E40AF),
+                      ),
+                      onPressed: () => _goToAddReview(existingReview: review),
+                      tooltip: 'Uredi',
                     ),
-                  ),
-                  child: const Text(
-                    'Dodaj recenziju',
-                    style: TextStyle(color: Colors.white, fontSize: 15),
-                  ),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: Colors.red,
+                      ),
+                      onPressed: () => _confirmDelete(review),
+                      tooltip: 'Obriši',
+                    ),
+                  ],
                 ),
-              ),
             ],
           ),
+          const SizedBox(height: 8),
+          Text(
+            review.description ?? '',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 10),
+
+          // Like/dislike dugmad (samo ako nije moja recenzija)
+          if (!isMyReview)
+            Row(
+              children: [
+                _reactionButton(
+                  Icons.thumb_up,
+                  review.likes?.toString() ?? '0',
+                  isActive: review.userReaction == 1,
+                  activeColor: Colors.green,
+                  onTap: () => _handleReaction(review, true),
+                ),
+                const SizedBox(width: 10),
+                _reactionButton(
+                  Icons.thumb_down,
+                  review.dislikes?.toString() ?? '0',
+                  isActive: review.userReaction == -1,
+                  activeColor: Colors.red,
+                  onTap: () => _handleReaction(review, false),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reactionButton(
+    IconData icon,
+    String count, {
+    required VoidCallback onTap,
+    bool isActive = false,
+    Color activeColor = Colors.green,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isActive
+              ? activeColor.withOpacity(0.15)
+              : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+          border: isActive ? Border.all(color: activeColor, width: 1) : null,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isActive ? activeColor : Colors.grey.shade600,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              count,
+              style: TextStyle(
+                fontSize: 12,
+                color: isActive ? activeColor : Colors.grey.shade600,
+                fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
   Widget _buildStars(double rating, {double size = 18}) {
     return Row(
       mainAxisSize: MainAxisSize.min,

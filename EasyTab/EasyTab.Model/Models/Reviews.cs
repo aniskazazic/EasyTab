@@ -19,5 +19,6 @@ namespace EasyTab.Model.Models
         public bool IsDeleted { get; set; }
         public int Likes { get; set; }
         public int Dislikes { get; set; }
+        public int UserReaction { get; set; }
     }
 }
