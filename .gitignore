@@ -435,3 +435,4 @@ doc/api/
 # End of https://www.toptal.com/developers/gitignore/api/dart,csharp
 /EasyTab/.idea
 /EasyTab/UI/easytab_mobile/macos/Flutter
+.idea/
