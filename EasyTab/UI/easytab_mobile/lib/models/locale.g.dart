@@ -25,6 +25,7 @@ Locale _$LocaleFromJson(Map<String, dynamic> json) => Locale(
   isDeleted: json['isDeleted'] as bool?,
   countryName: json['countryName'] as String?,
   ownerName: json['ownerName'] as String?,
+  averageRating: (json['averageRating'] as num?)?.toDouble(),
 );
 
 Map<String, dynamic> _$LocaleToJson(Locale instance) => <String, dynamic>{
@@ -44,4 +45,5 @@ Map<String, dynamic> _$LocaleToJson(Locale instance) => <String, dynamic>{
   'isDeleted': instance.isDeleted,
   'countryName': instance.countryName,
   'ownerName': instance.ownerName,
+  'averageRating': instance.averageRating,
 };

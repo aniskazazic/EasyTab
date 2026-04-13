@@ -1,6 +1,6 @@
 import 'package:easytab_mobile/models/locale.dart' as model;
-import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/locale_provider.dart';
+import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/locale_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -149,7 +149,7 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
         ),
         const SizedBox(height: 12),
         SizedBox(
-          height: 235,
+          height: 248,
           child: PageView.builder(
             controller: _pageController,
             itemCount: widget.locales.length,
@@ -194,7 +194,6 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
 
 class _LocaleCard extends StatelessWidget {
   final model.Locale locale;
-
   const _LocaleCard({required this.locale});
 
   @override
@@ -221,6 +220,7 @@ class _LocaleCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Logo
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(18),
@@ -228,88 +228,103 @@ class _LocaleCard extends StatelessWidget {
               child: SizedBox(
                 height: 148,
                 width: double.infinity,
-                child: locale.logo != null && locale.logo!.isNotEmpty
-                    ? Image.network(
-                        locale.logo!,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (_, child, progress) => progress == null
-                            ? child
-                            : Container(
-                                color: const Color(0xFFEFF6FF),
-                                child: const Center(
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Color(0xFF1E40AF),
-                                  ),
-                                ),
-                              ),
-                        errorBuilder: (_, __, ___) => _placeholder(),
-                      )
-                    : _placeholder(),
+                child: ImageUtils.buildImage(
+                  locale.logo,
+                  fit: BoxFit.cover,
+                  placeholder: _placeholder(),
+                ),
               ),
             ),
+
+            // Info
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          locale.name ?? '',
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF0F172A),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          locale.categoryName ?? '',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade500,
-                          ),
-                        ),
-                      ],
+                  // Naziv + kategorija
+                  Text(
+                    locale.name ?? '',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(width: 12),
-                  if (locale.cityName != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.location_on_outlined,
-                            size: 12,
-                            color: Color(0xFF1E40AF),
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            locale.cityName!,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF1E40AF),
-                              fontWeight: FontWeight.w500,
+                  const SizedBox(height: 3),
+                  Text(
+                    locale.categoryName ?? '',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Ocjena + grad u istom redu
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      // Prosječna ocjena
+                      if (locale.averageRating != null &&
+                          locale.averageRating! > 0)
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star,
+                              color: Color(0xFFFBBF24),
+                              size: 14,
                             ),
+                            const SizedBox(width: 3),
+                            Text(
+                              locale.averageRating!.toStringAsFixed(1),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        const SizedBox(),
+
+                      // Grad
+                      if (locale.cityName != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
                           ),
-                        ],
-                      ),
-                    ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 12,
+                                color: Color(0xFF1E40AF),
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                locale.cityName!,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF1E40AF),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
                 ],
               ),
             ),

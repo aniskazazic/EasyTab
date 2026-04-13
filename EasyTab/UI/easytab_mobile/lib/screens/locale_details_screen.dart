@@ -1,8 +1,11 @@
+import 'package:easytab_mobile/models/favourite.dart';
 import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/models/review.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
+import 'package:easytab_mobile/providers/favourite_provider.dart';
 import 'package:easytab_mobile/providers/reaction_provider.dart';
 import 'package:easytab_mobile/providers/review_provider.dart';
+import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/add_review_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -18,9 +21,13 @@ class LocaleDetailScreen extends StatefulWidget {
 class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   late ReviewProvider _reviewProvider;
   late ReactionProvider _reactionProvider;
+  late FavouriteProvider _favouriteProvider;
 
   bool _isFavourite = false;
   bool _isLoadingReviews = true;
+  Favourite? _currentFavourite;
+  bool _isTogglingFav = false;
+
   List<Review> _reviews = [];
   double _averageRating = 0;
   Map<String, int> _ratingCounts = {
@@ -39,7 +46,12 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     super.initState();
     _reviewProvider = context.read<ReviewProvider>();
     _reactionProvider = context.read<ReactionProvider>();
-    _loadReviews();
+    _favouriteProvider = context.read<FavouriteProvider>();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    await Future.wait([_loadReviews(), _checkFavourite()]);
   }
 
   Future<void> _loadReviews() async {
@@ -60,6 +72,63 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
       debugPrint('Error loading reviews: $e');
     } finally {
       if (mounted) setState(() => _isLoadingReviews = false);
+    }
+  }
+
+  Future<void> _toggleFavourite() async {
+    if (_isTogglingFav || _currentUserId == null) return;
+    setState(() => _isTogglingFav = true);
+
+    try {
+      if (_isFavourite) {
+        // Ukloni
+        await _favouriteProvider.removeFavourite(_currentUserId!, locale.id!);
+        setState(() => _isFavourite = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${locale.name ?? 'Lokal'} uklonjen iz omiljenih'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        // Dodaj
+        await _favouriteProvider.addFavourite(_currentUserId!, locale.id!);
+        setState(() => _isFavourite = true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${locale.name ?? 'Lokal'} dodan u omiljene!'),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Toggle favourite error: $e');
+    } finally {
+      if (mounted) setState(() => _isTogglingFav = false);
+    }
+  }
+
+  Future<void> _checkFavourite() async {
+    try {
+      if (_currentUserId == null || locale.id == null) return;
+      final isFav = await _favouriteProvider.isFavourited(
+        _currentUserId!,
+        locale.id!,
+      );
+      if (mounted) {
+        setState(() {
+          _isFavourite = isFav;
+          // _currentFavourite više ne koristimo, možemo ga ukloniti iz state-a
+        });
+      }
+    } catch (e) {
+      debugPrint('Error checking favourite: $e');
     }
   }
 
@@ -172,11 +241,27 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                   Icons.arrow_back,
                   onTap: () => Navigator.pop(context),
                 ),
-                _circleButton(
-                  _isFavourite ? Icons.favorite : Icons.favorite_border,
-                  color: _isFavourite ? Colors.red : null,
-                  onTap: () => setState(() => _isFavourite = !_isFavourite),
-                ),
+                _isTogglingFav
+                    ? Container(
+                        width: 40,
+                        height: 40,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(10),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.red,
+                          ),
+                        ),
+                      )
+                    : _circleButton(
+                        _isFavourite ? Icons.favorite : Icons.favorite_border,
+                        color: _isFavourite ? Colors.red : null,
+                        onTap: _toggleFavourite,
+                      ),
               ],
             ),
           ),
@@ -225,13 +310,11 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
       width: double.infinity,
       height: 240,
       color: Colors.white,
-      child: locale.logo != null && locale.logo!.isNotEmpty
-          ? Image.network(
-              locale.logo!,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => _logoFallback(),
-            )
-          : _logoFallback(),
+      child: ImageUtils.buildImage(
+        locale.logo,
+        fit: BoxFit.contain,
+        placeholder: _logoFallback(),
+      ),
     );
   }
 

@@ -22,6 +22,7 @@ class Locale {
   bool? isDeleted;
   String? countryName;
   String? ownerName;
+  double? averageRating;
 
   Locale({
     this.id,
@@ -40,9 +41,11 @@ class Locale {
     this.isDeleted,
     this.countryName,
     this.ownerName,
+    this.averageRating,
   });
 
   factory Locale.fromJson(Map<String, dynamic> json) => _$LocaleFromJson(json);
+  Map<String, dynamic> toJson() => _$LocaleToJson(this);
 }
 
 // Helper functions to handle C# TimeOnly ("HH:mm:ss") values.

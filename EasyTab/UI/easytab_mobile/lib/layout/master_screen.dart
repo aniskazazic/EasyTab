@@ -1,3 +1,4 @@
+import 'package:easytab_mobile/screens/favourite_screen.dart';
 import 'package:easytab_mobile/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -14,7 +15,7 @@ class _MasterScreenState extends State<MasterScreen> {
   final List<Widget> _screens = const [
     HomeScreen(),
     _SearchScreen(),
-    _FavouritesScreen(),
+    FavouritesScreen(),
     _ReservationsScreen(),
     _SettingsScreen(),
   ];
@@ -113,13 +114,6 @@ class _SearchScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       const _PlaceholderScreen(label: 'Pretraga', icon: Icons.search_outlined);
-}
-
-class _FavouritesScreen extends StatelessWidget {
-  const _FavouritesScreen();
-  @override
-  Widget build(BuildContext context) =>
-      const _PlaceholderScreen(label: 'Omiljeni', icon: Icons.favorite_outline);
 }
 
 class _ReservationsScreen extends StatelessWidget {
