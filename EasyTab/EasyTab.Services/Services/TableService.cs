@@ -4,7 +4,9 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
+using Microsoft.AspNetCore.Identity;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +17,7 @@ namespace EasyTab.Services.Services
 {
     public class TableService : BaseCRUDService<Tables, TableSearchObject, Table, TableInsertRequest, TableUpdateRequest>, ITableService
     {
-        public TableService(_220030Context context, IMapper mapper) : base(context, mapper)
+        public TableService(_220030Context context, IMapper mapper,IValidator<TableInsertRequest> insertValidator, IValidator<TableUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
         }
 

@@ -1,13 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36804.6
+# Visual Studio Version 18
+VisualStudioVersion = 18.5.11709.299 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyTab.API", "EasyTab.API\EasyTab.API.csproj", "{1DA8E059-3845-4839-96CE-4C136859A15A}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyTab.Model", "EasyTab.Model\EasyTab.Model.csproj", "{16C4D400-BD96-4973-9256-DFBB420D1B82}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyTab.Services", "EasyTab.Services\EasyTab.Services.csproj", "{53E842E0-D516-4DD6-BCB1-E898AB599468}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EasyTab.Common.Services", "EasyTab.Common.Services\EasyTab.Common.Services.csproj", "{2A9EE2F8-09FB-4158-9B5F-743FC4D55902}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,6 +29,10 @@ Global
 		{53E842E0-D516-4DD6-BCB1-E898AB599468}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{53E842E0-D516-4DD6-BCB1-E898AB599468}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{53E842E0-D516-4DD6-BCB1-E898AB599468}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2A9EE2F8-09FB-4158-9B5F-743FC4D55902}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2A9EE2F8-09FB-4158-9B5F-743FC4D55902}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2A9EE2F8-09FB-4158-9B5F-743FC4D55902}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2A9EE2F8-09FB-4158-9B5F-743FC4D55902}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

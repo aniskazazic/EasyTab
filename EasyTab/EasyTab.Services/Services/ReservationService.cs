@@ -4,6 +4,7 @@ using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,7 @@ namespace EasyTab.Services.Services
     public class ReservationService : BaseCRUDService<Reservations, ReservationSearchObject, Reservation, ReservationInsertRequest, ReservationUpdateRequest>, IReservationService
     {
         private readonly IWebHostEnvironment _wh;
-        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh) : base(context, mapper)
+        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
         }

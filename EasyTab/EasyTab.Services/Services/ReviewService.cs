@@ -4,6 +4,7 @@ using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -19,7 +20,7 @@ namespace EasyTab.Services.Services
     public class ReviewService : BaseCRUDService<Reviews, ReviewSearchObject, Review, ReviewInsertRequest, ReviewUpdateRequest>, IReviewService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public ReviewService(_220030Context context, IMapper mapper, IHttpContextAccessor httpContextAccessor) : base(context, mapper) {
+        public ReviewService(_220030Context context, IMapper mapper, IHttpContextAccessor httpContextAccessor, IValidator<ReviewInsertRequest> insertValidator, IValidator<ReviewUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator) {
             _httpContextAccessor = httpContextAccessor;
         }
 

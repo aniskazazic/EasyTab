@@ -4,6 +4,7 @@ using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -19,7 +20,7 @@ namespace EasyTab.Services.Services
     {
         private readonly IWebHostEnvironment _wh;
 
-        public FavouriteService(_220030Context context, IMapper mapper, IWebHostEnvironment wh) : base(context, mapper)
+        public FavouriteService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IValidator<FavouriteInsertRequest> insertValidator, IValidator<FavouriteUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
         }

@@ -1,9 +1,11 @@
-﻿using EasyTab.Model.Models;
+﻿using EasyTab.Common.Services.CryptoService;
+using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -20,10 +22,11 @@ namespace EasyTab.Services.Services
     public class WorkerService : BaseCRUDService<Workers, WorkerSearchObject, Worker, WorkerInsertRequest, WorkerUpdateRequest>, IWorkerService
     {
         private readonly string _baseUrl;
-
-        public WorkerService(_220030Context context, IMapper mapper, IConfiguration config) : base(context, mapper)
+        private readonly ICryptoService _cryptoService;
+        public WorkerService(_220030Context context, IMapper mapper, IConfiguration config, ICryptoService cryptoService, IValidator<WorkerInsertRequest> insertValidator, IValidator<WorkerUpdateRequest> updateValidator) : base(context, mapper,insertValidator,updateValidator)
         {
             _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";
+            _cryptoService = cryptoService;
         }
 
         protected override IQueryable<Worker> ApplyFilter(IQueryable<Worker> query, WorkerSearchObject search)
@@ -75,7 +78,7 @@ namespace EasyTab.Services.Services
             if (existingUser != null)
                 throw new Exception("Korisnik sa ovim emailom ili korisničkim imenom već postoji!");
 
-            var salt = UserService.GenerateSalt();
+            var salt = _cryptoService.GenerateSalt();
             var user = new User
             {
                 FirstName = request.FirstName,
@@ -91,7 +94,7 @@ namespace EasyTab.Services.Services
                     : Path.GetFileName(request.ProfilePicture),
                 PasswordSalt = salt,
             };
-            user.PasswordHash = UserService.GenerateHash(salt, request.Password);
+            user.PasswordHash = _cryptoService.GenerateHash(request.Password,salt);
 
             Context.Users.Add(user);
             await Context.SaveChangesAsync();
@@ -189,9 +192,9 @@ namespace EasyTab.Services.Services
 
             if (!string.IsNullOrEmpty(request.Password))
             {
-                var salt = UserService.GenerateSalt();
+                var salt = _cryptoService.GenerateSalt();
                 user.PasswordSalt = salt;
-                user.PasswordHash = UserService.GenerateHash(salt, request.Password);
+                user.PasswordHash = _cryptoService.GenerateHash(request.Password, salt);
             }
 
             Context.Users.Update(user);

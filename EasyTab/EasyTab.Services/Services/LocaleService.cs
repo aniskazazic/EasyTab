@@ -4,6 +4,7 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,7 @@ namespace EasyTab.Services.Services
         private readonly IWebHostEnvironment _wh;
         private readonly string _baseUrl;
 
-        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IConfiguration config) : base(context, mapper)
+        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IConfiguration config, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
             _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";

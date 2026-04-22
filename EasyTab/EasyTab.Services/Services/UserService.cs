@@ -1,38 +1,33 @@
-﻿using EasyTab.Model;
+﻿using EasyTab.Common.Services.CryptoService;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace EasyTab.Services.Services
 {
     public class UserService : BaseCRUDService<Users, UserSearchObject, User, UserInsertRequest, UserUpdateRequest>, IUserService
     {
         ILogger<IUserService> _logger;
+        private readonly ICryptoService _cryptoService;
         private readonly string _baseUrl;
 
-        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IConfiguration config) : base(context, mapper)
+        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IConfiguration config, IValidator<UserInsertRequest> insertValidator, IValidator<UserUpdateRequest> updateValidator, ICryptoService cryptoService) : base(context, mapper,insertValidator,updateValidator)
         {
             _logger = logger;
             _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";
+            _cryptoService = cryptoService;
         }
 
-        protected override IQueryable<User> ApplyFilter(IQueryable<User> query, UserSearchObject searchObject)
+        protected override IQueryable<User> ApplyFilter(IQueryable<User> query, UserSearchObject? searchObject)
         {
             query = query.Include(x => x.UserRoles)
                  .ThenInclude(y => y.Role);
@@ -104,17 +99,21 @@ namespace EasyTab.Services.Services
         {
             _logger.LogInformation("Inserting user with username: {Username}", request.Username);
 
-            if (request.Password != request.PasswordConfirmation)
-                throw new UserException("Lozinka i potvrda lozinke moraju biti iste!");
+            await _insertValidator.ValidateAndThrowAsync(request);
 
-            if (await Context.Users.AnyAsync(u => u.Email == request.Email))
-                throw new UserException("Korisnik sa ovim emailom već postoji!");
+            // Check if email or username already exists
+            if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            {
+                throw new InvalidOperationException($"Email '{request.Email}' is already in use.");
+            }
 
-            if (await Context.Users.AnyAsync(u => u.Username == request.Username))
-                throw new UserException("Korisnik sa ovim korisničkim imenom već postoji!");
+            if (await _context.Users.AnyAsync(u => u.Username == request.Username))
+            {
+                throw new InvalidOperationException($"Username '{request.Username}' is already in use.");
+            }
 
-            entity.PasswordSalt = GenerateSalt();
-            entity.PasswordHash = GenerateHash(entity.PasswordSalt, request.Password);
+            entity.PasswordSalt = _cryptoService.GenerateSalt();
+            entity.PasswordHash = _cryptoService.GenerateHash(request.Password, entity.PasswordSalt);
             entity.IsDeleted = false;
             // FileController vraca puni URL — uzimamo samo filename za bazu
             entity.ProfilePicture = string.IsNullOrWhiteSpace(request.ProfilePicture)
@@ -126,12 +125,25 @@ namespace EasyTab.Services.Services
 
         public override async Task<Users?> UpdateAsync(int id, UserUpdateRequest request)
         {
-            var entity = await _context.Set<User>()
-                .IgnoreQueryFilters()
-                .FirstOrDefaultAsync(x => x.Id == id);
 
+            await _updateValidator.ValidateAndThrowAsync(request);
+
+            var entity = await _context.Users.FindAsync(id);
             if (entity == null)
-                return null;
+            {
+                throw new KeyNotFoundException($"User with id {id} not found.");
+            }
+
+            // Check if email or username already exists
+            if (await _context.Users.AnyAsync(u => u.Email == request.Email && u.Id != id))
+            {
+                throw new InvalidOperationException($"Email '{request.Email}' is already in use.");
+            }
+
+            if (await _context.Users.AnyAsync(u => u.Username == request.Username && u.Id != id))
+            {
+                throw new InvalidOperationException($"Username '{request.Username}' is already in use.");
+            }
 
             var oldEmail = entity.Email;
             var oldFirstName = entity.FirstName;
@@ -173,8 +185,8 @@ namespace EasyTab.Services.Services
             {
                 if (request.Password != request.PasswordConfirmation)
                     throw new UserException("Lozinka i potvrda lozinke moraju biti iste!");
-                entity.PasswordSalt = GenerateSalt();
-                entity.PasswordHash = GenerateHash(entity.PasswordSalt, request.Password);
+                entity.PasswordSalt = _cryptoService.GenerateSalt();
+                entity.PasswordHash = _cryptoService.GenerateHash(request.Password, entity.PasswordSalt);
             }
             else
             {
@@ -220,43 +232,24 @@ namespace EasyTab.Services.Services
             return Mapper.Map<Users>(entity);
         }
 
-        public static string GenerateSalt()
-        {
-            var byteArray = RandomNumberGenerator.GetBytes(16);
-            return Convert.ToBase64String(byteArray);
-        }
-
-        public static string GenerateHash(string salt, string password)
-        {
-            byte[] src = Convert.FromBase64String(salt);
-            byte[] bytes = Encoding.Unicode.GetBytes(password);
-            byte[] dst = new byte[src.Length + bytes.Length];
-
-            Buffer.BlockCopy(src, 0, dst, 0, src.Length);
-            Buffer.BlockCopy(bytes, 0, dst, src.Length, bytes.Length);
-
-            HashAlgorithm algorithm = HashAlgorithm.Create("SHA1");
-            byte[] inArray = algorithm.ComputeHash(dst);
-            return Convert.ToBase64String(inArray);
-        }
 
         protected override async Task BeforeUpdate(User entity, UserUpdateRequest request)
         {
             await Task.CompletedTask;
         }
 
-        public Users Login(string username, string password)
-        {
-            var entity = Context.Users.Include(x => x.UserRoles).ThenInclude(y => y.Role)
-                .FirstOrDefault(x => x.Username == username);
+        //public Users Login(string username, string password)
+        //{
+        //    var entity = Context.Users.Include(x => x.UserRoles).ThenInclude(y => y.Role)
+        //        .FirstOrDefault(x => x.Username == username);
 
-            if (entity == null) return null;
+        //    if (entity == null) return null;
 
-            var hash = GenerateHash(entity.PasswordSalt, password);
-            if (hash != entity.PasswordHash) return null;
+        //    var hash = _cryptoService.GenerateHash(password, entity.PasswordSalt);
+        //    if (hash != entity.PasswordHash) return null;
 
-            return Mapper.Map<Users>(entity);
-        }
+        //    return Mapper.Map<Users>(entity);
+        //}
 
         public async Task<Users?> AuthenticateAsync(UserLoginRequest request)
         {
@@ -270,7 +263,7 @@ namespace EasyTab.Services.Services
 
             if (entity == null) return null;
 
-            var hash = GenerateHash(entity.PasswordSalt, request.Password);
+            var hash = _cryptoService.GenerateHash( request.Password, entity.PasswordSalt);
             if (hash != entity.PasswordHash) return null;
 
             return Mapper.Map<Users>(entity);
@@ -287,13 +280,13 @@ namespace EasyTab.Services.Services
 
             // Soft delete User
             user.IsDeleted = true;
-            user.DeletedAt = DateTime.Now;
+            user.DeletedAt = DateTime.UtcNow;
 
             // Soft delete UserRoles
             foreach (var role in user.UserRoles)
             {
                 role.IsDeleted = true;
-                role.DeletedAt = DateTime.Now;
+                role.DeletedAt = DateTime.UtcNow;
             }
 
             // Soft delete Worker — direktno iz Context, ne preko navigacije
@@ -302,7 +295,7 @@ namespace EasyTab.Services.Services
             if (worker != null)
             {
                 worker.IsDeleted = true;
-                worker.DeletedAt = DateTime.Now;
+                worker.DeletedAt = DateTime.UtcNow;
             }
 
             await _context.SaveChangesAsync();

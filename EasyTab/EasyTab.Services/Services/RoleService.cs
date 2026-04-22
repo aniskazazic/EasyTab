@@ -4,6 +4,7 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using System;
 using System.Collections.Generic;
@@ -15,7 +16,7 @@ namespace EasyTab.Services.Services
 {
     public class RoleService : BaseCRUDService<Roles, RoleSearchObject, Role, RoleInsertRequest, RoleUpdateRequest>, IRoleService
     {
-        public RoleService(_220030Context context, IMapper mapper) : base(context, mapper) { }
+        public RoleService(_220030Context context, IMapper mapper, IValidator<RoleInsertRequest> insertValidator, IValidator<RoleUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator) { }
 
         protected override IQueryable<Role> ApplyFilter(IQueryable<Role> query, RoleSearchObject search)
         {

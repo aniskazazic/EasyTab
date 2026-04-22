@@ -4,6 +4,7 @@ using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.Extensions.Logging;
@@ -19,7 +20,7 @@ namespace EasyTab.Services.Services
     public class ReactionService : BaseCRUDService<Reactions, ReactionSearchObject, Reaction, ReactionInsertRequest, ReactionUpdateRequest>, IReactionService
     {
         ILogger<IUserService> _logger;
-        public ReactionService(_220030Context context, IMapper mapper, ILogger<IUserService> logger) : base(context, mapper)
+        public ReactionService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IValidator<ReactionInsertRequest> insertValidator, IValidator<ReactionUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
         }

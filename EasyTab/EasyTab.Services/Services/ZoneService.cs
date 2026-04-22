@@ -4,6 +4,7 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using System;
 using System.Collections.Generic;
@@ -15,7 +16,7 @@ namespace EasyTab.Services.Services
 {
     public class ZoneService : BaseCRUDService<Zones, ZoneSearchObject, Zone, ZoneInsertRequest, ZoneUpdateRequest>, IZoneService
     {
-        public ZoneService(_220030Context context, IMapper mapper) : base(context, mapper) { }
+        public ZoneService(_220030Context context, IMapper mapper, IValidator<ZoneInsertRequest> insertValidator, IValidator<ZoneUpdateRequest> updateValidator) : base(context, mapper,insertValidator,updateValidator) { }
 
         protected override IQueryable<Zone> ApplyFilter(IQueryable<Zone> query, ZoneSearchObject search)
         {

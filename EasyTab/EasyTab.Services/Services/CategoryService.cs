@@ -4,6 +4,7 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using System;
 using System.Collections.Generic;
@@ -15,7 +16,7 @@ namespace EasyTab.Services.Services
 {
     public class CategoryService : BaseCRUDService<Categories, CategorySearchObject,Category, CategoryUpsertRequest, CategoryUpsertRequest>, ICategoryService
     {
-        public CategoryService(_220030Context context, IMapper mapper) : base(context, mapper) { }
+        public CategoryService(_220030Context context, IMapper mapper, IValidator<CategoryUpsertRequest> insertValidator, IValidator<CategoryUpsertRequest> updateValidator) : base(context, mapper,insertValidator,updateValidator) { }
 
         protected override IQueryable<Category> ApplyFilter(IQueryable<Category> query, CategorySearchObject search)
         {

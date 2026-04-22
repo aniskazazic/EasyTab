@@ -4,6 +4,7 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -16,7 +17,7 @@ namespace EasyTab.Services.Services
 {
     public class CityService : BaseCRUDService<Cities, CitySearchObject, City, CityInsertRequest, CityUpdateRequest>, ICityService
     {
-        public CityService(_220030Context context, IMapper mapper) : base(context,mapper)
+        public CityService(_220030Context context, IMapper mapper, IValidator<CityInsertRequest> insertValidator, IValidator<CityUpdateRequest> updateValidator) : base(context,mapper, insertValidator, updateValidator)
         {
         }
         protected override IQueryable<City> ApplyFilter(IQueryable<City> query, CitySearchObject search)
