@@ -1,7 +1,9 @@
 ﻿using EasyTab.Model.Requests;
+using EasyTab.Model.Exceptions;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,13 +15,16 @@ namespace EasyTab.Services.Services
     public class AdminService : IAdminService
     {
         private readonly _220030Context _db;
+        private readonly ILogger<AdminService> _logger;
 
-        public AdminService(_220030Context db)
+        public AdminService(_220030Context db, ILogger<AdminService> logger)
         {
             _db = db;
+            _logger = logger;
         }
         public async Task<object> GetAllLocales(string? search, bool showDeleted, int page, int pageSize)
         {
+
             var query = _db.Locales
                 .Include(l => l.City).ThenInclude(c => c.Country)
                 .Include(l => l.Category)
@@ -56,6 +61,7 @@ namespace EasyTab.Services.Services
 
         public async Task<object> GetAnalytics()
         {
+
             var users = await _db.Users.ToListAsync();
             var locales = await _db.Locales
                 .Include(l => l.Category)
@@ -94,7 +100,8 @@ namespace EasyTab.Services.Services
 
         public async Task<object> GetStats()
         {
-            return new
+
+            var stats = new
             {
                 CountOfUsers = await _db.Users.CountAsync(),
                 CountOfDeletedUsers = await _db.Users.CountAsync(u => u.IsDeleted),
@@ -106,26 +113,37 @@ namespace EasyTab.Services.Services
                 CountOfCities = await _db.Countries.CountAsync(),
                 CountOfCategories = await _db.Categories.CountAsync(),
             };
+
+            return stats;
         }
 
         public async Task ReactivateLocale(int id)
         {
+            _logger.LogInformation("Reactivating locale. LocaleId: {LocaleId}", id);
             var locale = await _db.Locales.FirstOrDefaultAsync(x => x.IsDeleted && x.Id == id);
             if (locale == null)
-                throw new Exception("Lokal nije pronađen!");
+            {
+                _logger.LogWarning("Cannot reactivate locale because it was not found. LocaleId: {LocaleId}", id);
+                throw new UserException("Lokal nije pronađen!");
+            }
 
             locale.IsDeleted = false;
             locale.DeletedAt = null;
 
             _db.Locales.Update(locale);
             await _db.SaveChangesAsync();
+            _logger.LogInformation("Locale reactivated successfully. LocaleId: {LocaleId}", id);
         }
 
         public async Task UpdateLocale(int id, AdminUpdateLocaleRequest request)
         {
+            _logger.LogInformation("Updating locale through admin panel. LocaleId: {LocaleId}", id);
             var locale = await _db.Locales.FirstOrDefaultAsync(x => x.Id == id);
             if (locale == null)
-                throw new Exception($"Lokal sa ID {id} nije pronađen!");
+            {
+                _logger.LogWarning("Cannot update locale because it was not found. LocaleId: {LocaleId}", id);
+                throw new UserException($"Lokal sa ID {id} nije pronađen!");
+            }
 
             locale.Name = request.LocaleName;
             locale.CityId = request.CityId;
@@ -133,6 +151,7 @@ namespace EasyTab.Services.Services
             locale.CategoryId = request.CategoryId;
 
             await _db.SaveChangesAsync();
+            _logger.LogInformation("Locale updated successfully. LocaleId: {LocaleId}", id);
         }
     }
 }

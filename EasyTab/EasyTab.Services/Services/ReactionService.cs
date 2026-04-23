@@ -1,4 +1,5 @@
 ﻿using EasyTab.Model.Models;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
@@ -19,8 +20,9 @@ namespace EasyTab.Services.Services
 {
     public class ReactionService : BaseCRUDService<Reactions, ReactionSearchObject, Reaction, ReactionInsertRequest, ReactionUpdateRequest>, IReactionService
     {
-        ILogger<IUserService> _logger;
-        public ReactionService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IValidator<ReactionInsertRequest> insertValidator, IValidator<ReactionUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        private readonly ILogger<ReactionService> _logger;
+
+        public ReactionService(_220030Context context, IMapper mapper, ILogger<ReactionService> logger, IValidator<ReactionInsertRequest> insertValidator, IValidator<ReactionUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
         }
@@ -38,16 +40,17 @@ namespace EasyTab.Services.Services
 
         public Reactions React(int reviewId, int userId, bool isLike)
         {
+
             var existing = Context.Reactions
                             .FirstOrDefault(r => r.ReviewId == reviewId && r.UserId == userId);
-
-            _logger.LogInformation($"User {userId} is reacting to review {reviewId} with {(isLike ? "like" : "dislike")}");
 
             if (existing != null)
             {
                 // Ako je ista reakcija — ignoriši
                 if (existing.IsLike == isLike)
+                {
                     return Mapper.Map<Reactions>(existing);
+                }
 
                 // Ako je različita reakcija — update
                 existing.IsLike = isLike;
@@ -65,29 +68,37 @@ namespace EasyTab.Services.Services
 
             Context.Reactions.Add(newReaction);
             Context.SaveChanges();
+            _logger.LogInformation("Reaction created. UserId: {UserId}, ReviewId: {ReviewId}", userId, reviewId);
 
             return Mapper.Map<Reactions>(newReaction);
         }
 
         public void RemoveReaction(int reviewId, int userId)
         {
+
             var reaction = Context.Reactions
                 .FirstOrDefault(r => r.ReviewId == reviewId && r.UserId == userId);
 
             if (reaction == null)
-                throw new Exception("Reakcija nije pronađena!");
+            {
+                _logger.LogWarning("Reaction not found. UserId: {UserId}, ReviewId: {ReviewId}", userId, reviewId);
+                throw new UserException("Reakcija nije pronađena!");
+            }
 
             Context.Reactions.Remove(reaction);
             Context.SaveChanges();
+            _logger.LogWarning("Reaction removed. UserId: {UserId}, ReviewId: {ReviewId}", userId, reviewId);
         }
 
         public ReactionsCount GetReactionCounts(int reviewId)
         {
-            return new ReactionsCount
+            var counts = new ReactionsCount
             {
                 Likes = Context.Reactions.Count(r => r.ReviewId == reviewId && r.IsLike),
                 Dislikes = Context.Reactions.Count(r => r.ReviewId == reviewId && !r.IsLike)
             };
+
+            return counts;
         }
     }
 }

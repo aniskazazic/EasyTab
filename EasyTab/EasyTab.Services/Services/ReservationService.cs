@@ -1,4 +1,5 @@
 ﻿using EasyTab.Model.Models;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
@@ -8,6 +9,7 @@ using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,9 +21,12 @@ namespace EasyTab.Services.Services
     public class ReservationService : BaseCRUDService<Reservations, ReservationSearchObject, Reservation, ReservationInsertRequest, ReservationUpdateRequest>, IReservationService
     {
         private readonly IWebHostEnvironment _wh;
-        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        private readonly ILogger<ReservationService> _logger;
+
+        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<ReservationService> logger, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
+            _logger = logger;
         }
 
         protected override IQueryable<Reservation> ApplyFilter(IQueryable<Reservation> query, ReservationSearchObject search)
@@ -63,6 +68,8 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeInsert(Reservation entity, ReservationInsertRequest request)
         {
+            _logger.LogInformation("Creating reservation. UserId: {UserId}, TableId: {TableId}, ReservationDate: {ReservationDate}", request.UserId, request.TableId, request.ReservationDate);
+
             var overlaps = Context.Reservations.Any(r =>
                 r.TableId == request.TableId &&
                 r.ReservationDate.Date == request.ReservationDate.Date &&
@@ -71,7 +78,10 @@ namespace EasyTab.Services.Services
                 TimeOnly.FromTimeSpan(request.StartTime) < r.EndTime);
 
             if (overlaps)
-                throw new Exception("Stol je već rezervisan za ovaj termin!");
+            {
+                _logger.LogWarning("Reservation overlap detected. TableId: {TableId}, ReservationDate: {ReservationDate}", request.TableId, request.ReservationDate);
+                throw new UserException("Stol je već rezervisan za ovaj termin!");
+            }
 
             entity.CreatedAt = DateTime.Now;
             entity.IsCancelled = false;
@@ -87,7 +97,10 @@ namespace EasyTab.Services.Services
                 .FirstOrDefault()?.Locale;
 
             if (locale == null)
-                throw new Exception("Lokal nije pronađen!");
+            {
+                _logger.LogWarning("Cannot fetch available slots because locale was not found. TableId: {TableId}", tableId);
+                throw new UserException("Lokal nije pronađen!");
+            }
 
             var open = locale.StartOfWorkingHours.ToTimeSpan();
             var close = locale.EndOfWorkingHours.ToTimeSpan();
@@ -109,7 +122,7 @@ namespace EasyTab.Services.Services
             var now = DateTime.Now;
 
             // Filtriraj slobodne slotove
-            return allSlots
+            var slots = allSlots
                 .Where(slot =>
                     !reserved.Any(res =>
                         slot.Start < res.EndTime.ToTimeSpan() && res.StartTime.ToTimeSpan() < slot.End) &&
@@ -120,16 +133,24 @@ namespace EasyTab.Services.Services
                     End = s.End.ToString(@"hh\:mm")
                 })
                 .ToList();
+
+            _logger.LogDebug("Available slots fetched. TableId: {TableId}, Count: {Count}", tableId, slots.Count);
+            return slots;
         }
 
         public void CancelReservation(int id)
         {
+            _logger.LogWarning("Cancelling reservation. ReservationId: {ReservationId}", id);
             var reservation = Context.Reservations.Find(id);
             if (reservation == null)
-                throw new Exception("Rezervacija nije pronađena!");
+            {
+                _logger.LogWarning("Cannot cancel reservation because it was not found. ReservationId: {ReservationId}", id);
+                throw new UserException("Rezervacija nije pronađena!");
+            }
 
             reservation.IsCancelled = true;
             Context.SaveChanges();
+            _logger.LogWarning("Reservation cancelled successfully. ReservationId: {ReservationId}", id);
         }
 
         // Vraća logo kao base64

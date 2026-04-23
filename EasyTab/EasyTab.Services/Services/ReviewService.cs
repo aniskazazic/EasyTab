@@ -1,4 +1,5 @@
 ﻿using EasyTab.Model.Models;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
@@ -8,6 +9,7 @@ using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,8 +22,11 @@ namespace EasyTab.Services.Services
     public class ReviewService : BaseCRUDService<Reviews, ReviewSearchObject, Review, ReviewInsertRequest, ReviewUpdateRequest>, IReviewService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
-        public ReviewService(_220030Context context, IMapper mapper, IHttpContextAccessor httpContextAccessor, IValidator<ReviewInsertRequest> insertValidator, IValidator<ReviewUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator) {
+        private readonly ILogger<ReviewService> _logger;
+
+        public ReviewService(_220030Context context, IMapper mapper, IHttpContextAccessor httpContextAccessor, ILogger<ReviewService> logger, IValidator<ReviewInsertRequest> insertValidator, IValidator<ReviewUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator) {
             _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
         }
 
         protected override IQueryable<Review> ApplyFilter(IQueryable<Review> query, ReviewSearchObject search)
@@ -106,11 +111,13 @@ namespace EasyTab.Services.Services
         
         protected override Task BeforeInsert(Review entity, ReviewInsertRequest request)
         {
+            _logger.LogInformation("Creating review. LocaleId: {LocaleId}, UserId: {UserId}", request.LocaleId, request.UserId);
+
             if (request.Rating < 1 || request.Rating > 5)
-                throw new Exception("Rating mora biti između 1 i 5!");
+                throw new UserException("Ocjena mora biti između 1 i 5!");
 
             if (string.IsNullOrWhiteSpace(request.Description))
-                throw new Exception("Opis recenzije je obavezan!");
+                throw new UserException("Opis recenzije je obavezan!");
 
             // Provjeri da li korisnik već ima recenziju za ovaj lokal
             var existingReview = Context.Reviews
@@ -119,7 +126,10 @@ namespace EasyTab.Services.Services
                                      !r.IsDeleted);
 
             if (existingReview != null)
-                throw new Exception("Već ste ostavili recenziju za ovaj lokal!");
+            {
+                _logger.LogWarning("Duplicate review prevented. LocaleId: {LocaleId}, UserId: {UserId}", request.LocaleId, request.UserId);
+                throw new UserException("Već ste ostavili recenziju za ovaj lokal!");
+            }
 
             entity.DateAdded = DateTime.Now;
             entity.IsDeleted = false;
@@ -130,11 +140,13 @@ namespace EasyTab.Services.Services
 
         protected override Task BeforeUpdate(Review entity, ReviewUpdateRequest request)
         {
+            _logger.LogInformation("Updating review. ReviewId: {ReviewId}", entity.Id);
+
             if (request.Rating.HasValue && (request.Rating < 1 || request.Rating > 5))
-                throw new Exception("Rating mora biti između 1 i 5!");
+                throw new UserException("Ocjena mora biti između 1 i 5!");
 
             if (request.Description != null && string.IsNullOrWhiteSpace(request.Description))
-                throw new Exception("Opis recenzije ne može biti prazan!");
+                throw new UserException("Opis recenzije ne može biti prazan!");
 
             return Task.CompletedTask;
         }
@@ -145,10 +157,13 @@ namespace EasyTab.Services.Services
                 .Where(r => r.LocaleId == localeId && !r.IsDeleted)
                 .ToList();
 
-            return new ReviewAverage
+            var result = new ReviewAverage
             {
                 AverageRating = reviews.Count == 0 ? 0 : (float)reviews.Average(x => x.Rating)
             };
+
+            _logger.LogDebug("Average rating fetched. LocaleId: {LocaleId}, Average: {Average}", localeId, result.AverageRating);
+            return result;
         }
 
         public ReviewRatingCount GetRatingCounts(int localeId)
@@ -157,7 +172,7 @@ namespace EasyTab.Services.Services
                 .Where(r => r.LocaleId == localeId && !r.IsDeleted)
                 .ToList();
 
-            return new ReviewRatingCount
+            var counts = new ReviewRatingCount
             {
                 Excellent = reviews.Count(r => r.Rating >= 4.5),
                 Good = reviews.Count(r => r.Rating >= 3.5 && r.Rating < 4.5),
@@ -165,6 +180,9 @@ namespace EasyTab.Services.Services
                 Poor = reviews.Count(r => r.Rating >= 1.5 && r.Rating < 2.5),
                 Terrible = reviews.Count(r => r.Rating < 1.5)
             };
+
+            _logger.LogDebug("Rating distribution fetched. LocaleId: {LocaleId}", localeId);
+            return counts;
         }
     }
 }

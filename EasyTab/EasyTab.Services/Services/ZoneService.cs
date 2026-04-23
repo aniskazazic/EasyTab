@@ -6,6 +6,7 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +17,31 @@ namespace EasyTab.Services.Services
 {
     public class ZoneService : BaseCRUDService<Zones, ZoneSearchObject, Zone, ZoneInsertRequest, ZoneUpdateRequest>, IZoneService
     {
-        public ZoneService(_220030Context context, IMapper mapper, IValidator<ZoneInsertRequest> insertValidator, IValidator<ZoneUpdateRequest> updateValidator) : base(context, mapper,insertValidator,updateValidator) { }
+        private readonly ILogger<ZoneService> _logger;
+
+        public ZoneService(_220030Context context, IMapper mapper, ILogger<ZoneService> logger, IValidator<ZoneInsertRequest> insertValidator, IValidator<ZoneUpdateRequest> updateValidator) 
+            : base(context, mapper, insertValidator, updateValidator)
+        {
+            _logger = logger;
+        }
+
+        public override async Task<Zones> CreateAsync(ZoneInsertRequest request)
+        {
+            _logger.LogInformation("Creating zone. ZoneName: {ZoneName}", request.Name);
+            return await base.CreateAsync(request);
+        }
+
+        public override async Task<Zones?> UpdateAsync(int id, ZoneUpdateRequest request)
+        {
+            _logger.LogInformation("Updating zone. ZoneId: {ZoneId}, ZoneName: {ZoneName}", id, request.Name);
+            return await base.UpdateAsync(id, request);
+        }
+
+        public override async Task<bool> DeleteAsync(int id)
+        {
+            _logger.LogWarning("Deleting zone. ZoneId: {ZoneId}", id);
+            return await base.DeleteAsync(id);
+        }
 
         protected override IQueryable<Zone> ApplyFilter(IQueryable<Zone> query, ZoneSearchObject search)
         {
@@ -28,6 +53,7 @@ namespace EasyTab.Services.Services
 
         public void SaveLayout(ZoneLayoutRequest request)
         {
+
             var existingZones = Context.Zones
                  .Where(x => x.LocaleId == request.LocaleId)
                  .ToList();
@@ -42,6 +68,7 @@ namespace EasyTab.Services.Services
                 if (zone.Id == 0)
                 {
                     // Nova zona
+                    _logger.LogInformation("Creating zone from layout. ZoneName: {ZoneName}, LocaleId: {LocaleId}", zone.Name, request.LocaleId);
                     Context.Zones.Add(new Zone
                     {
                         LocaleId = request.LocaleId,
@@ -58,6 +85,7 @@ namespace EasyTab.Services.Services
                     var existing = existingZones.FirstOrDefault(x => x.Id == zone.Id);
                     if (existing != null)
                     {
+                        _logger.LogInformation("Updating zone from layout. ZoneId: {ZoneId}, ZoneName: {ZoneName}", zone.Id, zone.Name);
                         existing.Name = zone.Name;
                         existing.Xcoordinate = zone.XCoordinate;
                         existing.Ycoordinate = zone.YCoordinate;

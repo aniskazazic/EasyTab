@@ -1,4 +1,5 @@
 ﻿using EasyTab.Model.Models;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
@@ -8,6 +9,7 @@ using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -19,10 +21,12 @@ namespace EasyTab.Services.Services
     public class FavouriteService : BaseCRUDService<Favourites, FavouriteSearchObject, Favourite, FavouriteInsertRequest, FavouriteUpdateRequest>, IFavouriteService
     {
         private readonly IWebHostEnvironment _wh;
+        private readonly ILogger<FavouriteService> _logger;
 
-        public FavouriteService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IValidator<FavouriteInsertRequest> insertValidator, IValidator<FavouriteUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        public FavouriteService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<FavouriteService> logger, IValidator<FavouriteInsertRequest> insertValidator, IValidator<FavouriteUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
+            _logger = logger;
         }
 
         protected override IQueryable<Favourite> ApplyFilter(IQueryable<Favourite> query, FavouriteSearchObject search)
@@ -45,7 +49,9 @@ namespace EasyTab.Services.Services
                             .FirstOrDefault(f => f.UserId == userId && f.LocaleId == localeId);
 
             if (existing != null && existing.IsActive)
-                throw new Exception("Lokal je već u favoritima!");
+            {
+                throw new UserException("Lokal je već u favoritima!");
+            }
 
             if (existing != null)
             {
@@ -53,6 +59,7 @@ namespace EasyTab.Services.Services
                 existing.IsActive = true;
                 existing.DateAdded = DateTime.Now;
                 Context.SaveChanges();
+                _logger.LogInformation("Favourite reactivated. UserId: {UserId}, LocaleId: {LocaleId}", userId, localeId);
                 return Mapper.Map<Favourites>(existing);
             }
 
@@ -73,6 +80,7 @@ namespace EasyTab.Services.Services
 
         public List<Favourites> GetByUser(int userId)
         {
+            _logger.LogDebug("Fetching favourites. UserId: {UserId}", userId);
             var favourites = Context.Favourites
                            .Include(f => f.Locale)
                            .Where(f => f.UserId == userId && f.IsActive)
@@ -101,8 +109,9 @@ namespace EasyTab.Services.Services
 
         public bool IsFavourited(int userId, int localeId)
         {
-            return Context.Favourites
+            var isFavourited = Context.Favourites
                .Any(f => f.UserId == userId && f.LocaleId == localeId && f.IsActive);
+            return isFavourited;
         }
 
         public void RemoveFromFavourites(int userId, int localeId)
@@ -111,10 +120,14 @@ namespace EasyTab.Services.Services
                       .FirstOrDefault(f => f.UserId == userId && f.LocaleId == localeId && f.IsActive);
 
             if (fav == null)
-                throw new Exception("Lokal nije u favoritima!");
+            {
+                _logger.LogWarning("Cannot remove favourite because it was not found. UserId: {UserId}, LocaleId: {LocaleId}", userId, localeId);
+                throw new UserException("Lokal nije u favoritima!");
+            }
 
             fav.IsActive = false;
             Context.SaveChanges();
+            _logger.LogWarning("Favourite removed. UserId: {UserId}, LocaleId: {LocaleId}", userId, localeId);
         }
     }
 }

@@ -16,7 +16,7 @@ namespace EasyTab.Services.Services
 {
     public class UserService : BaseCRUDService<Users, UserSearchObject, User, UserInsertRequest, UserUpdateRequest>, IUserService
     {
-        ILogger<IUserService> _logger;
+        private readonly ILogger<IUserService> _logger;
         private readonly ICryptoService _cryptoService;
         private readonly string _baseUrl;
 
@@ -97,19 +97,18 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeInsert(User entity, UserInsertRequest request)
         {
-            _logger.LogInformation("Inserting user with username: {Username}", request.Username);
 
             await _insertValidator.ValidateAndThrowAsync(request);
 
             // Check if email or username already exists
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
             {
-                throw new InvalidOperationException($"Email '{request.Email}' is already in use.");
+                throw new UserException($"Email '{request.Email}' je već u upotrebi.");
             }
 
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
             {
-                throw new InvalidOperationException($"Username '{request.Username}' is already in use.");
+                throw new UserException($"Korisničko ime '{request.Username}' je već u upotrebi.");
             }
 
             entity.PasswordSalt = _cryptoService.GenerateSalt();
@@ -125,24 +124,24 @@ namespace EasyTab.Services.Services
 
         public override async Task<Users?> UpdateAsync(int id, UserUpdateRequest request)
         {
-
             await _updateValidator.ValidateAndThrowAsync(request);
 
             var entity = await _context.Users.FindAsync(id);
             if (entity == null)
             {
-                throw new KeyNotFoundException($"User with id {id} not found.");
+                _logger.LogWarning("User not found for update. UserId: {UserId}", id);
+                throw new UserException($"Korisnik sa ID {id} nije pronađen.");
             }
 
             // Check if email or username already exists
             if (await _context.Users.AnyAsync(u => u.Email == request.Email && u.Id != id))
             {
-                throw new InvalidOperationException($"Email '{request.Email}' is already in use.");
+                throw new UserException($"Email '{request.Email}' je već u upotrebi.");
             }
 
             if (await _context.Users.AnyAsync(u => u.Username == request.Username && u.Id != id))
             {
-                throw new InvalidOperationException($"Username '{request.Username}' is already in use.");
+                throw new UserException($"Korisničko ime '{request.Username}' je već u upotrebi.");
             }
 
             var oldEmail = entity.Email;
@@ -229,6 +228,7 @@ namespace EasyTab.Services.Services
             }
 
             await _context.SaveChangesAsync();
+            _logger.LogInformation("User updated successfully. UserId: {UserId}", id);
             return Mapper.Map<Users>(entity);
         }
 
@@ -254,18 +254,30 @@ namespace EasyTab.Services.Services
         public async Task<Users?> AuthenticateAsync(UserLoginRequest request)
         {
             if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
+            {
+                _logger.LogWarning("Authentication failed because username or password was empty");
                 return null;
+            }
 
             var entity = await Context.Users
                 .Include(x => x.UserRoles)
                 .ThenInclude(y => y.Role)
                 .FirstOrDefaultAsync(x => x.Username == request.Username);
 
-            if (entity == null) return null;
+            if (entity == null)
+            {
+                _logger.LogWarning("Authentication failed. User not found for username {Username}", request.Username);
+                return null;
+            }
 
             var hash = _cryptoService.GenerateHash( request.Password, entity.PasswordSalt);
-            if (hash != entity.PasswordHash) return null;
+            if (hash != entity.PasswordHash)
+            {
+                _logger.LogWarning("Authentication failed. Invalid password for username {Username}", request.Username);
+                return null;
+            }
 
+            _logger.LogInformation("Authentication succeeded. Username: {Username}", request.Username);
             return Mapper.Map<Users>(entity);
         }
 
@@ -276,7 +288,10 @@ namespace EasyTab.Services.Services
                 .FirstOrDefaultAsync(x => x.Id == id);
 
             if (user == null)
-                throw new Exception("Korisnik nije pronađen");
+            {
+                _logger.LogWarning("User not found for delete. UserId: {UserId}", id);
+                throw new UserException("Korisnik nije pronađen");
+            }
 
             // Soft delete User
             user.IsDeleted = true;
@@ -299,6 +314,7 @@ namespace EasyTab.Services.Services
             }
 
             await _context.SaveChangesAsync();
+            _logger.LogWarning("User deleted successfully. UserId: {UserId}", id);
             return true;
         }
     }

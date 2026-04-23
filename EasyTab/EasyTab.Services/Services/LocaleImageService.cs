@@ -1,4 +1,5 @@
 ﻿using EasyTab.Model.Models;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
@@ -6,6 +7,7 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,10 +19,12 @@ namespace EasyTab.Services.Services
     public class LocaleImageService : BaseService<LocaleImages, LocaleImageSearchObject, LocaleImage>, ILocaleImageService
     {
         private readonly IWebHostEnvironment _wh;
+        private readonly ILogger<LocaleImageService> _logger;
 
-        public LocaleImageService(_220030Context context, IMapper mapper, IWebHostEnvironment wh) : base(context, mapper)
+        public LocaleImageService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<LocaleImageService> logger) : base(context, mapper)
         {
             _wh = wh;
+            _logger = logger;
         }
 
         protected override IQueryable<LocaleImage> ApplyFilter(IQueryable<LocaleImage> query, LocaleImageSearchObject search)
@@ -35,7 +39,10 @@ namespace EasyTab.Services.Services
         {
             var image = Context.LocaleImages.Find(id);
             if (image == null)
-                throw new Exception("Slika nije pronađena!");
+            {
+                _logger.LogWarning("Locale image not found for delete. ImageId: {ImageId}", id);
+                throw new UserException("Slika nije pronađena!");
+            }
 
             // Fizički obriši fajl
             string filePath = Path.Combine(_wh.WebRootPath, "ImageFolder", "LocaleImages", image.ImageUrl);
@@ -44,6 +51,7 @@ namespace EasyTab.Services.Services
 
             Context.LocaleImages.Remove(image);
             Context.SaveChanges();
+            _logger.LogWarning("Locale image deleted successfully. ImageId: {ImageId}", id);
         }
 
         public List<LocaleImages> GetByLocale(int localeId)
@@ -52,7 +60,7 @@ namespace EasyTab.Services.Services
                 .Where(x => x.LocaleId == localeId)
                 .ToList();
 
-            return images.Select(image =>
+            var result = images.Select(image =>
             {
                 var model = Mapper.Map<LocaleImages>(image);
 
@@ -68,13 +76,19 @@ namespace EasyTab.Services.Services
 
                 return model;
             }).ToList();
+
+            _logger.LogDebug("Fetched images for locale. LocaleId: {LocaleId}, Count: {Count}", localeId, result.Count);
+            return result;
         }
 
         public LocaleImages Insert(LocaleImageInsertRequest request)
         {
             var locale = Context.Locales.Find(request.LocaleId);
             if (locale == null)
-                throw new Exception("Lokal nije pronađen!");
+            {
+                _logger.LogWarning("Cannot upload image because locale was not found. LocaleId: {LocaleId}", request.LocaleId);
+                throw new UserException("Lokal nije pronađen!");
+            }
 
             string folderPath = Path.Combine(_wh.WebRootPath, "ImageFolder", "LocaleImages");
             if (!Directory.Exists(folderPath))
@@ -95,6 +109,7 @@ namespace EasyTab.Services.Services
 
             Context.LocaleImages.Add(entity);
             Context.SaveChanges();
+            _logger.LogInformation("Locale image uploaded successfully for locale {LocaleId}. ImageId: {ImageId}", request.LocaleId, entity.Id);
 
             return Mapper.Map<LocaleImages>(entity);
         }

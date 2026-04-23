@@ -7,6 +7,7 @@ using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,8 +18,30 @@ namespace EasyTab.Services.Services
 {
     public class TableService : BaseCRUDService<Tables, TableSearchObject, Table, TableInsertRequest, TableUpdateRequest>, ITableService
     {
-        public TableService(_220030Context context, IMapper mapper,IValidator<TableInsertRequest> insertValidator, IValidator<TableUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        private readonly ILogger<TableService> _logger;
+
+        public TableService(_220030Context context, IMapper mapper, ILogger<TableService> logger, IValidator<TableInsertRequest> insertValidator, IValidator<TableUpdateRequest> updateValidator) 
+            : base(context, mapper, insertValidator, updateValidator)
         {
+            _logger = logger;
+        }
+
+        public override async Task<Tables> CreateAsync(TableInsertRequest request)
+        {
+            _logger.LogInformation("Creating table. TableName: {TableName}", request.Name);
+            return await base.CreateAsync(request);
+        }
+
+        public override async Task<Tables?> UpdateAsync(int id, TableUpdateRequest request)
+        {
+            _logger.LogInformation("Updating table. TableId: {TableId}, TableName: {TableName}", id, request.Name);
+            return await base.UpdateAsync(id, request);
+        }
+
+        public override async Task<bool> DeleteAsync(int id)
+        {
+            _logger.LogWarning("Deleting table. TableId: {TableId}", id);
+            return await base.DeleteAsync(id);
         }
 
         protected override IQueryable<Table> ApplyFilter(IQueryable<Table> query, TableSearchObject search)
@@ -44,6 +67,8 @@ namespace EasyTab.Services.Services
 
         public void SaveLayout(TableLayoutRequest request)
         {
+            _logger.LogInformation("Saving table layout. LocaleId: {LocaleId}", request.LocaleId);
+
             var existingTables = Context.Tables
                .Where(x => x.LocaleId == request.LocaleId)
                .ToList();
@@ -58,6 +83,7 @@ namespace EasyTab.Services.Services
                 if (table.Id == 0)
                 {
                     // Novi stol
+                    _logger.LogInformation("Creating table from layout. TableName: {TableName}, LocaleId: {LocaleId}", table.Name, request.LocaleId);
                     Context.Tables.Add(new Table
                     {
                         LocaleId = request.LocaleId,
@@ -73,6 +99,7 @@ namespace EasyTab.Services.Services
                     var existing = existingTables.FirstOrDefault(x => x.Id == table.Id);
                     if (existing != null)
                     {
+                        _logger.LogInformation("Updating table from layout. TableId: {TableId}, TableName: {TableName}", table.Id, table.Name);
                         existing.Name = table.Name;
                         existing.Xcoordinate = table.XCoordinate;
                         existing.Ycoordinate = table.YCoordinate;

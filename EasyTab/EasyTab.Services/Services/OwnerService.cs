@@ -1,6 +1,8 @@
 ﻿using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Model.Exceptions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,49 +14,55 @@ namespace EasyTab.Services.Services
     public class OwnerService : IOwnerService
     {
         private readonly _220030Context _db;
+        private readonly ILogger<OwnerService> _logger;
 
-        public OwnerService(_220030Context db)
+        public OwnerService(_220030Context db, ILogger<OwnerService> logger)
         {
             _db = db;
+            _logger = logger;
         }
 
         public async Task<int> GetTodaysReservations(int localeId)
         {
             var today = DateTime.Today;
-            return await _db.Reservations
+            var count = await _db.Reservations
                 .Where(x => x.ReservationDate.Date == today &&
                             x.Table.LocaleId == localeId &&
                             !x.IsCancelled)
                 .CountAsync();
+            return count;
         }
 
         public async Task<int> GetTodaysGuests(int localeId)
         {
             var today = DateTime.Today;
-            return await _db.Reservations
+            var guests = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
                             r.Table.LocaleId == localeId &&
                             !r.IsCancelled)
                 .SumAsync(r => r.Table.NumberOfGuests);
+            return guests;
         }
 
         public async Task<int> GetActiveTables(int localeId)
         {
             var today = DateTime.Today;
-            return await _db.Reservations
+            var count = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
                             r.Table.LocaleId == localeId &&
                             !r.IsCancelled)
                 .Select(r => r.TableId)
                 .Distinct()
                 .CountAsync();
+            return count;
         }
 
         public async Task<int> GetTotalTables(int localeId)
         {
-            return await _db.Tables
+            var count = await _db.Tables
                 .Where(t => t.LocaleId == localeId)
                 .CountAsync();
+            return count;
         }
 
         public async Task<object> GetMyLocale(int localeId)
@@ -65,7 +73,10 @@ namespace EasyTab.Services.Services
                 .FirstOrDefaultAsync(l => l.Id == localeId);
 
             if (locale == null)
-                throw new Exception("Lokal nije pronađen!");
+            {
+                _logger.LogWarning("Locale details not found. LocaleId: {LocaleId}", localeId);
+                throw new UserException("Lokal nije pronađen!");
+            }
 
             return locale;
         }
@@ -76,9 +87,12 @@ namespace EasyTab.Services.Services
                 .Where(t => t.LocaleId == localeId)
                 .CountAsync();
 
-            if (total == 0) return new List<object>();
+            if (total == 0)
+            {
+                return new List<object>();
+            }
 
-            return await _db.Tables
+            var distribution = await _db.Tables
                 .Where(t => t.LocaleId == localeId)
                 .GroupBy(t => t.NumberOfGuests)
                 .Select(g => new
@@ -88,6 +102,7 @@ namespace EasyTab.Services.Services
                     Percentage = (double)g.Count() * 100 / total
                 })
                 .ToListAsync();
+            return distribution;
         }
 
         public async Task<object> GetAllReservations(int userId, string? q, DateTime? date, int page, int pageSize)
@@ -139,16 +154,30 @@ namespace EasyTab.Services.Services
         public async Task<bool> CheckIfOwner(int localeId, int userId)
         {
             var locale = await _db.Locales.FirstOrDefaultAsync(x => x.Id == localeId);
-            if (locale == null) throw new Exception("Lokal nije pronađen!");
-            return locale.OwnerId == userId;
+            if (locale == null)
+            {
+                _logger.LogWarning("Owner check failed because locale was not found. LocaleId: {LocaleId}", localeId);
+                throw new UserException("Lokal nije pronađen!");
+            }
+            var isOwner = locale.OwnerId == userId;
+            return isOwner;
         }
 
         public async Task<bool> CheckIfOwnerOrWorker(int localeId, int userId)
         {
             var locale = await _db.Locales.FirstOrDefaultAsync(x => x.Id == localeId);
-            if (locale == null) throw new Exception("Lokal nije pronađen!");
-            if (locale.OwnerId == userId) return true;
-            return await _db.Workers.AnyAsync(w => w.LocaleId == localeId && w.UserId == userId);
+            if (locale == null)
+            {
+                _logger.LogWarning("Owner/worker check failed because locale was not found. LocaleId: {LocaleId}", localeId);
+                throw new UserException("Lokal nije pronađen!");
+            }
+            if (locale.OwnerId == userId)
+            {
+                return true;
+            }
+
+            var isWorker = await _db.Workers.AnyAsync(w => w.LocaleId == localeId && w.UserId == userId);
+            return isWorker;
         }
     
     }

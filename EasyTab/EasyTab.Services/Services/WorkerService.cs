@@ -1,4 +1,5 @@
 ﻿using EasyTab.Common.Services.CryptoService;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
@@ -10,6 +11,7 @@ using MapsterMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,10 +25,13 @@ namespace EasyTab.Services.Services
     {
         private readonly string _baseUrl;
         private readonly ICryptoService _cryptoService;
-        public WorkerService(_220030Context context, IMapper mapper, IConfiguration config, ICryptoService cryptoService, IValidator<WorkerInsertRequest> insertValidator, IValidator<WorkerUpdateRequest> updateValidator) : base(context, mapper,insertValidator,updateValidator)
+        private readonly ILogger<WorkerService> _logger;
+
+        public WorkerService(_220030Context context, IMapper mapper, IConfiguration config, ILogger<WorkerService> logger, ICryptoService cryptoService, IValidator<WorkerInsertRequest> insertValidator, IValidator<WorkerUpdateRequest> updateValidator) : base(context, mapper,insertValidator,updateValidator)
         {
             _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";
             _cryptoService = cryptoService;
+            _logger = logger;
         }
 
         protected override IQueryable<Worker> ApplyFilter(IQueryable<Worker> query, WorkerSearchObject search)
@@ -72,11 +77,12 @@ namespace EasyTab.Services.Services
 
         public override async Task<Workers> CreateAsync(WorkerInsertRequest request)
         {
+
             var existingUser = Context.Users
                 .FirstOrDefault(x => x.Email == request.Email || x.Username == request.Username);
 
             if (existingUser != null)
-                throw new Exception("Korisnik sa ovim emailom ili korisničkim imenom već postoji!");
+                throw new UserException("Korisnik sa ovim emailom ili korisničkim imenom već postoji!");
 
             var salt = _cryptoService.GenerateSalt();
             var user = new User
@@ -160,6 +166,7 @@ namespace EasyTab.Services.Services
 
         public override async Task<Workers?> UpdateAsync(int id, WorkerUpdateRequest request)
         {
+
             var worker = await Context.Workers
                 .Include(x => x.User)
                 .FirstOrDefaultAsync(x => x.Id == id);
@@ -215,13 +222,14 @@ namespace EasyTab.Services.Services
 
         public override async Task<bool> DeleteAsync(int id)
         {
+
             var worker = await Context.Workers
                 .Include(x => x.User)
                 .ThenInclude(u => u.UserRoles)
                 .FirstOrDefaultAsync(x => x.Id == id);
 
             if (worker == null)
-                throw new Exception("Radnik nije pronađen");
+                throw new UserException("Radnik nije pronađen");
 
             // 1. Soft delete Worker
             worker.IsDeleted = true;

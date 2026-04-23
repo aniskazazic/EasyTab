@@ -9,6 +9,7 @@ using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,11 +25,31 @@ namespace EasyTab.Services.Services
 
         private readonly IWebHostEnvironment _wh;
         private readonly string _baseUrl;
+        private readonly ILogger<LocaleService> _logger;
 
-        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IConfiguration config, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IConfiguration config, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
             _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";
+            _logger = logger;
+        }
+
+        public override async Task<Locales> CreateAsync(LocaleInsertRequest request)
+        {
+            _logger.LogInformation("Creating locale. LocaleName: {LocaleName}", request.Name);
+            return await base.CreateAsync(request);
+        }
+
+        public override async Task<Locales?> UpdateAsync(int id, LocaleUpdateRequest request)
+        {
+            _logger.LogInformation("Updating locale. LocaleId: {LocaleId}, LocaleName: {LocaleName}", id, request.Name);
+            return await base.UpdateAsync(id, request);
+        }
+
+        public override async Task<bool> DeleteAsync(int id)
+        {
+            _logger.LogWarning("Deleting locale. LocaleId: {LocaleId}", id);
+            return await base.DeleteAsync(id);
         }
 
         protected override IQueryable<Locale> ApplyFilter(IQueryable<Locale> query, LocaleSearchObject search)
