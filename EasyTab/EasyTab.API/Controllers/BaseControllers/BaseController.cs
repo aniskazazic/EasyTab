@@ -8,7 +8,7 @@ namespace EasyTab.API.Controllers.BaseControllers
 {
     [ApiController]
     [Route("[controller]")]
-    //[Authorize]
+    [Authorize]
     public class BaseController<TModel, TSearch> : ControllerBase where TModel : class where TSearch : BaseSearchObject, new()
     {
         protected readonly IService<TModel, TSearch> _service;

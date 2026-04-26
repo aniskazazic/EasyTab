@@ -1,4 +1,5 @@
-﻿using EasyTab.Model.Models;
+﻿using EasyTab.Model.Access;
+using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Interfaces;
@@ -13,5 +14,8 @@ namespace EasyTab.Services.Interfaces
     public interface IUserService : ICRUDService<Users, UserSearchObject, UserInsertRequest, UserUpdateRequest>
     {
         Task<Users?> AuthenticateAsync(UserLoginRequest request);
+
+        //Task<Users> LoginAsync(UserLoginRequest request);
+        Task<UsersSensitiveResponse> GetByUsernameAsync(string username);
     }
 }

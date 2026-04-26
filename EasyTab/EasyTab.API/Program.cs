@@ -1,5 +1,6 @@
 using EasyTab.API.Filters;
 using EasyTab.API.Helpers;
+using EasyTab.API.Services.AccessManager;
 using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
@@ -11,7 +12,11 @@ using EasyTab.Services.Validators;
 using FluentValidation;
 using Mapster;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -37,6 +42,9 @@ builder.Services.AddScoped<IFileService, FileService>();
 
 builder.Services.AddScoped<IQueryOptimizationService, QueryOptimizationService>();
 builder.Services.AddScoped<ICryptoService, CryptoService>();
+builder.Services.AddScoped<IAccessManager, AccessManager>();
+builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+
 
 builder.Services.AddScoped<IValidator<UserInsertRequest>, UserInsertValidator>();
 builder.Services.AddScoped<IValidator<UserUpdateRequest>, UserUpdateValidator>();
@@ -88,35 +96,69 @@ builder.Services.AddControllers( x => {
     x.Filters.Add<ExceptionFilter>();
 });
 
+builder.Services.AddAuthentication(options => // dodavanje authentfikacije i autorizacije u projekat
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(o =>
+{
+    o.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidIssuer = builder.Configuration["JwtToken:Issuer"],
+        ValidAudience = builder.Configuration["JwtToken:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtToken:SecretKey"] ?? string.Empty)),
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+builder.Services.AddAuthorization();
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen( c =>
-{
-    //c.AddSecurityDefinition("BasicAuthentication", new OpenApiSecurityScheme()
-    //{
-    //    Name = "Authorization",
-    //    Type = SecuritySchemeType.Http,
-    //    Scheme = "basic",
-    //    In = ParameterLocation.Header,
-    //    Description = "Basic Authorization header using the Bearer scheme."
-    //});
 
-    //c.AddSecurityRequirement(new OpenApiSecurityRequirement()
-    //{
-    //    {
-    //        new OpenApiSecurityScheme
-    //        {
-    //            Reference = new OpenApiReference
-    //            {
-    //                Type = ReferenceType.SecurityScheme,
-    //                Id = "BasicAuthentication"
-    //            }
-    //        },
-    //        new string[] {}
-    //    }
-    //});
-} );
+builder.Services.AddSwaggerGen(
+    options =>
+    {
+        options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
+        {
+            Version = "v1",
+            Title = "EasyTab API",
+            Description = "API for locale reservation in the EasyTab application"
+        });
+
+        var xmlFile = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}.xml";
+        var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+        if (File.Exists(xmlPath))
+        {
+            options.IncludeXmlComments(xmlPath);
+        }
+
+        var jwtSecurityScheme = new OpenApiSecurityScheme
+        {
+            BearerFormat = "JWT",
+            Name = "JWT Authentication",
+            In = ParameterLocation.Header,
+            Type = SecuritySchemeType.Http,
+            Scheme = JwtBearerDefaults.AuthenticationScheme,
+            Reference = new OpenApiReference
+            {
+                Id = JwtBearerDefaults.AuthenticationScheme,
+                Type = ReferenceType.SecurityScheme
+            }
+        };
+
+        options.AddSecurityDefinition(jwtSecurityScheme.Reference.Id, jwtSecurityScheme);
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                {
+                    { jwtSecurityScheme, Array.Empty<string>() }
+                });
+    });
+
 
 builder.Services.AddDbContext<_220030Context>(options =>
     options.UseSqlServer(connectionString));
@@ -133,7 +175,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-//app.UseAuthorization();
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseStaticFiles();
 app.MapControllers();

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace EasyTab.Model.Requests
+namespace EasyTab.Model.Access
 {
     public class UserLoginRequest
     {

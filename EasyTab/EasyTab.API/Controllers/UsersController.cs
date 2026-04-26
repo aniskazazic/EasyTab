@@ -1,5 +1,6 @@
 ﻿using Azure.Core;
 using EasyTab.API.Controllers.BaseControllers;
+using EasyTab.Model.Access;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;

@@ -1,4 +1,5 @@
 ﻿using EasyTab.Common.Services.CryptoService;
+using EasyTab.Model.Access;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
@@ -316,6 +317,21 @@ namespace EasyTab.Services.Services
             await _context.SaveChangesAsync();
             _logger.LogWarning("User deleted successfully. UserId: {UserId}", id);
             return true;
+        }
+
+        public async Task<UsersSensitiveResponse> GetByUsernameAsync(string username)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(x => x.Username == username);
+
+            if (user == null)
+            {
+                throw new UserException($"Korisnik  sa korisničkim imenom {username} nije pronađen !");
+            }
+
+            var response = Mapper.Map<UsersSensitiveResponse>(user);
+
+            return response;
+
         }
     }
 }

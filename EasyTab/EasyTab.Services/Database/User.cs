@@ -43,4 +43,6 @@ public partial class User : ISoftDelete
     public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 
     public virtual ICollection<Worker> Workers { get; set; } = new List<Worker>();
+
+    public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }
