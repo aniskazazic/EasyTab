@@ -33,14 +33,14 @@ namespace EasyTab.API.Services.AccessManager
 
             if (user == null)
             {
-                throw new UserException($"Korisnik sa korisničkim imenom {request.Username} ne postoji!");
+                throw new Exception($"Korisnik sa korisničkim imenom {request.Username} ne postoji!");
             }
 
             var validPassword = _cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password);
 
             if (!validPassword)
             {
-                throw new UserException("Pogrešni kredencijali !");
+                throw new Exception("Pogrešni kredencijali !");
             }
 
             var accessToken = GenerateToken(user);
@@ -80,6 +80,7 @@ namespace EasyTab.API.Services.AccessManager
                     new Claim(ClaimNames.FirstName, user.FirstName),
                     new Claim(ClaimNames.LastName, user.LastName),
                     new Claim(ClaimNames.Email, user.Email),
+                    new Claim(ClaimNames.Role, user.Role),
                     new Claim(ClaimNames.IsDeleted, user.IsDeleted.ToString())
                 }),
                 Expires = DateTime.UtcNow.AddMinutes(durationInMinutes),
@@ -121,7 +122,7 @@ namespace EasyTab.API.Services.AccessManager
                 throw new UserException("Refresh token je istekao!");
             }
 
-            var user = await _userService.GetByIdAsync(refreshToken.UserId);
+            var user = await _userService.GetWithRoleByIdAsync(refreshToken.UserId);
 
             if (user == null)
             {

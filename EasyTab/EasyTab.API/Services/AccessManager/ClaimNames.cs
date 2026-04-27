@@ -6,6 +6,7 @@
         public static string FirstName = "FirstName";
         public static string LastName = "LastName";
         public static string Email = "Email";
+        public static string Role = "Role";
         public static string IsDeleted = "IsDeleted";
 
     }

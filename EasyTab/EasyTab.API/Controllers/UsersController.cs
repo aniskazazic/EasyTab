@@ -1,5 +1,7 @@
 ﻿using Azure.Core;
 using EasyTab.API.Controllers.BaseControllers;
+using EasyTab.API.Filters;
+using EasyTab.Model;
 using EasyTab.Model.Access;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
@@ -19,12 +21,10 @@ namespace EasyTab.API.Controllers
         private readonly IUserService _service;
         public UsersController(IUserService service) : base(service) { _service = service; }
 
-        [HttpPost("login")]
-        [AllowAnonymous]
-        public async Task<ActionResult<Users>> Login(UserLoginRequest request)
+        [Authorization("Admin")]
+        public override Task<PagedResult<Users>> Get([FromQuery] UserSearchObject? search = null)
         {
-            var user = await _service.AuthenticateAsync(request);
-            return Ok(user);
+            return base.Get(search);
         }
 
         [AllowAnonymous]

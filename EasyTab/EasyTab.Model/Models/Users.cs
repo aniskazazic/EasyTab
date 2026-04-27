@@ -25,6 +25,8 @@ namespace EasyTab.Model.Models
 
         public bool IsDeleted { get; set; }
 
+        public string Role { get; set; } = string.Empty;
+
         public virtual ICollection<UserRoles> UserRoles { get; set; } = new List<UserRoles>();
 
     }

@@ -1,4 +1,5 @@
-﻿using EasyTab.Model.Requests;
+﻿using EasyTab.API.Filters;
+using EasyTab.Model.Requests;
 using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +8,7 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [Authorize(Roles = "Admin")]
+    [Authorization("Admin")]
     public class AdminController : ControllerBase
     {
         private readonly IAdminService _service;

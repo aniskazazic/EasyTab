@@ -1,5 +1,7 @@
 ﻿using EasyTab.API.Services.AccessManager;
 using EasyTab.Model.Access;
+using EasyTab.Model.Requests;
+using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EasyTab.API.Controllers
@@ -9,9 +11,11 @@ namespace EasyTab.API.Controllers
     public class AccessController : ControllerBase
     {
         private readonly IAccessManager _accessManager;
-        public AccessController(IAccessManager accessManager)
+        private readonly IUserService _userService;
+        public AccessController(IAccessManager accessManager, IUserService userService)
         {
             _accessManager = accessManager;
+            _userService = userService;
         }
 
         [HttpPost("Login")]
@@ -28,5 +32,11 @@ namespace EasyTab.API.Controllers
             return Ok(result);
         }
 
+        [HttpPost("Register")]
+        public async Task<IActionResult> Register([FromBody] UserInsertRequest request)
+        {
+            await _userService.CreateAsync(request);
+            return Ok("Registracija uspješno izvršena !");
+        }
     }
 }

@@ -239,49 +239,6 @@ namespace EasyTab.Services.Services
             await Task.CompletedTask;
         }
 
-        //public Users Login(string username, string password)
-        //{
-        //    var entity = Context.Users.Include(x => x.UserRoles).ThenInclude(y => y.Role)
-        //        .FirstOrDefault(x => x.Username == username);
-
-        //    if (entity == null) return null;
-
-        //    var hash = _cryptoService.GenerateHash(password, entity.PasswordSalt);
-        //    if (hash != entity.PasswordHash) return null;
-
-        //    return Mapper.Map<Users>(entity);
-        //}
-
-        public async Task<Users?> AuthenticateAsync(UserLoginRequest request)
-        {
-            if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
-            {
-                _logger.LogWarning("Authentication failed because username or password was empty");
-                return null;
-            }
-
-            var entity = await Context.Users
-                .Include(x => x.UserRoles)
-                .ThenInclude(y => y.Role)
-                .FirstOrDefaultAsync(x => x.Username == request.Username);
-
-            if (entity == null)
-            {
-                _logger.LogWarning("Authentication failed. User not found for username {Username}", request.Username);
-                return null;
-            }
-
-            var hash = _cryptoService.GenerateHash( request.Password, entity.PasswordSalt);
-            if (hash != entity.PasswordHash)
-            {
-                _logger.LogWarning("Authentication failed. Invalid password for username {Username}", request.Username);
-                return null;
-            }
-
-            _logger.LogInformation("Authentication succeeded. Username: {Username}", request.Username);
-            return Mapper.Map<Users>(entity);
-        }
-
         public override async Task<bool> DeleteAsync(int id)
         {
             var user = await _context.Users
@@ -319,19 +276,44 @@ namespace EasyTab.Services.Services
             return true;
         }
 
-        public async Task<UsersSensitiveResponse> GetByUsernameAsync(string username)
+        public async Task<UsersSensitiveResponse?> GetByUsernameAsync(string username)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(x => x.Username == username);
+            var user = await _context.Users
+                .AsNoTracking()
+                .Include(x=>x.UserRoles)
+                .ThenInclude(x=>x.Role)
+                .FirstOrDefaultAsync(x => x.Username == username);
 
-            if (user == null)
+            UsersSensitiveResponse? response = null;
+
+            if (user != null)
             {
-                throw new UserException($"Korisnik  sa korisničkim imenom {username} nije pronađen !");
+                response = Mapper.Map<UsersSensitiveResponse>(user);
+                response.Role = user.UserRoles.First().Role.Name;
             }
-
-            var response = Mapper.Map<UsersSensitiveResponse>(user);
 
             return response;
 
+        }
+
+        public async Task<Users?> GetWithRoleByIdAsync(int id)
+        {
+            var user = await _context.Users
+            .AsNoTracking()
+            .Include(x => x.UserRoles)
+            .ThenInclude(x => x.Role)
+            .FirstOrDefaultAsync(x => x.Id == id);
+
+
+            Users? response = null;
+
+            if (user != null)
+            {
+                response = Mapper.Map<Users>(user);
+                response.Role = user.UserRoles.First().Role.Name;
+            }
+
+            return response;
         }
     }
 }
