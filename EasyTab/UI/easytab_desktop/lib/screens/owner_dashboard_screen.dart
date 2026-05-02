@@ -29,6 +29,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   List<Map<String, dynamic>> tableDistribution = [];
   bool isLoading = false;
   String? statsError;
+  final ownerId =
+      int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
 
   late OwnerProvider ownerProvider;
   late LocaleProvider localeProvider;
@@ -43,8 +45,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Future<void> _loadFirstLocale() async {
     try {
-      final ownerId = AuthProvider.currentUser?.id;
-      if (ownerId == null) return;
+      if (ownerId == 0) return;
 
       final locales = await localeProvider.getByOwner(ownerId);
       if (locales.isNotEmpty) {
@@ -93,8 +94,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Future<void> _onSectionTap(int localeId, String section) async {
-    final ownerId = AuthProvider.currentUser?.id;
-    if (ownerId == null) return;
+    if (ownerId == 0) return;
 
     final locales = await localeProvider.getByOwner(ownerId);
     final locale = locales.firstWhere(

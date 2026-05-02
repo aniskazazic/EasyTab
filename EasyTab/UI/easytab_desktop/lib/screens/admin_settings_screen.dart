@@ -33,14 +33,18 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   Future<void> _loadCurrentUser() async {
-    final userId = AuthProvider.currentUser?.id;
-    if (userId == null) return;
+    final userId =
+        int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
+    if (userId == 0) return;
 
     try {
       final freshUser = await userProvider.getById(userId);
       if (mounted) {
         setState(() {
           AuthProvider.currentUser = freshUser;
+          print(
+            "Fresh user loaded: ${freshUser.firstName} ${freshUser.lastName} (${freshUser.email})",
+          );
         });
       }
     } catch (e) {
@@ -189,7 +193,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = AuthProvider.currentUser;
+    var user = AuthProvider.currentUser;
 
     return MasterScreen(
       title: 'Postavke',

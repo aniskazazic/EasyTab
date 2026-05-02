@@ -6,6 +6,7 @@ import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/providers/table_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
 import 'package:easytab_desktop/providers/zone_provider.dart';
 import 'package:easytab_desktop/screens/admin_add_user_screen.dart';
@@ -39,6 +40,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => TableProvider()),
         ChangeNotifierProvider(create: (_) => ZoneProvider()),
         ChangeNotifierProvider(create: (_) => WorkerProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: const MyLoginApp(),
     ),
@@ -94,13 +96,6 @@ class _LoginPageState extends State<LoginPage> {
   bool isLoading = false;
   bool _obscurePassword = true;
   bool _isHovering = false;
-
-  @override
-  void dispose() {
-    usernameController.dispose();
-    passwordController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -250,7 +245,12 @@ class _LoginPageState extends State<LoginPage> {
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                               ),
-                              onPressed: isLoading ? null : _handleLogin,
+                              onPressed: isLoading
+                                  ? null
+                                  : () => _handleLogin(
+                                      usernameController.text,
+                                      passwordController.text,
+                                    ),
                               child: isLoading
                                   ? const SizedBox(
                                       width: 26,
@@ -326,9 +326,13 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // --- LOGIKA OSTAJE POTPUNO ISTA (NIŠTA NIJE DIRANO) ---
-  Future<void> _handleLogin() async {
-    if (usernameController.text.isEmpty || passwordController.text.isEmpty) {
+  Future<void> _handleLogin(String username, String password) async {
+    AuthProvider authProvider = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
+
+    if (username.isEmpty || password.isEmpty) {
       _showError("Unesite korisničko ime i lozinku!");
       return;
     }
@@ -336,38 +340,21 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => isLoading = true);
 
     try {
-      var userProvider = context.read<UserProvider>();
-      var user = await userProvider.authenticate(
-        usernameController.text,
-        passwordController.text,
-      );
+      await authProvider.login(username, password);
 
-      AuthProvider.username = usernameController.text;
-      AuthProvider.password = passwordController.text;
-      AuthProvider.currentUser = user;
-
-      if (!AuthProvider.isAdmin && !AuthProvider.isOwner) {
-        AuthProvider.clear();
+      var role = AuthProvider.accessTokenDecoded?['Role'];
+      if (role == 'Admin') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AdminDashboardScreen()),
+        );
+      } else if (role == 'Vlasnik') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const OwnerDashboardScreen()),
+        );
+      } else {
         _showError("Nemate dozvolu za pristup ovoj aplikaciji!");
-        return;
-      }
-
-      if (mounted) {
-        if (AuthProvider.isAdmin) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AdminDashboardScreen(),
-            ),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const OwnerDashboardScreen(),
-            ),
-          );
-        }
       }
     } catch (e) {
       _showError(e.toString().replaceAll("Exception: ", ""));

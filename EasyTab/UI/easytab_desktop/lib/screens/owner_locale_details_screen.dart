@@ -162,7 +162,8 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
 
     // Automatski dodaj ownerId od logiranog usera
     if (_isInsert) {
-      request['ownerId'] = AuthProvider.currentUser?.id;
+      request['ownerId'] =
+          int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
     } else {
       request.remove('ownerId');
     }

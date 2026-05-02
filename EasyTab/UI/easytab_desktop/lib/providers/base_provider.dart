@@ -123,19 +123,12 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   }
 
   Map<String, String> createHeaders() {
-    String username = AuthProvider.username ?? "";
-    String password = AuthProvider.password ?? "";
-
-    print("passed creds: $username, $password");
-
-    String basicAuth =
-        "Basic ${base64Encode(utf8.encode('$username:$password'))}";
+    String accessToken = AuthProvider.accessToken ?? "";
 
     var headers = {
       "Content-Type": "application/json",
-      "Authorization": basicAuth,
+      "Authorization": "Bearer $accessToken",
     };
-
     return headers;
   }
 

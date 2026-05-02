@@ -34,8 +34,10 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
   Future<void> _loadLocales() async {
     try {
       final localeProvider = context.read<LocaleProvider>();
-      final ownerId = AuthProvider.currentUser?.id;
-      if (ownerId == null) return;
+      final ownerId =
+          int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
+      ;
+      if (ownerId == 0) return;
 
       final locales = await localeProvider.getByOwner(ownerId);
       setState(() {
@@ -63,7 +65,7 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              AuthProvider.clear();
+              AuthProvider().logout();
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 '/login',
@@ -124,7 +126,7 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
                 const SizedBox(height: 5),
 
                 Text(
-                  'Zdravo, ${AuthProvider.currentUser?.firstName ?? "Owner"}',
+                  'Zdravo, ${AuthProvider.accessTokenDecoded?['FirstName'] ?? "Owner"}',
                   textAlign: TextAlign.center,
                   style: TextStyle(fontSize: 12, color: Colors.blue[100]),
                 ),

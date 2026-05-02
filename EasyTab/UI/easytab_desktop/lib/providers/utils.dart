@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 String formatNumber(dynamic number) {
@@ -7,4 +8,22 @@ String formatNumber(dynamic number) {
   }
 
   return f.format(number);
+}
+
+void alertBox(BuildContext context, String title, String content) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: Text(title),
+      content: Text(content),
+      actions: [
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context);
+          },
+          child: Text("OK"),
+        ),
+      ],
+    ),
+  );
 }

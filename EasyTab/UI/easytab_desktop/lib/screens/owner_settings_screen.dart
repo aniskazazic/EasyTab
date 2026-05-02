@@ -35,8 +35,9 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   }
 
   Future<void> _loadCurrentUser() async {
-    final userId = AuthProvider.currentUser?.id;
-    if (userId == null) return;
+    final userId =
+        int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
+    if (userId == 0) return;
 
     try {
       final freshUser = await userProvider.getById(userId);

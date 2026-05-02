@@ -104,10 +104,10 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
     setState(() => isLoading = true);
     try {
       final filter = <String, dynamic>{
-        "Page": _currentPage,
+        "Page": _currentPage + 1,
         "PageSize": _pageSize,
         "IncludeTotalCount": true,
-        if (showDeleted) "IsDeleted": true,
+        if (showDeleted) "isDeleted": true,
         if (searchController.text.isNotEmpty) "Name": searchController.text,
         if (selectedCityId != null) "CityId": selectedCityId,
         if (selectedCountryId != null && selectedCityId == null)
@@ -233,19 +233,19 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   Widget build(BuildContext context) {
     return MasterScreen(
       title: 'Lokali',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSearch(),
-          _buildShowDeletedCheckbox(),
-          const SizedBox(height: 16),
-          isLoading
-              ? const Expanded(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : _buildTable(),
-          if (!isLoading && _totalPages > 1) _buildPagination(),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSearch(),
+            _buildShowDeletedCheckbox(),
+            const SizedBox(height: 16),
+            isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _buildTable(),
+            if (!isLoading && _totalPages > 1) _buildPagination(),
+          ],
+        ),
       ),
     );
   }
@@ -389,88 +389,82 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
 
   Widget _buildTable() {
     if (_locales.isEmpty) {
-      return const Expanded(
-        child: Center(child: Text('Nema lokala za prikaz.')),
-      );
+      return const Center(child: Text('Nema lokala za prikaz.'));
     }
 
-    return Expanded(
-      child: SingleChildScrollView(
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: DataTable(
-            headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
-            headingTextStyle: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-            columns: const [
-              DataColumn(label: Text('Ime')),
-              DataColumn(label: Text('Država')),
-              DataColumn(label: Text('Grad')),
-              DataColumn(label: Text('Adresa')),
-              DataColumn(label: Text('Kategorija')),
-              DataColumn(label: Text('Vlasnik')),
-              DataColumn(label: Text('Status')),
-              DataColumn(label: Text('Akcije')),
-            ],
-            rows: _locales.map((locale) {
-              final isDeleted = locale.isDeleted ?? false;
-
-              return DataRow(
-                cells: [
-                  DataCell(Text(locale.name ?? '')),
-                  DataCell(Text(locale.countryName ?? '')),
-                  DataCell(Text(locale.cityName ?? '')),
-                  DataCell(Text(locale.address ?? '')),
-                  DataCell(Text(locale.categoryName ?? '')),
-                  DataCell(Text(locale.ownerName ?? '')),
-                  DataCell(
-                    Text(
-                      isDeleted ? 'Izbrisan' : 'Aktivan',
-                      style: TextStyle(
-                        color: isDeleted ? Colors.red : Colors.green,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  DataCell(
-                    Row(
-                      children: [
-                        if (!isDeleted)
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            tooltip: 'Uredi',
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    LocaleDetailsScreen(locale: locale),
-                              ),
-                            ).then((_) => _loadLocales()),
-                          ),
-                        IconButton(
-                          icon: Icon(
-                            isDeleted ? Icons.restore : Icons.delete,
-                            color: isDeleted ? Colors.green : Colors.red,
-                          ),
-                          tooltip: isDeleted ? 'Reaktiviraj' : 'Obriši',
-                          onPressed: () => isDeleted
-                              ? _confirmReactivate(locale)
-                              : _confirmDelete(locale),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            }).toList(),
-          ),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: DataTable(
+        headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
+        headingTextStyle: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
         ),
+        columns: const [
+          DataColumn(label: Text('Ime')),
+          DataColumn(label: Text('Država')),
+          DataColumn(label: Text('Grad')),
+          DataColumn(label: Text('Adresa')),
+          DataColumn(label: Text('Kategorija')),
+          DataColumn(label: Text('Vlasnik')),
+          DataColumn(label: Text('Status')),
+          DataColumn(label: Text('Akcije')),
+        ],
+        rows: _locales.map((locale) {
+          final isDeleted = locale.isDeleted ?? false;
+
+          return DataRow(
+            cells: [
+              DataCell(Text(locale.name ?? '')),
+              DataCell(Text(locale.countryName ?? '')),
+              DataCell(Text(locale.cityName ?? '')),
+              DataCell(Text(locale.address ?? '')),
+              DataCell(Text(locale.categoryName ?? '')),
+              DataCell(Text(locale.ownerName ?? '')),
+              DataCell(
+                Text(
+                  isDeleted ? 'Izbrisan' : 'Aktivan',
+                  style: TextStyle(
+                    color: isDeleted ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              DataCell(
+                Row(
+                  children: [
+                    if (!isDeleted)
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        tooltip: 'Uredi',
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                LocaleDetailsScreen(locale: locale),
+                          ),
+                        ).then((_) => _loadLocales()),
+                      ),
+                    IconButton(
+                      icon: Icon(
+                        isDeleted ? Icons.restore : Icons.delete,
+                        color: isDeleted ? Colors.green : Colors.red,
+                      ),
+                      tooltip: isDeleted ? 'Reaktiviraj' : 'Obriši',
+                      onPressed: () => isDeleted
+                          ? _confirmReactivate(locale)
+                          : _confirmDelete(locale),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        }).toList(),
       ),
     );
   }

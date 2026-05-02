@@ -27,7 +27,7 @@ class _MasterScreenState extends State<MasterScreen> {
     final didPop = await navigator.maybePop();
     if (!didPop && mounted && widget.title != 'Dashboard') {
       // ← provjeri rolu pa navigiraj na pravi dashboard
-      final destination = AuthProvider.isAdmin
+      final destination = AuthProvider.accessTokenDecoded?['Role'] == 'Admin'
           ? '/dashboard'
           : '/owner-dashboard';
       navigator.pushReplacementNamed(destination);

@@ -48,7 +48,7 @@ class AdminSidebar extends StatelessWidget {
                   const SizedBox(height: 5),
 
                   Text(
-                    'Zdravo, ${AuthProvider.currentUser?.firstName ?? "Admin"}',
+                    'Zdravo, ${AuthProvider.accessTokenDecoded?['FirstName'] ?? "Admin"}',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 12, color: Colors.blue[100]),
                   ),
@@ -159,7 +159,7 @@ class AdminSidebar extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              AuthProvider.clear();
+              AuthProvider().logout();
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 '/login',
