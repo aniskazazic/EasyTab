@@ -70,6 +70,8 @@ builder.Services.AddScoped<IValidator<ReactionInsertRequest>, ReactionInsertVali
 builder.Services.AddScoped<IValidator<ReactionUpdateRequest>, ReactionUpdateValidator>();
 builder.Services.AddScoped<IValidator<FavouriteInsertRequest>, FavouriteInsertValidator>();
 builder.Services.AddScoped<IValidator<FavouriteUpdateRequest>, FavouriteUpdateValidator>();
+builder.Services.AddScoped<IValidator<LocaleImageInsertRequest>, LocaleImageInsertValidator>();
+builder.Services.AddScoped<IValidator<LocaleImageUpdateRequest>, LocaleImageUpdateValidator>();
 
 
 builder.Services.AddMapster();

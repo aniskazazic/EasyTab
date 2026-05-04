@@ -626,7 +626,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   File? _image;
 
   void getImage() async {
-    var result = await FilePicker.platform.pickFiles(type: FileType.image);
+    var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       setState(() {
         _image = File(result.files.single.path!);

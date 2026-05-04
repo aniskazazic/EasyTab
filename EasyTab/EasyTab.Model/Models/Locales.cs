@@ -22,5 +22,6 @@ namespace EasyTab.Model.Models
         public bool IsDeleted { get; set; }
         public string? CountryName { get; set; }
         public string? OwnerName { get; set; }
+        public List<LocaleImages>? Images { get; set; } = new List<LocaleImages>();
     }
 }

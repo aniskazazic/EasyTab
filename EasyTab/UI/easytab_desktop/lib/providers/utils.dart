@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -26,4 +28,8 @@ void alertBox(BuildContext context, String title, String content) {
       ],
     ),
   );
+}
+
+Image imageFromBase64String(String base64String) {
+  return Image.memory(base64Decode(base64String), height: 200, width: 200);
 }

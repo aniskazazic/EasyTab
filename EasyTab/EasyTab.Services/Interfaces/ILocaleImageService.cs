@@ -10,10 +10,7 @@ using System.Threading.Tasks;
 
 namespace EasyTab.Services.Interfaces
 {
-    public interface ILocaleImageService : IService<LocaleImages, LocaleImageSearchObject>
+    public interface ILocaleImageService : ICRUDService<LocaleImages, LocaleImageSearchObject, LocaleImageInsertRequest, LocaleImageUpdateRequest>
     {
-        LocaleImages Insert(LocaleImageInsertRequest request);
-        void Delete(int id);
-        List<LocaleImages> GetByLocale(int localeId);
     }
 }

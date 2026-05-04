@@ -84,7 +84,10 @@ public partial class _220030Context : DbContext
         {
             entity.HasKey(e => e.Id).HasName("PK__LocaleIm__3214EC0720D3ED62");
 
-            entity.Property(e => e.ImageUrl).HasMaxLength(500);
+            entity.Property(e => e.FileName).HasMaxLength(100);
+            entity.Property(e => e.ContentType).HasMaxLength(100);
+            entity.Property(e => e.Base64Content).IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnType("datetime");
 
             entity.HasOne(d => d.Locale).WithMany(p => p.LocaleImages)
                 .HasForeignKey(d => d.LocaleId)
@@ -248,6 +251,12 @@ public partial class _220030Context : DbContext
             .WithMany(r => r.UserRoles)
             .HasForeignKey(ur => ur.RoleId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<LocaleImage>()
+            .HasOne(a => a.Locale)
+           .WithMany(p => p.LocaleImages)
+           .HasForeignKey(a => a.LocaleId)
+           .OnDelete(DeleteBehavior.Cascade);
 
         //// User -> Worker (ako treba)
         //modelBuilder.Entity<Worker>()

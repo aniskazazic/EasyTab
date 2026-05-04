@@ -37,7 +37,11 @@ namespace EasyTab.Services.Services
         public override async Task<Locales> CreateAsync(LocaleInsertRequest request)
         {
             _logger.LogInformation("Creating locale. LocaleName: {LocaleName}", request.Name);
-            return await base.CreateAsync(request);
+            var entity = Mapper.Map<Locale>(request);
+            Context.Locales.Add(entity);
+            await Context.SaveChangesAsync();
+            var response = Mapper.Map<Locales>(entity);
+            return response;
         }
 
         public override async Task<Locales?> UpdateAsync(int id, LocaleUpdateRequest request)
@@ -56,7 +60,8 @@ namespace EasyTab.Services.Services
         {
             query = query.Include(x => x.City).ThenInclude(x => x.Country)
                          .Include(x => x.Category)
-                         .Include(x => x.Owner);
+                         .Include(x => x.Owner)
+                         .Include(x => x.LocaleImages);
 
             // Default: prikaži samo aktivne
             // Ako IsDeleted == true (checkbox čekiran) — prikaži SVE (aktivne + obrisane)
@@ -81,44 +86,32 @@ namespace EasyTab.Services.Services
             return query;
         }
 
-        private static string ExtractBase64(string logo)
-        {
-            if (logo.Contains(','))
-                return logo.Split(',')[1];
-
-            var idx = logo.IndexOf("base64", StringComparison.OrdinalIgnoreCase);
-            if (idx >= 0)
-            {
-                idx += 6;
-                while (idx < logo.Length
-                       && !char.IsLetterOrDigit(logo[idx])
-                       && logo[idx] != '+'
-                       && logo[idx] != '/')
-                    idx++;
-                return logo.Substring(idx);
-            }
-
-            return logo;
-        }
-
-        private string SaveLogoToDisk(string logoRaw)
-        {
-            string folderPath = Path.Combine(_wh.WebRootPath, "ImageFolder", "LocaleLogo");
-            if (!Directory.Exists(folderPath))
-                Directory.CreateDirectory(folderPath);
-
-            var base64 = ExtractBase64(logoRaw);
-            var fileName = $"{Guid.NewGuid()}.png";
-            var savePath = Path.Combine(folderPath, fileName);
-            File.WriteAllBytes(savePath, Convert.FromBase64String(base64));
-            return fileName;
-        }
-
         protected override async Task BeforeInsert(Locale entity, LocaleInsertRequest request)
         {
             entity.Logo = string.IsNullOrWhiteSpace(request.Logo)
                 ? null
                 : Path.GetFileName(request.Logo);
+
+            // Obrada slika
+            if (request.Images != null && request.Images.Any())
+            {
+                foreach (var imageRequest in request.Images)
+                {
+                    
+
+                    var localeImage = new LocaleImage
+                    {
+                        FileName = imageRequest.FileName,
+                        ContentType = imageRequest.ContentType,
+                        Base64Content = imageRequest.Base64Content,
+                        LocaleId = entity.Id,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    entity.LocaleImages.Add(localeImage);
+                }
+            }
+
             await Task.CompletedTask;
         }
 
@@ -134,6 +127,24 @@ namespace EasyTab.Services.Services
             if (!string.IsNullOrEmpty(entity.Logo))
                 model.Logo = $"{_baseUrl}/ImageFolder/LocaleLogo/{entity.Logo}";
 
+            // Mapiranje slika
+            if (entity.LocaleImages != null && entity.LocaleImages.Any())
+            {
+                model.Images = entity.LocaleImages.Select(img => new LocaleImages
+                {
+                    Id = img.Id,
+                    FileName = img.FileName,
+                    ContentType = img.ContentType,
+                    Base64Content = img.Base64Content,
+                    CreatedAt = img.CreatedAt,
+                    LocaleId = img.LocaleId
+                }).ToList();
+            }
+            else
+            {
+                model.Images = new List<LocaleImages>();
+            }
+
             return model;
         }
 
@@ -141,6 +152,29 @@ namespace EasyTab.Services.Services
         {
             if (!string.IsNullOrWhiteSpace(request.Logo))
                 entity.Logo = Path.GetFileName(request.Logo);
+
+            // Obrada slika
+            if (request.Images != null && request.Images.Any())
+            {
+
+                // Dodaj nove slike
+                foreach (var imageRequest in request.Images)
+                {
+                    
+
+                    var localeImage = new LocaleImage
+                    {
+                        FileName = imageRequest.FileName,
+                        ContentType = imageRequest.ContentType,
+                        Base64Content = imageRequest.Base64Content,
+                        LocaleId = entity.Id,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    Context.LocaleImages.Add(localeImage);
+                }
+            }
+
             await Task.CompletedTask;
         }
     }

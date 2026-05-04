@@ -90,7 +90,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   Future<void> _pickImage() async {
-    var result = await FilePicker.platform.pickFiles(type: FileType.image);
+    var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       setState(() => _imageFile = File(result.files.single.path!));
     }

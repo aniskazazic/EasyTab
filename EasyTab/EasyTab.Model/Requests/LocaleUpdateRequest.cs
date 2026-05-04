@@ -16,5 +16,7 @@ namespace EasyTab.Model.Requests
         public int? CityId { get; set; }
         public int? CategoryId { get; set; }
         public bool? IsDeleted { get; set; }
+        public List<LocaleImageInsertRequest>? Images { get; set; }
+
     }
 }

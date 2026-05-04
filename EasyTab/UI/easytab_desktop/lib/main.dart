@@ -19,6 +19,7 @@ import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_locale_list_screen.dart';
 import 'package:easytab_desktop/providers/file_provider.dart';
+import 'package:easytab_desktop/providers/localeimage_provider.dart';
 import 'package:easytab_desktop/screens/owner_dashboard_screen.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
@@ -41,6 +42,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => ZoneProvider()),
         ChangeNotifierProvider(create: (_) => WorkerProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => LocaleImageProvider()),
       ],
       child: const MyLoginApp(),
     ),

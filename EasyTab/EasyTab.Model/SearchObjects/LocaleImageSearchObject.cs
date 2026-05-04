@@ -8,6 +8,8 @@ namespace EasyTab.Model.SearchObject
 {
     public class LocaleImageSearchObject : BaseSearchObject
     {
+        public string? FileName { get; set; }
+        public string? ContentType { get; set; }
         public int? LocaleId { get; set; }
     }
 }

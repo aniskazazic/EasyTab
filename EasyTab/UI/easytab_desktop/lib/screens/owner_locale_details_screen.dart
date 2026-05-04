@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 import 'package:easytab_desktop/models/category.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
+import 'package:easytab_desktop/models/localeimage.dart';
 import 'package:easytab_desktop/models/search_result.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/category_provider.dart';
@@ -10,6 +13,8 @@ import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/file_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
+import 'package:easytab_desktop/providers/localeimage_provider.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -36,11 +41,16 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   late CityProvider cityProvider;
   late CountryProvider countryProvider;
   late CategoryProvider categoryProvider;
+  late LocaleImageProvider localeImageProvider;
+
+  SearchResult<LocaleImage>? localeImagesResult;
 
   List<Country> _countries = [];
   List<City> _allCities = [];
   List<City> _filteredCities = [];
   List<Category> _categories = [];
+
+  List<LocaleImage> newImages = [];
 
   int? selectedCountryId;
   bool isLoading = true;
@@ -56,21 +66,37 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
     countryProvider = Provider.of<CountryProvider>(context, listen: false);
     cityProvider = Provider.of<CityProvider>(context, listen: false);
+    localeImageProvider = Provider.of<LocaleImageProvider>(
+      context,
+      listen: false,
+    );
     _loadData();
   }
 
   Future<void> _loadData() async {
     try {
       final results = await Future.wait([
-        categoryProvider.get(filter: {"RetrieveAll": true}),
-        countryProvider.get(filter: {"RetrieveAll": true}),
-        cityProvider.get(filter: {"RetrieveAll": true}),
+        categoryProvider.get(filter: {}),
+        countryProvider.get(filter: {}),
+        cityProvider.get(filter: {}),
       ]);
+
+      var localeimages = SearchResult<LocaleImage>();
+
+      if (widget.locale != null) {
+        localeimages = await localeImageProvider.get(
+          filter: {"localeId": widget.locale!.id},
+        );
+      }
 
       setState(() {
         _categories = (results[0] as SearchResult<Category>).items ?? [];
         _countries = (results[1] as SearchResult<Country>).items ?? [];
         _allCities = (results[2] as SearchResult<City>).items ?? [];
+
+        if (widget.locale != null) {
+          localeImagesResult = localeimages;
+        }
 
         // Postavi državu i gradove za edit
         if (widget.locale?.cityId != null) {
@@ -145,6 +171,10 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       request['logo'] = imageUrl;
     }
 
+    if (newImages.isNotEmpty) {
+      request['images'] = newImages.map((image) => image.toJson()).toList();
+    }
+
     // Formatiraj vremena
     for (final key in ['startOfWorkingHours', 'endOfWorkingHours']) {
       final val = request[key];
@@ -182,7 +212,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   }
 
   void _getImage() async {
-    var result = await FilePicker.platform.pickFiles(type: FileType.image);
+    var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       setState(() => _image = File(result.files.single.path!));
     }
@@ -219,16 +249,58 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 15),
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : Expanded(child: _buildForm()),
+                  if (!isLoading &&
+                      ((localeImagesResult?.items?.isNotEmpty ?? false) ||
+                          newImages.isNotEmpty))
+                    _buildImageList(),
                   if (!isLoading) _buildSaveButton(),
                 ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  SizedBox _buildImageList() {
+    List<LocaleImage> allImages = [];
+
+    if (localeImagesResult?.items != null) {
+      allImages.addAll(localeImagesResult!.items!);
+    }
+
+    allImages.addAll(newImages);
+
+    return SizedBox(
+      height: 150,
+      child: ScrollConfiguration(
+        behavior: const MaterialScrollBehavior().copyWith(
+          dragDevices: {...PointerDeviceKind.values},
+        ),
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: allImages.length,
+          itemBuilder: (context, index) {
+            final image = allImages[index];
+            if (image.base64Content == null || image.base64Content!.isEmpty) {
+              return const SizedBox(
+                width: 200,
+                child: Center(
+                  child: Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              );
+            }
+            return SizedBox(
+              width: 200,
+              child: imageFromBase64String(image.base64Content!),
+            );
+          },
+        ),
       ),
     );
   }
@@ -275,6 +347,77 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         padding: const EdgeInsets.only(bottom: 16),
         child: Column(
           children: [
+            // Logo
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                    color: Colors.grey.shade100,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: _image != null
+                        ? Image.file(_image!, fit: BoxFit.cover)
+                        : widget.locale?.logo != null
+                        ? Image.network(
+                            widget.locale!.logo!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.store,
+                              size: 40,
+                              color: Colors.grey,
+                            ),
+                          ),
+                  ),
+                ),
+                Expanded(
+                  child: InkWell(
+                    onTap: _getImage,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Logo lokala',
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _image != null
+                                ? 'Nova slika odabrana ✓'
+                                : widget.locale?.logo != null
+                                ? 'Promijeni logo'
+                                : 'Odaberite logo',
+                            style: TextStyle(
+                              color: _image != null
+                                  ? Colors.green
+                                  : widget.locale?.logo != null
+                                  ? Colors.blue
+                                  : Colors.grey,
+                            ),
+                          ),
+                          const Icon(Icons.file_upload),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             // Naziv i adresa
             Row(
               children: [
@@ -475,7 +618,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
 
             // Kategorija
             FormBuilderDropdown<int>(
@@ -496,80 +639,54 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                   )
                   .toList(),
             ),
-            const SizedBox(height: 16),
-
-            // Logo
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                    color: Colors.grey.shade100,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+              child: Row(
+                children: [
+                  Text('Slike lokala', style: TextStyle(fontSize: 22)),
+                  const SizedBox(width: 16),
+                  IconButton(
+                    onPressed: _pickFiles,
+                    icon: const Icon(Icons.add),
                   ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: _image != null
-                        ? Image.file(_image!, fit: BoxFit.cover)
-                        : widget.locale?.logo != null
-                        ? Image.network(
-                            widget.locale!.logo!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.broken_image,
-                              color: Colors.grey,
-                            ),
-                          )
-                        : const Center(
-                            child: Icon(
-                              Icons.store,
-                              size: 40,
-                              color: Colors.grey,
-                            ),
-                          ),
-                  ),
-                ),
-                Expanded(
-                  child: InkWell(
-                    onTap: _getImage,
-                    borderRadius: BorderRadius.circular(8),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Logo lokala',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _image != null
-                                ? 'Nova slika odabrana ✓'
-                                : widget.locale?.logo != null
-                                ? 'Promijeni logo'
-                                : 'Odaberite logo',
-                            style: TextStyle(
-                              color: _image != null
-                                  ? Colors.green
-                                  : widget.locale?.logo != null
-                                  ? Colors.blue
-                                  : Colors.grey,
-                            ),
-                          ),
-                          const Icon(Icons.file_upload),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future _pickFiles() async {
+    try {
+      FilePickerResult? result = await FilePicker.pickFiles(
+        allowMultiple: true,
+        type: FileType.image,
+      );
+
+      if (result != null) {
+        for (var file in result.files) {
+          var bytes = await file.xFile.readAsBytes();
+          final base64String = base64Encode(bytes);
+
+          setState(() {
+            newImages.add(
+              LocaleImage(
+                id: 0,
+                fileName: file.name,
+                contentType: file.extension != null
+                    ? 'image/${file.extension}'
+                    : 'image/png',
+                base64Content: base64String,
+                localeId: 0,
+              ),
+            );
+          });
+        }
+      }
+    } catch (e) {
+      _showError(e.toString());
+    }
   }
 }

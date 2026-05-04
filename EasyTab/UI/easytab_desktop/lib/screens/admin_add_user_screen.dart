@@ -102,7 +102,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
   }
 
   Future<void> _pickImage(Function(File) onPicked) async {
-    var result = await FilePicker.platform.pickFiles(type: FileType.image);
+    var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       onPicked(File(result.files.single.path!));
     }
