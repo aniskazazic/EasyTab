@@ -33,6 +33,8 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   late WorkerProvider workerProvider;
   bool isLoading = false;
   File? _image;
+  bool _obscurePassword = true;
+  bool _obscurePasswordConfirmation = true;
 
   bool get _isInsert => widget.worker == null;
 
@@ -454,12 +456,22 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: 'password',
-                    obscureText: true,
+                    obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: _isInsert
                           ? 'Lozinka'
                           : 'Nova lozinka (ostavite prazno)',
                       border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                      ),
                     ),
                     validator: _isInsert
                         ? FormBuilderValidators.required(
@@ -472,12 +484,23 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: 'passwordConfirmation',
-                    obscureText: true,
+                    obscureText: _obscurePasswordConfirmation,
                     decoration: InputDecoration(
                       labelText: _isInsert
                           ? 'Potvrda lozinke'
                           : 'Potvrda nove lozinke',
                       border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePasswordConfirmation
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePasswordConfirmation =
+                              !_obscurePasswordConfirmation,
+                        ),
+                      ),
                     ),
                     validator: (value) {
                       final password =

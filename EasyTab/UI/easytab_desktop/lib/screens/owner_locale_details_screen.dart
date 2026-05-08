@@ -118,14 +118,15 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Greška'),
         content: Text(message.replaceAll("Exception: ", "")),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('OK'),
           ),
         ],
@@ -134,17 +135,18 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   }
 
   void _showSuccess(String message) {
+    if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Uspješno'),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () {
               widget.onSaved?.call();
-              Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              Navigator.pop(dialogContext);
             },
             child: const Text('OK'),
           ),
@@ -209,6 +211,57 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     if (result != null && result.files.single.path != null) {
       setState(() => _image = File(result.files.single.path!));
     }
+  }
+
+  Future<void> _deleteLocaleImage(LocaleImage image) async {
+    final messenger = ScaffoldMessenger.of(context);
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Brisanje slike'),
+        content: const Text('Da li ste sigurni da želite obrisati ovu sliku?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Otkaži'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              try {
+                if (image.id != 0) {
+                  await localeImageProvider.delete(image.id!);
+                  if (mounted) {
+                    setState(() {
+                      localeImagesResult?.items?.removeWhere(
+                        (item) => item.id == image.id,
+                      );
+                    });
+                  }
+                } else {
+                  setState(() {
+                    newImages.remove(image);
+                  });
+                }
+
+                if (mounted) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Slika uspješno obrisana!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) _showError(e.toString());
+              }
+            },
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -288,9 +341,38 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 ),
               );
             }
-            return SizedBox(
-              width: 200,
-              child: imageFromBase64String(image.base64Content!),
+            return Stack(
+              children: [
+                SizedBox(
+                  width: 200,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: imageFromBase64String(image.base64Content!),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 5,
+                  right: 13,
+                  child: InkWell(
+                    onTap: () => _deleteLocaleImage(image),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.delete,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             );
           },
         ),
@@ -359,7 +441,9 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                         ? Image.file(_image!, fit: BoxFit.cover)
                         : imageProviderFromString(widget.locale?.logo) != null
                         ? Image(
-                            image: imageProviderFromString(widget.locale?.logo)!,
+                            image: imageProviderFromString(
+                              widget.locale?.logo,
+                            )!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(
                               Icons.broken_image,

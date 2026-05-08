@@ -33,6 +33,21 @@ namespace EasyTab.Services.Services
         public override async Task<Locales> CreateAsync(LocaleInsertRequest request)
         {
             _logger.LogInformation("Creating locale. LocaleName: {LocaleName}", request.Name);
+
+            // Validacija CityId
+            var cityExists = await Context.Cities.AnyAsync(c => c.Id == request.CityId);
+            if (!cityExists)
+            {
+                throw new KeyNotFoundException($"Grad sa ID {request.CityId} ne postoji.");
+            }
+
+            // Validacija CategoryId
+            var categoryExists = await Context.Categories.AnyAsync(c => c.Id == request.CategoryId);
+            if (!categoryExists)
+            {
+                throw new KeyNotFoundException($"Kategorija sa ID {request.CategoryId} ne postoji.");
+            }
+
             var entity = Mapper.Map<Locale>(request);
             Context.Locales.Add(entity);
             await Context.SaveChangesAsync();
@@ -42,8 +57,22 @@ namespace EasyTab.Services.Services
 
         public override async Task<Locales?> UpdateAsync(int id, LocaleUpdateRequest request)
         {
+            await _updateValidator.ValidateAndThrowAsync(request);
+
             _logger.LogInformation("Updating locale. LocaleId: {LocaleId}, LocaleName: {LocaleName}", id, request.Name);
-            return await base.UpdateAsync(id, request);
+
+            var entity = await Context.Locales.FindAsync(id);
+            if (entity == null)
+            {
+                throw new KeyNotFoundException($"Lokala sa ID {id} ne postoji.");
+            }
+
+            await BeforeUpdate(entity, request);
+            // Čuva sve izmene
+            await Context.SaveChangesAsync();
+
+            // Vraća response
+            return MapToResponse(entity);
         }
 
         public override async Task<bool> DeleteAsync(int id)
@@ -143,20 +172,67 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeUpdate(Locale entity, LocaleUpdateRequest request)
         {
+
+            var oldCityId = entity.CityId;
+            var oldCategoryId = entity.CategoryId;
+            var oldName = entity.Name;
+            var oldAddress = entity.Address;
+            var oldPhoneNumber = entity.PhoneNumber;
+            var oldLogo = entity.Logo;
+            var oldStartOfWorkingHours = entity.StartOfWorkingHours;
+            var oldEndOfWorkingHours = entity.EndOfWorkingHours;
+            var oldLengthOfReservation = entity.LengthOfReservation;
+
+            if (!string.IsNullOrWhiteSpace(request.Name))
+                entity.Name = request.Name;
+
+            if (!string.IsNullOrWhiteSpace(request.Address))
+                entity.Address = request.Address;
+
+            if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
+                entity.PhoneNumber = request.PhoneNumber;
+
+            if (request.CityId.HasValue)
+                entity.CityId = request.CityId.Value;
+
+            if (request.CategoryId.HasValue)
+                entity.CategoryId = request.CategoryId.Value;
+
+            if (request.StartOfWorkingHours.HasValue)
+                entity.StartOfWorkingHours = request.StartOfWorkingHours.Value;
+
+            if (request.EndOfWorkingHours.HasValue)
+                entity.EndOfWorkingHours = request.EndOfWorkingHours.Value;
+
+            if (request.LengthOfReservation.HasValue)
+                entity.LengthOfReservation = request.LengthOfReservation.Value;
+
             if (request.Logo == "")
                 entity.Logo = null;
             else if (!string.IsNullOrWhiteSpace(request.Logo))
                 entity.Logo = request.Logo;
 
-            // Obrada slika
+            if (request.IsDeleted.HasValue)
+                entity.IsDeleted = request.IsDeleted.Value;
+
+            var cityIdToCheck = request.CityId ?? oldCityId;
+            var cityExists = await Context.Cities.AnyAsync(c => c.Id == cityIdToCheck);
+            if (!cityExists)
+            {
+                throw new KeyNotFoundException($"Grad sa ID {cityIdToCheck} ne postoji. Molim odaberite validnu lokaciju.");
+            }
+
+            var categoryIdToCheck = request.CategoryId ?? oldCategoryId;
+            var categoryExists = await Context.Categories.AnyAsync(c => c.Id == categoryIdToCheck);
+            if (!categoryExists)
+            {
+                throw new KeyNotFoundException($"Kategorija sa ID {categoryIdToCheck} ne postoji. Molim odaberite validnu kategoriju.");
+            }
+
             if (request.Images != null && request.Images.Any())
             {
-
-                // Dodaj nove slike
                 foreach (var imageRequest in request.Images)
                 {
-                    
-
                     var localeImage = new LocaleImage
                     {
                         FileName = imageRequest.FileName,
@@ -169,6 +245,8 @@ namespace EasyTab.Services.Services
                     Context.LocaleImages.Add(localeImage);
                 }
             }
+
+            entity.DeletedAt = null;
 
             await Task.CompletedTask;
         }

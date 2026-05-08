@@ -106,14 +106,15 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Greška'),
         content: Text(message.replaceAll("Exception: ", "")),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('OK'),
           ),
         ],
@@ -121,17 +122,19 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
     );
   }
 
+
   void _showSuccess(String message) {
+    if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Uspješno'),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              Navigator.pop(dialogContext);
             },
             child: const Text('OK'),
           ),
@@ -139,6 +142,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       ),
     );
   }
+
 
   Future<void> _handleSave() async {
     formKey.currentState?.saveAndValidate();
@@ -236,6 +240,111 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         padding: const EdgeInsets.all(30.0),
         child: Column(
           children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Preview
+                Container(
+                  width: 100,
+                  height: 100,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                    color: Colors.grey.shade100,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: _image != null
+                        ? Image.file(_image!, fit: BoxFit.cover)
+                        : imageProviderFromString(widget.locale?.logo) != null
+                        ? Image(
+                            image: imageProviderFromString(
+                              widget.locale?.logo,
+                            )!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Center(
+                              child: Icon(
+                                Icons.broken_image,
+                                size: 36,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.store,
+                              size: 40,
+                              color: Colors.grey,
+                            ),
+                          ),
+                  ),
+                ),
+                // Picker
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: getImage,
+                        borderRadius: BorderRadius.circular(8),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Logo lokala',
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _image != null
+                                    ? 'Nova slika odabrana ✓'
+                                    : widget.locale?.logo != null
+                                    ? 'Promijeni logo'
+                                    : 'Odaberite logo',
+                                style: TextStyle(
+                                  color: _image != null
+                                      ? Colors.green
+                                      : widget.locale?.logo != null
+                                      ? Colors.blue
+                                      : Colors.grey,
+                                ),
+                              ),
+                              const Icon(Icons.file_upload),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (!_isInsert &&
+                          widget.locale?.logo != null &&
+                          _image == null)
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          icon: const Icon(Icons.delete, size: 18),
+                          label: const Text('Obriši logo'),
+                          onPressed: () => _deleteImage(
+                            fileUrl: widget.locale!.logo!,
+                            subfolder: 'ImageFolder/LocaleLogo',
+                            onDeleted: () async {
+                              await localeProvider.update(widget.locale!.id!, {
+                                'name': widget.locale!.name,
+                                'address': widget.locale!.address,
+                                'logo': '',
+                              });
+                              if (mounted) Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             Row(
               children: [
                 Expanded(
@@ -503,107 +612,6 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Preview
-                Container(
-                  width: 100,
-                  height: 100,
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                    color: Colors.grey.shade100,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: _image != null
-                        ? Image.file(_image!, fit: BoxFit.cover)
-                        : imageProviderFromString(widget.locale?.logo) != null
-                        ? Image(
-                            image: imageProviderFromString(widget.locale?.logo)!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Center(
-                              child: Icon(
-                                Icons.broken_image,
-                                size: 36,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          )
-                        : const Center(
-                            child: Icon(
-                              Icons.store,
-                              size: 40,
-                              color: Colors.grey,
-                            ),
-                          ),
-                  ),
-                ),
-                // Picker
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        onTap: getImage,
-                        borderRadius: BorderRadius.circular(8),
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Logo lokala',
-                            border: OutlineInputBorder(),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _image != null
-                                    ? 'Nova slika odabrana ✓'
-                                    : widget.locale?.logo != null
-                                    ? 'Promijeni logo'
-                                    : 'Odaberite logo',
-                                style: TextStyle(
-                                  color: _image != null
-                                      ? Colors.green
-                                      : widget.locale?.logo != null
-                                      ? Colors.blue
-                                      : Colors.grey,
-                                ),
-                              ),
-                              const Icon(Icons.file_upload),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (!_isInsert &&
-                          widget.locale?.logo != null &&
-                          _image == null)
-                        TextButton.icon(
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                          icon: const Icon(Icons.delete, size: 18),
-                          label: const Text('Obriši logo'),
-                          onPressed: () => _deleteImage(
-                            fileUrl: widget.locale!.logo!,
-                            subfolder: 'ImageFolder/LocaleLogo',
-                            onDeleted: () async {
-                              await localeProvider.update(widget.locale!.id!, {
-                                'name': widget.locale!.name,
-                                'address': widget.locale!.address,
-                                'logo': '',
-                              });
-                              if (mounted) Navigator.pop(context);
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -626,24 +634,25 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
     required String subfolder,
     required VoidCallback onDeleted,
   }) async {
+    final messenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Brisanje slike'),
         content: const Text('Da li ste sigurni da želite obrisati sliku?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Otkaži'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               try {
                 onDeleted();
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                       content: Text('Slika uspješno obrisana!'),
                       backgroundColor: Colors.green,
@@ -651,7 +660,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                   );
                 }
               } catch (e) {
-                _showError(e.toString());
+                if (mounted) _showError(e.toString());
               }
             },
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),
@@ -660,4 +669,5 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       ),
     );
   }
+
 }
