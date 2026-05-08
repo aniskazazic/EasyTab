@@ -1,6 +1,7 @@
 ﻿using EasyTab.Services.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace EasyTab.Services.Database;
 
@@ -24,6 +25,7 @@ public partial class User : ISoftDelete
 
     public DateTime? BirthDate { get; set; }
 
+    [MaxLength]
     public string? ProfilePicture { get; set; }
 
     public DateTime? DeletedAt { get; set; }

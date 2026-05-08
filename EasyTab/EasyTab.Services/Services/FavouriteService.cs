@@ -7,25 +7,17 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace EasyTab.Services.Services
 {
     public class FavouriteService : BaseCRUDService<Favourites, FavouriteSearchObject, Favourite, FavouriteInsertRequest, FavouriteUpdateRequest>, IFavouriteService
     {
-        private readonly IWebHostEnvironment _wh;
         private readonly ILogger<FavouriteService> _logger;
 
-        public FavouriteService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<FavouriteService> logger, IValidator<FavouriteInsertRequest> insertValidator, IValidator<FavouriteUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        public FavouriteService(_220030Context context, IMapper mapper, ILogger<FavouriteService> logger, IValidator<FavouriteInsertRequest> insertValidator, IValidator<FavouriteUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
-            _wh = wh;
             _logger = logger;
         }
 
@@ -90,16 +82,7 @@ namespace EasyTab.Services.Services
             {
                 var model = Mapper.Map<Favourites>(x);
 
-                // Učitaj logo kao base64
-                if (!string.IsNullOrEmpty(x.Locale.Logo))
-                {
-                    string logoPath = Path.Combine(_wh.WebRootPath, "ImageFolder", "LocaleLogo", x.Locale.Logo);
-                    if (File.Exists(logoPath))
-                    {
-                        byte[] imageBytes = File.ReadAllBytes(logoPath);
-                        model.LocaleLogo = $"data:image/png;base64,{Convert.ToBase64String(imageBytes)}";
-                    }
-                }
+                model.LocaleLogo = x.Locale.Logo;
 
                 return model;
             }).ToList();

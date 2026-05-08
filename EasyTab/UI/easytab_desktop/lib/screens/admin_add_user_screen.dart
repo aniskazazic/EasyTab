@@ -1,7 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as models;
-import 'package:easytab_desktop/providers/file_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 class AdminAddUserScreen extends StatefulWidget {
   final VoidCallback? onSaved;
@@ -26,7 +27,6 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
   late UserProvider userProvider;
   late WorkerProvider workerProvider;
   late LocaleProvider localeProvider;
-  late FileProvider fileProvider;
 
   final _userFormKey = GlobalKey<FormBuilderState>();
   final _ownerFormKey = GlobalKey<FormBuilderState>();
@@ -38,6 +38,8 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
   List<models.Locale> _locales = [];
   bool isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscurePasswordConfirmation = true;
 
   @override
   void initState() {
@@ -46,7 +48,6 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
     userProvider = context.read<UserProvider>();
     workerProvider = context.read<WorkerProvider>();
     localeProvider = context.read<LocaleProvider>();
-    fileProvider = context.read<FileProvider>();
     _loadLocales();
   }
 
@@ -116,12 +117,12 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
     var request = Map<String, dynamic>.from(formKey.currentState?.value ?? {});
 
     if (image != null) {
-      final imageUrl = await fileProvider.uploadImage(image, subfolder);
-      request['profilePicture'] = imageUrl;
+      request['profilePicture'] = base64Encode(image.readAsBytesSync());
     }
 
     if (request['birthDate'] is DateTime) {
       request['birthDate'] = (request['birthDate'] as DateTime)
+          .toUtc()
           .toIso8601String();
     }
 
@@ -254,19 +255,38 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  _buildImagePicker(
+                    image: _workerImage,
+                    onPick: () =>
+                        _pickImage((f) => setState(() => _workerImage = f)),
+                  ),
+                  const SizedBox(height: 16),
                   _buildNameRow(_userFormKey),
                   const SizedBox(height: 16),
                   _buildUsernameEmailRow(_userFormKey),
                   const SizedBox(height: 16),
                   _buildPhoneBirthRow(_userFormKey),
                   const SizedBox(height: 16),
+                  // Separator
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Lozinka',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   _buildPasswordRow(_userFormKey),
                   const SizedBox(height: 16),
-                  _buildImagePicker(
-                    image: _userImage,
-                    onPick: () =>
-                        _pickImage((f) => setState(() => _userImage = f)),
-                  ),
                 ],
               ),
             ),
@@ -288,19 +308,38 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  _buildImagePicker(
+                    image: _workerImage,
+                    onPick: () =>
+                        _pickImage((f) => setState(() => _workerImage = f)),
+                  ),
+                  const SizedBox(height: 16),
                   _buildNameRow(_ownerFormKey),
                   const SizedBox(height: 16),
                   _buildUsernameEmailRow(_ownerFormKey),
                   const SizedBox(height: 16),
                   _buildPhoneBirthRow(_ownerFormKey),
                   const SizedBox(height: 16),
+                  // Separator
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Lozinka',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                   _buildPasswordRow(_ownerFormKey),
                   const SizedBox(height: 16),
-                  _buildImagePicker(
-                    image: _ownerImage,
-                    onPick: () =>
-                        _pickImage((f) => setState(() => _ownerImage = f)),
-                  ),
                 ],
               ),
             ),
@@ -322,13 +361,17 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  _buildImagePicker(
+                    image: _workerImage,
+                    onPick: () =>
+                        _pickImage((f) => setState(() => _workerImage = f)),
+                  ),
+                  const SizedBox(height: 16),
                   _buildNameRow(_workerFormKey),
                   const SizedBox(height: 16),
                   _buildUsernameEmailRow(_workerFormKey),
                   const SizedBox(height: 16),
                   _buildPhoneBirthRow(_workerFormKey),
-                  const SizedBox(height: 16),
-                  _buildPasswordRow(_workerFormKey),
                   const SizedBox(height: 16),
 
                   // Lokal dropdown — samo za radnika
@@ -351,12 +394,26 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
                         .toList(),
                   ),
                   const SizedBox(height: 16),
-
-                  _buildImagePicker(
-                    image: _workerImage,
-                    onPick: () =>
-                        _pickImage((f) => setState(() => _workerImage = f)),
+                  // Separator
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'Lozinka',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      Expanded(child: Divider(color: Colors.grey.shade300)),
+                    ],
                   ),
+                  const SizedBox(height: 16),
+                  _buildPasswordRow(_workerFormKey),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
@@ -451,6 +508,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
           child: FormBuilderDateTimePicker(
             name: 'birthDate',
             inputType: InputType.date,
+            format: DateFormat('dd/MM/yyyy'),
             decoration: const InputDecoration(
               labelText: 'Datum rođenja',
               border: OutlineInputBorder(),
@@ -470,10 +528,17 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
         Expanded(
           child: FormBuilderTextField(
             name: 'password',
-            obscureText: true,
-            decoration: const InputDecoration(
+            obscureText: _obscurePassword,
+            decoration: InputDecoration(
               labelText: 'Lozinka',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                ),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
+              ),
             ),
             validator: FormBuilderValidators.required(
               errorText: 'Lozinka je obavezna',
@@ -484,18 +549,33 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
         Expanded(
           child: FormBuilderTextField(
             name: 'passwordConfirmation',
-            obscureText: true,
-            decoration: const InputDecoration(
+            obscureText: _obscurePasswordConfirmation,
+            decoration: InputDecoration(
               labelText: 'Potvrda lozinke',
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscurePasswordConfirmation
+                      ? Icons.visibility_off
+                      : Icons.visibility,
+                ),
+                onPressed: () => setState(
+                  () => _obscurePasswordConfirmation =
+                      !_obscurePasswordConfirmation,
+                ),
+              ),
             ),
             validator: (value) {
               final password =
                   formKey.currentState?.fields['password']?.value as String?;
-              if (value == null || value.isEmpty)
+              if (value == null || value.isEmpty) {
                 return 'Potvrda lozinke je obavezna';
-              if (password != null && password.isNotEmpty && value != password)
+              }
+              if (password != null &&
+                  password.isNotEmpty &&
+                  value != password) {
                 return 'Lozinke se ne podudaraju';
+              }
               return null;
             },
           ),

@@ -28,7 +28,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
-    var response = await http.get(uri, headers: createHeaders());
+    var response = await http.get(uri, headers: headers);
 
     if (isValidResponse(response)) {
       var data = jsonDecode(response.body);
@@ -155,7 +155,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
         }
         query += '$prefix$key=$encoded';
       } else if (value is DateTime) {
-        query += '$prefix$key=${(value as DateTime).toIso8601String()}';
+        query += '$prefix$key=${(value as DateTime).toUtc().toIso8601String()}';
       } else if (value is List || value is Map) {
         if (value is List) value = value.asMap();
         value.forEach((k, v) {

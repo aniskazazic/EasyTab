@@ -1,4 +1,4 @@
-﻿using EasyTab.Model.Models;
+using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
@@ -8,11 +8,9 @@ using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,13 +22,11 @@ namespace EasyTab.Services.Services
     {
 
         private readonly IWebHostEnvironment _wh;
-        private readonly string _baseUrl;
         private readonly ILogger<LocaleService> _logger;
 
-        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, IConfiguration config, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
-            _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";
             _logger = logger;
         }
 
@@ -88,9 +84,7 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeInsert(Locale entity, LocaleInsertRequest request)
         {
-            entity.Logo = string.IsNullOrWhiteSpace(request.Logo)
-                ? null
-                : Path.GetFileName(request.Logo);
+            entity.Logo = string.IsNullOrWhiteSpace(request.Logo) ? null : request.Logo;
 
             // Obrada slika
             if (request.Images != null && request.Images.Any())
@@ -124,8 +118,7 @@ namespace EasyTab.Services.Services
                 ? $"{entity.Owner.FirstName} {entity.Owner.LastName}"
                 : null;
 
-            if (!string.IsNullOrEmpty(entity.Logo))
-                model.Logo = $"{_baseUrl}/ImageFolder/LocaleLogo/{entity.Logo}";
+            model.Logo = entity.Logo;
 
             // Mapiranje slika
             if (entity.LocaleImages != null && entity.LocaleImages.Any())
@@ -150,8 +143,10 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeUpdate(Locale entity, LocaleUpdateRequest request)
         {
-            if (!string.IsNullOrWhiteSpace(request.Logo))
-                entity.Logo = Path.GetFileName(request.Logo);
+            if (request.Logo == "")
+                entity.Logo = null;
+            else if (!string.IsNullOrWhiteSpace(request.Logo))
+                entity.Logo = request.Logo;
 
             // Obrada slika
             if (request.Images != null && request.Images.Any())

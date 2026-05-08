@@ -1,6 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:easytab_desktop/models/worker.dart';
-import 'package:easytab_desktop/providers/file_provider.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:file_picker/file_picker.dart';
@@ -8,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 class OwnerWorkerDetailsScreen extends StatefulWidget {
   final int localeId;
@@ -29,7 +31,6 @@ class OwnerWorkerDetailsScreen extends StatefulWidget {
 class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
   late WorkerProvider workerProvider;
-  late FileProvider fileProvider;
   bool isLoading = false;
   File? _image;
 
@@ -39,7 +40,6 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   void initState() {
     super.initState();
     workerProvider = Provider.of<WorkerProvider>(context, listen: false);
-    fileProvider = Provider.of<FileProvider>(context, listen: false);
   }
 
   void _showError(String message) {
@@ -99,16 +99,12 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
       // Formatiraj datum rođenja
       final birthDate = request['birthDate'];
       if (birthDate is DateTime) {
-        request['birthDate'] = birthDate.toIso8601String();
+        request['birthDate'] = birthDate.toUtc().toIso8601String();
       }
 
       // Upload slike ako je odabrana
       if (_image != null) {
-        final imageUrl = await fileProvider.uploadImage(
-          _image!,
-          'ImageFolder/ProfilePictures',
-        );
-        request['profilePicture'] = imageUrl;
+        request['profilePicture'] = base64Encode(_image!.readAsBytesSync());
       }
 
       // Ukloni prazna polja
@@ -211,6 +207,110 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
       child: SingleChildScrollView(
         child: Column(
           children: [
+            // Profilna slika
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  width: 100,
+                  height: 100,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.grey.shade300),
+                    color: Colors.grey.shade100,
+                  ),
+                  child: ClipOval(
+                    child: _image != null
+                        ? Image.file(_image!, fit: BoxFit.cover)
+                        : imageProviderFromString(
+                                widget.worker?.profilePicture,
+                              ) !=
+                              null
+                        ? Image(
+                            image: imageProviderFromString(
+                              widget.worker?.profilePicture,
+                            )!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(
+                              Icons.person,
+                              size: 50,
+                              color: Colors.grey,
+                            ),
+                          )
+                        : const Icon(
+                            Icons.person,
+                            size: 50,
+                            color: Colors.grey,
+                          ),
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      InkWell(
+                        onTap: _getImage,
+                        borderRadius: BorderRadius.circular(8),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Profilna slika',
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _image != null
+                                    ? 'Nova slika odabrana ✓'
+                                    : widget.worker?.profilePicture != null
+                                    ? 'Promijeni sliku'
+                                    : 'Odaberite sliku',
+                                style: TextStyle(
+                                  color: _image != null
+                                      ? Colors.green
+                                      : widget.worker?.profilePicture != null
+                                      ? Colors.blue
+                                      : Colors.grey,
+                                ),
+                              ),
+                              const Icon(Icons.file_upload),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Dugme za brisanje — prikazuje se samo ako ima sliku
+                      if (!_isInsert &&
+                          widget.worker?.profilePicture != null &&
+                          _image == null)
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          icon: const Icon(Icons.delete, size: 18),
+                          label: const Text('Obriši sliku'),
+                          onPressed: () => _deleteImage(
+                            fileUrl: widget.worker!.profilePicture!,
+                            subfolder: 'ImageFolder/ProfilePictures',
+                            onDeleted: () async {
+                              // Postavi sliku na null u bazi
+                              await workerProvider.update(widget.worker!.id!, {
+                                'firstName': widget.worker!.firstName,
+                                'lastName': widget.worker!.lastName,
+                                'profilePicture': '',
+                              });
+                              widget.onSaved?.call();
+                              if (mounted) Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             // Ime i prezime
             Row(
               children: [
@@ -316,8 +416,8 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                         ),
                         child: Text(
                           field.value != null
-                              ? '${field.value!.day}.${field.value!.month}.${field.value!.year}'
-                              : 'Odaberite datum',
+                              ? DateFormat('dd/MM/yyyy').format(field.value!)
+                              : 'Odaberite datum rođenja',
                           style: TextStyle(
                             color: field.value != null
                                 ? Colors.black
@@ -328,6 +428,22 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                     ),
                   ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Separator
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey.shade300)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Promjena lozinke',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                ),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
               ],
             ),
             const SizedBox(height: 16),
@@ -382,104 +498,6 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
               ],
             ),
             const SizedBox(height: 16),
-
-            // Profilna slika
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  width: 100,
-                  height: 100,
-                  margin: const EdgeInsets.only(right: 16),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.grey.shade300),
-                    color: Colors.grey.shade100,
-                  ),
-                  child: ClipOval(
-                    child: _image != null
-                        ? Image.file(_image!, fit: BoxFit.cover)
-                        : widget.worker?.profilePicture != null
-                        ? Image.network(
-                            widget.worker!.profilePicture!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(
-                              Icons.person,
-                              size: 50,
-                              color: Colors.grey,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.person,
-                            size: 50,
-                            color: Colors.grey,
-                          ),
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      InkWell(
-                        onTap: _getImage,
-                        borderRadius: BorderRadius.circular(8),
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: 'Profilna slika',
-                            border: OutlineInputBorder(),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _image != null
-                                    ? 'Nova slika odabrana ✓'
-                                    : widget.worker?.profilePicture != null
-                                    ? 'Promijeni sliku'
-                                    : 'Odaberite sliku',
-                                style: TextStyle(
-                                  color: _image != null
-                                      ? Colors.green
-                                      : widget.worker?.profilePicture != null
-                                      ? Colors.blue
-                                      : Colors.grey,
-                                ),
-                              ),
-                              const Icon(Icons.file_upload),
-                            ],
-                          ),
-                        ),
-                      ),
-                      // Dugme za brisanje — prikazuje se samo ako ima sliku
-                      if (!_isInsert &&
-                          widget.worker?.profilePicture != null &&
-                          _image == null)
-                        TextButton.icon(
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                          icon: const Icon(Icons.delete, size: 18),
-                          label: const Text('Obriši sliku'),
-                          onPressed: () => _deleteImage(
-                            fileUrl: widget.worker!.profilePicture!,
-                            subfolder: 'ImageFolder/ProfilePictures',
-                            onDeleted: () async {
-                              // Postavi sliku na null u bazi
-                              await workerProvider.update(widget.worker!.id!, {
-                                'firstName': widget.worker!.firstName,
-                                'lastName': widget.worker!.lastName,
-                                'profilePicture': '',
-                              });
-                              widget.onSaved?.call();
-                              if (mounted) Navigator.pop(context);
-                            },
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
@@ -506,7 +524,6 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                await fileProvider.deleteImage(fileUrl, subfolder);
                 onDeleted();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(

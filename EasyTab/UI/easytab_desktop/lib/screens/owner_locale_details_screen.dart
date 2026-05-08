@@ -11,7 +11,6 @@ import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
-import 'package:easytab_desktop/providers/file_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/localeimage_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
@@ -37,7 +36,6 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
 
   late LocaleProvider localeProvider;
-  late FileProvider fileProvider;
   late CityProvider cityProvider;
   late CountryProvider countryProvider;
   late CategoryProvider categoryProvider;
@@ -62,7 +60,6 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   void initState() {
     super.initState();
     localeProvider = Provider.of<LocaleProvider>(context, listen: false);
-    fileProvider = Provider.of<FileProvider>(context, listen: false);
     categoryProvider = Provider.of<CategoryProvider>(context, listen: false);
     countryProvider = Provider.of<CountryProvider>(context, listen: false);
     cityProvider = Provider.of<CityProvider>(context, listen: false);
@@ -164,11 +161,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
 
     // Upload slike ako je odabrana
     if (_image != null) {
-      final imageUrl = await fileProvider.uploadImage(
-        _image!,
-        'ImageFolder/LocaleLogo',
-      );
-      request['logo'] = imageUrl;
+      request['logo'] = base64Encode(_image!.readAsBytesSync());
     }
 
     if (newImages.isNotEmpty) {
@@ -364,9 +357,9 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                     borderRadius: BorderRadius.circular(8),
                     child: _image != null
                         ? Image.file(_image!, fit: BoxFit.cover)
-                        : widget.locale?.logo != null
-                        ? Image.network(
-                            widget.locale!.logo!,
+                        : imageProviderFromString(widget.locale?.logo) != null
+                        ? Image(
+                            image: imageProviderFromString(widget.locale?.logo)!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(
                               Icons.broken_image,
@@ -594,6 +587,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: FormBuilderDropdown<int>(
+                    key: ValueKey(selectedCountryId),
                     name: "cityId",
                     decoration: InputDecoration(
                       labelText: "Grad",

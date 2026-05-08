@@ -60,7 +60,7 @@ public partial class _220030Context : DbContext
 
             entity.Property(e => e.Address).HasMaxLength(255);
             entity.Property(e => e.DeletedAt).HasColumnType("datetime");
-            entity.Property(e => e.Logo).HasMaxLength(255);
+            entity.Property(e => e.Logo).HasColumnType("nvarchar(max)");
             entity.Property(e => e.Name).HasMaxLength(100);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
 
@@ -186,7 +186,7 @@ public partial class _220030Context : DbContext
             entity.Property(e => e.PasswordHash).HasMaxLength(255);
             entity.Property(e => e.PasswordSalt).HasMaxLength(255);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
-            entity.Property(e => e.ProfilePicture).HasMaxLength(255);
+            entity.Property(e => e.ProfilePicture).HasColumnType("nvarchar(max)");
             entity.Property(e => e.Username).HasMaxLength(50);
         });
 

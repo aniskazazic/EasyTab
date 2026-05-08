@@ -1,13 +1,15 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
-import 'package:easytab_desktop/providers/file_provider.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 class AdminUserDetailsScreen extends StatefulWidget {
   final User? user;
@@ -21,10 +23,11 @@ class AdminUserDetailsScreen extends StatefulWidget {
 class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
   late UserProvider userProvider;
-  late FileProvider fileProvider;
   bool isLoading = false;
 
   File? _imageFile;
+  bool _obscurePassword = true;
+  bool _obscurePasswordConfirmation = true;
 
   bool get _isInsert => widget.user == null;
 
@@ -32,7 +35,6 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   void initState() {
     super.initState();
     userProvider = Provider.of<UserProvider>(context, listen: false);
-    fileProvider = Provider.of<FileProvider>(context, listen: false);
   }
 
   void _showError(String message) {
@@ -91,15 +93,12 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
       );
 
       if (_imageFile != null) {
-        final imageUrl = await fileProvider.uploadImage(
-          _imageFile!,
-          'ImageFolder/ProfilePictures',
-        );
-        request['profilePicture'] = imageUrl;
+        request['profilePicture'] = base64Encode(_imageFile!.readAsBytesSync());
       }
 
       if (request['birthDate'] is DateTime) {
         request['birthDate'] = (request['birthDate'] as DateTime)
+            .toUtc()
             .toIso8601String();
       }
 
@@ -175,6 +174,94 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Preview slike
+                Container(
+                  width: 80,
+                  height: 80,
+                  margin: const EdgeInsets.only(right: 16),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.grey.shade300),
+                    color: Colors.grey.shade100,
+                  ),
+                  child: ClipOval(
+                    child: _imageFile != null
+                        ? Image.file(_imageFile!, fit: BoxFit.cover)
+                        : (imageProviderFromString(
+                                    widget.user?.profilePicture,
+                                  ) !=
+                                  null
+                              ? Image(
+                                  image: imageProviderFromString(
+                                    widget.user!.profilePicture,
+                                  )!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                    Icons.person,
+                                    size: 36,
+                                    color: Colors.grey,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.person,
+                                  size: 36,
+                                  color: Colors.grey,
+                                )),
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        onTap: _pickImage,
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: "Profilna slika",
+                            border: OutlineInputBorder(),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _imageFile != null
+                                    ? 'Slika odabrana ✓'
+                                    : 'Odaberite sliku',
+                                style: TextStyle(
+                                  color: _imageFile != null
+                                      ? Colors.green
+                                      : Colors.grey,
+                                ),
+                              ),
+                              const Icon(Icons.file_upload),
+                            ],
+                          ),
+                        ),
+                      ),
+                      if (!_isInsert &&
+                          widget.user?.profilePicture != null &&
+                          _imageFile == null)
+                        TextButton.icon(
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          icon: const Icon(Icons.delete, size: 18),
+                          label: const Text('Obriši sliku'),
+                          onPressed: () =>
+                              _deleteImage(userId: widget.user!.id),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
             Row(
               children: [
                 Expanded(
@@ -260,8 +347,9 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: FormBuilderDateTimePicker(
-                    name: "birthDate",
+                    name: 'birthDate',
                     inputType: InputType.date,
+                    format: DateFormat('dd/MM/yyyy'),
                     decoration: const InputDecoration(
                       labelText: "Datum rođenja",
                       border: OutlineInputBorder(),
@@ -275,17 +363,43 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Separator
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey.shade300)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Promjena lozinke',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                ),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             Row(
               children: [
                 Expanded(
                   child: FormBuilderTextField(
                     name: "password",
-                    obscureText: true,
+                    obscureText: _obscurePassword,
                     decoration: InputDecoration(
                       labelText: _isInsert
                           ? "Lozinka"
                           : "Nova lozinka (ostavite prazno ako ne mijenjate)",
                       border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
+                      ),
                     ),
                     validator: (value) {
                       if (_isInsert && (value == null || value.isEmpty))
@@ -298,23 +412,36 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: "passwordConfirmation",
-                    obscureText: true,
+                    obscureText: _obscurePasswordConfirmation,
                     decoration: InputDecoration(
                       labelText: _isInsert
                           ? "Potvrda lozinke"
                           : "Potvrda nove lozinke",
                       border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePasswordConfirmation
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePasswordConfirmation =
+                              !_obscurePasswordConfirmation,
+                        ),
+                      ),
                     ),
                     validator: (value) {
-                      if (_isInsert && (value == null || value.isEmpty))
+                      if (_isInsert && (value == null || value.isEmpty)) {
                         return 'Potvrda lozinke je obavezna';
+                      }
                       final password =
                           formKey.currentState?.fields['password']?.value
                               as String?;
                       if (password != null &&
                           password.isNotEmpty &&
-                          value != password)
+                          value != password) {
                         return 'Lozinke se ne podudaraju';
+                      }
                       return null;
                     },
                   ),
@@ -322,109 +449,13 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
               ],
             ),
             const SizedBox(height: 16),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Preview slike
-                if (_imageFile != null || widget.user?.profilePicture != null)
-                  Container(
-                    width: 80,
-                    height: 80,
-                    margin: const EdgeInsets.only(right: 16),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: _imageFile != null
-                          ? Image.file(_imageFile!, fit: BoxFit.cover)
-                          : Image.network(
-                              widget.user!.profilePicture!,
-                              fit: BoxFit.cover,
-                              loadingBuilder: (_, child, progress) =>
-                                  progress == null
-                                  ? child
-                                  : const Center(
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    ),
-                              errorBuilder: (_, __, ___) => const Center(
-                                child: Icon(
-                                  Icons.broken_image,
-                                  size: 36,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        onTap: _pickImage,
-                        child: InputDecorator(
-                          decoration: const InputDecoration(
-                            labelText: "Profilna slika",
-                            border: OutlineInputBorder(),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _imageFile != null
-                                    ? 'Slika odabrana ✓'
-                                    : 'Odaberite sliku',
-                                style: TextStyle(
-                                  color: _imageFile != null
-                                      ? Colors.green
-                                      : Colors.grey,
-                                ),
-                              ),
-                              const Icon(Icons.file_upload),
-                            ],
-                          ),
-                        ),
-                      ),
-                      if (!_isInsert &&
-                          widget.user?.profilePicture != null &&
-                          _imageFile == null)
-                        TextButton.icon(
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-                          icon: const Icon(Icons.delete, size: 18),
-                          label: const Text('Obriši sliku'),
-                          onPressed: () => _deleteImage(
-                            fileUrl: widget.user!.profilePicture!,
-                            subfolder: 'ImageFolder/ProfilePictures',
-                            userId: widget.user!.id,
-                            onDeleted: () {},
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _deleteImage({
-    required String fileUrl,
-    required String subfolder,
-    int? userId,
-    required VoidCallback onDeleted,
-  }) async {
+  Future<void> _deleteImage({int? userId}) async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -440,13 +471,12 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                await fileProvider.deleteImage(
-                  fileUrl,
-                  subfolder,
-                  userId: userId,
-                );
-                // onDeleted() ← ukloni ovo
+                await userProvider.update(userId!, {'profilePicture': ''});
+
                 if (mounted) {
+                  setState(() {
+                    widget.user?.profilePicture = null;
+                  });
                   _showSuccess('Slika uspješno obrisana!');
                 }
               } catch (e) {

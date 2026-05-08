@@ -18,7 +18,6 @@ import 'package:easytab_desktop/screens/admin_settings_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_locale_list_screen.dart';
-import 'package:easytab_desktop/providers/file_provider.dart';
 import 'package:easytab_desktop/providers/localeimage_provider.dart';
 import 'package:easytab_desktop/screens/owner_dashboard_screen.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
@@ -36,7 +35,6 @@ void main() {
         ChangeNotifierProvider(create: (_) => CountryProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => FileProvider()),
         ChangeNotifierProvider(create: (_) => OwnerProvider()),
         ChangeNotifierProvider(create: (_) => TableProvider()),
         ChangeNotifierProvider(create: (_) => ZoneProvider()),
@@ -62,7 +60,14 @@ class MyLoginApp extends StatelessWidget {
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginPage(),
-        '/dashboard': (context) => const AdminDashboardScreen(),
+        '/dashboard': (context) {
+          final role = AuthProvider.accessTokenDecoded?['Role'];
+          if (role == 'Admin') {
+            return const AdminDashboardScreen();
+          } else {
+            return const OwnerDashboardScreen();
+          }
+        },
         '/locales': (context) => const LocaleListScreen(),
         '/users': (context) => const AdminUsersListScreen(),
         '/user-details': (context) => const AdminUserDetailsScreen(),

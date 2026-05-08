@@ -1,6 +1,7 @@
 import 'package:easytab_desktop/models/locale.dart' as models;
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -225,24 +226,12 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
-              child: locale.logo != null && locale.logo!.isNotEmpty
-                  ? Image.network(
-                      locale.logo!,
+              child: imageProviderFromString(locale.logo) != null
+                  ? Image(
+                      image: imageProviderFromString(locale.logo)!,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) =>
                           const Icon(Icons.home, color: Colors.white, size: 16),
-                      loadingBuilder: (_, child, progress) => progress == null
-                          ? child
-                          : const Center(
-                              child: SizedBox(
-                                width: 12,
-                                height: 12,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 1.5,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
                     )
                   : const Icon(Icons.home, color: Colors.white, size: 16),
             ),

@@ -1,4 +1,4 @@
-﻿using EasyTab.Common.Services.CryptoService;
+using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
@@ -10,7 +10,6 @@ using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -23,13 +22,11 @@ namespace EasyTab.Services.Services
 {
     public class WorkerService : BaseCRUDService<Workers, WorkerSearchObject, Worker, WorkerInsertRequest, WorkerUpdateRequest>, IWorkerService
     {
-        private readonly string _baseUrl;
         private readonly ICryptoService _cryptoService;
         private readonly ILogger<WorkerService> _logger;
 
-        public WorkerService(_220030Context context, IMapper mapper, IConfiguration config, ILogger<WorkerService> logger, ICryptoService cryptoService, IValidator<WorkerInsertRequest> insertValidator, IValidator<WorkerUpdateRequest> updateValidator) : base(context, mapper,insertValidator,updateValidator)
+        public WorkerService(_220030Context context, IMapper mapper, ILogger<WorkerService> logger, ICryptoService cryptoService, IValidator<WorkerInsertRequest> insertValidator, IValidator<WorkerUpdateRequest> updateValidator) : base(context, mapper,insertValidator,updateValidator)
         {
-            _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";
             _cryptoService = cryptoService;
             _logger = logger;
         }
@@ -65,9 +62,7 @@ namespace EasyTab.Services.Services
                 Email = entity.User?.Email,
                 PhoneNumber = entity.User?.PhoneNumber,
                 BirthDate = entity.User?.BirthDate,
-                ProfilePicture = !string.IsNullOrEmpty(entity.User?.ProfilePicture)
-                    ? $"{_baseUrl}/ImageFolder/ProfilePictures/{entity.User.ProfilePicture}"
-                    : null,
+                ProfilePicture = entity.User?.ProfilePicture,
                 HireDate = entity.HireDate,
                 EndDate = entity.EndDate,
                 LocaleId = entity.LocaleId,
@@ -97,7 +92,7 @@ namespace EasyTab.Services.Services
                 IsDeleted = false,
                 ProfilePicture = string.IsNullOrWhiteSpace(request.ProfilePicture)
                     ? null
-                    : Path.GetFileName(request.ProfilePicture),
+                    : request.ProfilePicture,
                 PasswordSalt = salt,
             };
             user.PasswordHash = _cryptoService.GenerateHash(request.Password,salt);
@@ -155,9 +150,7 @@ namespace EasyTab.Services.Services
                 Email = user.Email,
                 PhoneNumber = user.PhoneNumber,
                 BirthDate = user.BirthDate,
-                ProfilePicture = !string.IsNullOrEmpty(user.ProfilePicture)
-                    ? $"{_baseUrl}/ImageFolder/ProfilePictures/{user.ProfilePicture}"
-                    : null,
+                ProfilePicture = user.ProfilePicture,
                 HireDate = worker.HireDate,
                 EndDate = worker.EndDate,
                 LocaleId = worker.LocaleId,
@@ -190,9 +183,10 @@ namespace EasyTab.Services.Services
             if (!string.IsNullOrEmpty(request.PhoneNumber))
                 user.PhoneNumber = request.PhoneNumber;
 
-            // Uzimamo samo filename kao u UserService
-            if (!string.IsNullOrEmpty(request.ProfilePicture))
-                user.ProfilePicture = Path.GetFileName(request.ProfilePicture);
+            if (request.ProfilePicture == "")
+                user.ProfilePicture = null;
+            else if (!string.IsNullOrEmpty(request.ProfilePicture))
+                user.ProfilePicture = request.ProfilePicture;
 
             if (request.BirthDate.HasValue && request.BirthDate.Value > new DateTime(1753, 1, 1))
                 user.BirthDate = request.BirthDate.Value;

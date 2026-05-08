@@ -1,6 +1,7 @@
 ﻿using EasyTab.Services.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace EasyTab.Services.Database;
 
@@ -18,6 +19,7 @@ public partial class Locale : ISoftDelete
 
     public double LengthOfReservation { get; set; }
 
+    [MaxLength]
     public string? Logo { get; set; }
 
     public int CityId { get; set; }

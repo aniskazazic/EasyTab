@@ -1,6 +1,7 @@
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:easytab_desktop/widgets/admin_sidebar.dart';
+import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 
 class MasterScreen extends StatefulWidget {
   const MasterScreen({
@@ -44,7 +45,10 @@ class _MasterScreenState extends State<MasterScreen> {
     return Scaffold(
       body: Row(
         children: [
-          widget.sidebar ?? const AdminSidebar(),
+          widget.sidebar ??
+              (AuthProvider.accessTokenDecoded?['Role'] == 'Admin'
+                  ? const AdminSidebar()
+                  : const OwnerSidebar()),
           Expanded(
             child: Padding(
               padding: widget.padding,

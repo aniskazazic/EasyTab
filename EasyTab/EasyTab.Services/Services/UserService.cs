@@ -1,4 +1,4 @@
-﻿using EasyTab.Common.Services.CryptoService;
+using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Access;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
@@ -10,7 +10,6 @@ using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace EasyTab.Services.Services
@@ -19,12 +18,10 @@ namespace EasyTab.Services.Services
     {
         private readonly ILogger<IUserService> _logger;
         private readonly ICryptoService _cryptoService;
-        private readonly string _baseUrl;
 
-        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IConfiguration config, IValidator<UserInsertRequest> insertValidator, IValidator<UserUpdateRequest> updateValidator, ICryptoService cryptoService) : base(context, mapper,insertValidator,updateValidator)
+        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IValidator<UserInsertRequest> insertValidator, IValidator<UserUpdateRequest> updateValidator, ICryptoService cryptoService) : base(context, mapper,insertValidator,updateValidator)
         {
             _logger = logger;
-            _baseUrl = config["APP_BASE_URL"] ?? "http://localhost:5241";
             _cryptoService = cryptoService;
         }
 
@@ -60,12 +57,10 @@ namespace EasyTab.Services.Services
             return query;
         }
 
-        // Baza ima samo filename — konstruisi puni URL za Flutter
         protected override Users MapToResponse(User entity)
         {
             var model = base.MapToResponse(entity);
-            if (!string.IsNullOrEmpty(entity.ProfilePicture))
-                model.ProfilePicture = $"{_baseUrl}/ImageFolder/ProfilePictures/{entity.ProfilePicture}";
+            model.ProfilePicture = entity.ProfilePicture;
             return model;
         }
 
@@ -115,10 +110,9 @@ namespace EasyTab.Services.Services
             entity.PasswordSalt = _cryptoService.GenerateSalt();
             entity.PasswordHash = _cryptoService.GenerateHash(request.Password, entity.PasswordSalt);
             entity.IsDeleted = false;
-            // FileController vraca puni URL — uzimamo samo filename za bazu
             entity.ProfilePicture = string.IsNullOrWhiteSpace(request.ProfilePicture)
                 ? null
-                : Path.GetFileName(request.ProfilePicture);
+                : request.ProfilePicture;
 
             await Task.CompletedTask;
         }
@@ -176,8 +170,10 @@ namespace EasyTab.Services.Services
             if (!request.BirthDate.HasValue)
                 entity.BirthDate = oldBirthDate;
 
-            if (!string.IsNullOrWhiteSpace(request.ProfilePicture))
-                entity.ProfilePicture = Path.GetFileName(request.ProfilePicture);
+            if (request.ProfilePicture == "")
+                entity.ProfilePicture = null;
+            else if (!string.IsNullOrWhiteSpace(request.ProfilePicture))
+                entity.ProfilePicture = request.ProfilePicture;
             else
                 entity.ProfilePicture = oldProfilePicture;
 

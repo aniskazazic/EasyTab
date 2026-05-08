@@ -14,10 +14,16 @@ class AdminCitiesListScreen extends StatefulWidget {
 
 class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
   late CityProvider cityProvider;
-  List<City> _allCities = [];
-  List<City> _displayCities = [];
+  List<City> _cities = [];
+  int _totalCount = 0;
+  int _currentPage = 0;
+  final int _pageSize = 10;
+
   final TextEditingController searchController = TextEditingController();
   bool isLoading = false;
+
+  // Debounce za pretragu
+  DateTime? _lastSearchTime;
 
   @override
   void didChangeDependencies() {
@@ -29,23 +35,42 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
   @override
   void initState() {
     super.initState();
-    searchController.addListener(_applyFilters);
+    searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    searchController.removeListener(_applyFilters);
+    searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final now = DateTime.now();
+    _lastSearchTime = now;
+
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (_lastSearchTime == now) {
+        setState(() => _currentPage = 0);
+        _loadCities();
+      }
+    });
   }
 
   Future<void> _loadCities() async {
     setState(() => isLoading = true);
     try {
-      var result = await cityProvider.get(filter: {"RetrieveAll": true});
+      final filter = {
+        "Page": _currentPage + 1,
+        "PageSize": _pageSize,
+        "IncludeTotalCount": true,
+        if (searchController.text.isNotEmpty) "Name": searchController.text,
+      };
+
+      var result = await cityProvider.get(filter: filter);
       setState(() {
-        _allCities = result.items ?? [];
-        _applyFilters();
+        _cities = result.items ?? [];
+        _totalCount = result.totalCount ?? 0;
         isLoading = false;
       });
     } catch (e) {
@@ -54,17 +79,13 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
     }
   }
 
-  void _applyFilters() {
-    final query = searchController.text.toLowerCase();
-    setState(() {
-      _displayCities = _allCities
-          .where(
-            (c) =>
-                query.isEmpty ||
-                (c.name?.toLowerCase().contains(query) ?? false),
-          )
-          .toList();
-    });
+  int get _totalPages =>
+      _totalCount == 0 ? 1 : (_totalCount / _pageSize).ceil();
+
+  void _goToPage(int page) {
+    if (page < 0 || page >= _totalPages) return;
+    setState(() => _currentPage = page);
+    _loadCities();
   }
 
   void _showError(String message) {
@@ -124,8 +145,11 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
           _buildSearch(),
           const SizedBox(height: 16),
           isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                )
               : _buildTable(),
+          if (!isLoading && _totalPages > 1) _buildPagination(),
         ],
       ),
     );
@@ -169,7 +193,7 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
   }
 
   Widget _buildTable() {
-    if (_displayCities.isEmpty) {
+    if (_cities.isEmpty) {
       return const Expanded(
         child: Center(child: Text('Nema gradova za prikaz.')),
       );
@@ -194,7 +218,7 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
               DataColumn(label: Text('Država')),
               DataColumn(label: Text('Akcije')),
             ],
-            rows: _displayCities.map((city) {
+            rows: _cities.map((city) {
               return DataRow(
                 cells: [
                   DataCell(Text(city.name ?? '')),
@@ -224,6 +248,87 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
                 ],
               );
             }).toList(),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPagination() {
+    const int maxVisible = 5;
+    int startPage = (_currentPage - maxVisible ~/ 2).clamp(0, _totalPages - 1);
+    int endPage = (startPage + maxVisible - 1).clamp(0, _totalPages - 1);
+    if (endPage - startPage < maxVisible - 1) {
+      startPage = (endPage - maxVisible + 1).clamp(0, _totalPages - 1);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            'Ukupno: $_totalCount  |  Stranica ${_currentPage + 1} od $_totalPages',
+            style: TextStyle(color: Colors.grey[600], fontSize: 13),
+          ),
+          const SizedBox(width: 24),
+          _pageButton(
+            icon: Icons.first_page,
+            onTap: _currentPage > 0 ? () => _goToPage(0) : null,
+          ),
+          _pageButton(
+            icon: Icons.chevron_left,
+            onTap: _currentPage > 0 ? () => _goToPage(_currentPage - 1) : null,
+          ),
+          for (int i = startPage; i <= endPage; i++) _pageNumberButton(i),
+          _pageButton(
+            icon: Icons.chevron_right,
+            onTap: _currentPage < _totalPages - 1
+                ? () => _goToPage(_currentPage + 1)
+                : null,
+          ),
+          _pageButton(
+            icon: Icons.last_page,
+            onTap: _currentPage < _totalPages - 1
+                ? () => _goToPage(_totalPages - 1)
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pageButton({required IconData icon, VoidCallback? onTap}) {
+    return IconButton(
+      icon: Icon(icon),
+      onPressed: onTap,
+      color: onTap != null ? const Color(0xFF1E40AF) : Colors.grey.shade400,
+    );
+  }
+
+  Widget _pageNumberButton(int page) {
+    final isActive = page == _currentPage;
+    return GestureDetector(
+      onTap: () => _goToPage(page),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 3),
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF1E40AF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive ? const Color(0xFF1E40AF) : Colors.grey.shade400,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            '${page + 1}',
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.grey.shade700,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: 13,
+            ),
           ),
         ),
       ),

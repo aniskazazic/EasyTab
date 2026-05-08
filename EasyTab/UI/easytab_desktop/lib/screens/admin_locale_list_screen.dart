@@ -107,7 +107,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
         "Page": _currentPage + 1,
         "PageSize": _pageSize,
         "IncludeTotalCount": true,
-        if (showDeleted) "isDeleted": true,
+        "IsDeleted": showDeleted,
         if (searchController.text.isNotEmpty) "Name": searchController.text,
         if (selectedCityId != null) "CityId": selectedCityId,
         if (selectedCountryId != null && selectedCityId == null)
@@ -318,6 +318,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
         Expanded(
           flex: 2,
           child: DropdownButtonFormField<int>(
+            key: ValueKey(selectedCountryId),
             value: selectedCityId,
             decoration: InputDecoration(
               border: OutlineInputBorder(

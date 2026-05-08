@@ -66,11 +66,11 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
 
     try {
       final filter = {
-        "Page": _currentPage,
+        "Page": _currentPage + 1,
         "PageSize": _pageSize,
         "IncludeTotalCount": true,
         if (searchController.text.isNotEmpty) "FTS": searchController.text,
-        if (showDeleted) "IsDeleted": true,
+        "IsDeleted": showDeleted,
       };
 
       var result = await userProvider.get(filter: filter);
