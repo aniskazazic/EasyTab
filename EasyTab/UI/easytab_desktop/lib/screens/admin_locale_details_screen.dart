@@ -79,7 +79,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
           _owners = allUsers
               .where(
                 (u) =>
-                    u.userRoles?.any((r) => r.role?.name == 'Owner') ?? false,
+                    u.userRoles?.any((r) => r.role?.name == 'Vlasnik') ?? false,
               )
               .toList();
         }
@@ -122,7 +122,6 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
     );
   }
 
-
   void _showSuccess(String message) {
     if (!mounted) return;
     showDialog(
@@ -142,7 +141,6 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       ),
     );
   }
-
 
   Future<void> _handleSave() async {
     formKey.currentState?.saveAndValidate();
@@ -669,5 +667,4 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       ),
     );
   }
-
 }

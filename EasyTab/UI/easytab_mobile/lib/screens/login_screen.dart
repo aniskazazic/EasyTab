@@ -26,8 +26,13 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
-    if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
+  Future<void> _handleLogin(String username, String password) async {
+    AuthProvider authProvider = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
+
+    if (username.isEmpty || password.isEmpty) {
       _showError('Unesite korisničko ime i lozinku!');
       return;
     }
@@ -35,31 +40,23 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final userProvider = context.read<UserProvider>();
-      final user = await userProvider.authenticate(
-        _usernameController.text,
-        _passwordController.text,
-      );
+      await authProvider.login(username, password);
 
-      AuthProvider.username = _usernameController.text;
-      AuthProvider.password = _passwordController.text;
-      AuthProvider.currentUser = user;
+      var role = AuthProvider.accessTokenDecoded?['role'];
 
-      // Mobilna app je samo za User rolu
-      final isUser = !(AuthProvider.isAdmin || AuthProvider.isOwner);
-      if (!isUser) {
+      if (role == 'Admin' || role == 'Vlasnik') {
         _showError(
           'Ova aplikacija je namijenjena korisnicima. Koristite desktop aplikaciju.',
         );
         AuthProvider.clear();
         return;
       }
-
-      if (mounted) {
+      if (role == 'Korisnik') {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const MasterScreen()),
+          MaterialPageRoute(builder: (context) => const MasterScreen()),
         );
+        return;
       }
     } catch (e) {
       _showError(e.toString().replaceAll('Exception: ', ''));
@@ -196,7 +193,12 @@ class _LoginScreenState extends State<LoginScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isLoading ? null : _handleLogin,
+              onPressed: _isLoading
+                  ? null
+                  : () => _handleLogin(
+                      _usernameController.text,
+                      _passwordController.text,
+                    ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E40AF),
                 padding: const EdgeInsets.symmetric(vertical: 14),

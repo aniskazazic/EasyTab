@@ -68,10 +68,11 @@ namespace EasyTab.Services.Services
         {
             var result = await base.CreateAsync(request);
 
-            if (request.RoleIds != null && request.RoleIds.Count > 0)
+            var user = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+            if (user != null)
             {
-                var user = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-                if (user != null)
+                // Ako su poslane role ID-eve, koristi te
+                if (request.RoleIds != null && request.RoleIds.Count > 0)
                 {
                     foreach (var roleId in request.RoleIds)
                     {
@@ -84,8 +85,24 @@ namespace EasyTab.Services.Services
                             });
                         }
                     }
-                    await Context.SaveChangesAsync();
                 }
+                else
+                {
+                    // Ako nisu poslane role ID-eve, automatski dodeli "Korisnik" rolu
+                    var defaultRole = await Context.Roles.FirstOrDefaultAsync(r => r.Name == "Korisnik");
+                    if (defaultRole != null)
+                    {
+                        Context.UserRoles.Add(new UserRole
+                        {
+                            UserId = user.Id,
+                            RoleId = defaultRole.Id
+                        });
+
+                        _logger.LogInformation($"Automatski dodeljena rola 'Korisnik' korisniku {request.Username}");
+                    }
+                }
+
+                await Context.SaveChangesAsync();
             }
 
             return result;
@@ -310,6 +327,36 @@ namespace EasyTab.Services.Services
             }
 
             return response;
+        }
+
+        public async Task ChangePasswordAsync(UserPasswordChangeRequest request)
+        {
+            _logger.LogInformation("Promjena lozinke za korisnika: {UserId}", request.Id);
+            var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == request.Id);
+
+            if (user == null)
+            {
+                throw new Exception("Korisnik nije pronađen !");
+            }
+
+            if (!_cryptoService.Verify(user.PasswordHash,user.PasswordSalt, request.Password))
+            {
+                throw new Exception("Pogrešni kredencijali !");
+            }
+
+            if (!request.NewPassword.Equals(request.ConfirmNewPassword))
+            {
+                throw new Exception("Lozinka i potvrda lozinke moraju biti iste !");
+            }
+
+            user.PasswordSalt = _cryptoService.GenerateSalt();
+            user.PasswordHash = _cryptoService.GenerateHash(request.NewPassword, user.PasswordSalt);
+
+            Context.Users.Update(user);
+            await Context.SaveChangesAsync();
+
+            _logger.LogInformation("Lozinka je uspješno promijenjena za korisnika s ID: {UserId}", request.Id);
+
         }
     }
 }

@@ -16,5 +16,7 @@ namespace EasyTab.Services.Interfaces
         Task<UsersSensitiveResponse?> GetByUsernameAsync(string username);
 
         Task<Users?> GetWithRoleByIdAsync(int id);
+
+        Task ChangePasswordAsync(UserPasswordChangeRequest request);
     }
 }

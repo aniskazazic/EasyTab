@@ -10,12 +10,8 @@ class UserProvider extends BaseProvider<User> {
     return User.fromJson(json);
   }
 
-  Future<User> authenticate(String username, String password) async {
-    return await login(username, password);
-  }
-
   Future<List<User>> getOwners() async {
-    var result = await get(filter: {"RetrieveAll": true});
+    var result = await get(filter: {});
     return result.items
             ?.where(
               (u) => u.userRoles?.any((r) => r.role?.name == 'Owner') ?? false,

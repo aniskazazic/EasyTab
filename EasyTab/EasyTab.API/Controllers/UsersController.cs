@@ -33,6 +33,11 @@ namespace EasyTab.API.Controllers
             return base.Create(request);
         }
 
-
+        [HttpPut("ChangePassword")]
+        public async Task<IActionResult> ChangePassword([FromBody] UserPasswordChangeRequest request)
+        {
+            await _service.ChangePasswordAsync(request);
+            return Ok();
+        }
     }
 }

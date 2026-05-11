@@ -18,6 +18,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => ReviewProvider()),
         ChangeNotifierProvider(create: (_) => ReactionProvider()),
         ChangeNotifierProvider(create: (_) => FavouriteProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: const MyApp(),
     ),
@@ -36,10 +37,14 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1E40AF)),
         useMaterial3: true,
       ),
-      // MasterScreen sadrži bottom nav + HomeScreen unutar IndexedStack
-      home: AuthProvider.currentUser != null
-          ? const MasterScreen()
-          : const LoginScreen(),
+      // Use Consumer to dynamically respond to auth state changes
+      home: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          return AuthProvider.isAuthenticated
+              ? const MasterScreen()
+              : const LoginScreen();
+        },
+      ),
     );
   }
 }

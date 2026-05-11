@@ -1,4 +1,5 @@
 import 'dart:convert';
+
 import 'package:easytab_mobile/models/search_result.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
@@ -6,16 +7,19 @@ import 'package:http/http.dart';
 import 'package:http/http.dart' as http;
 
 abstract class BaseProvider<T> extends ChangeNotifier {
-  static String? baseUrl;
-  String _endpoint = "";
+  static String? _baseUrl;
+  static String _endpoint = "";
 
   BaseProvider(String endpoint) {
     _endpoint = endpoint;
-    baseUrl = const String.fromEnvironment(
+    _baseUrl = const String.fromEnvironment(
       "baseUrl",
       defaultValue: "http://10.0.2.2:5241",
     );
   }
+
+  static String? get baseUrl => _baseUrl;
+  static String? get endpoint => _endpoint;
 
   Future<SearchResult<T>> get({dynamic filter}) async {
     var url = "$baseUrl/$_endpoint";
@@ -123,19 +127,12 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   }
 
   Map<String, String> createHeaders() {
-    String username = AuthProvider.username ?? "";
-    String password = AuthProvider.password ?? "";
-
-    print("passed creds: $username, $password");
-
-    String basicAuth =
-        "Basic ${base64Encode(utf8.encode('$username:$password'))}";
+    String accessToken = AuthProvider.accessToken ?? "";
 
     var headers = {
       "Content-Type": "application/json",
-      "Authorization": basicAuth,
+      "Authorization": "Bearer $accessToken",
     };
-
     return headers;
   }
 

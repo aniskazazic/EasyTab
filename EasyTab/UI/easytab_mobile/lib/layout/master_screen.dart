@@ -1,5 +1,6 @@
 import 'package:easytab_mobile/screens/favourite_screen.dart';
 import 'package:easytab_mobile/screens/home_screen.dart';
+import 'package:easytab_mobile/screens/settings_user_screen.dart';
 import 'package:flutter/material.dart';
 
 class MasterScreen extends StatefulWidget {
@@ -17,7 +18,7 @@ class _MasterScreenState extends State<MasterScreen> {
     _SearchScreen(),
     FavouritesScreen(),
     _ReservationsScreen(),
-    _SettingsScreen(),
+    SettingsUserScreen(),
   ];
 
   @override
@@ -122,15 +123,6 @@ class _ReservationsScreen extends StatelessWidget {
   Widget build(BuildContext context) => const _PlaceholderScreen(
     label: 'Rezervacije',
     icon: Icons.calendar_today_outlined,
-  );
-}
-
-class _SettingsScreen extends StatelessWidget {
-  const _SettingsScreen();
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen(
-    label: 'Postavke',
-    icon: Icons.settings_outlined,
   );
 }
 
