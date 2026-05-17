@@ -8,7 +8,7 @@ import 'package:http/http.dart' as http;
 
 abstract class BaseProvider<T> extends ChangeNotifier {
   static String? _baseUrl;
-  static String _endpoint = "";
+  String _endpoint = "";
 
   BaseProvider(String endpoint) {
     _endpoint = endpoint;
@@ -19,7 +19,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   }
 
   static String? get baseUrl => _baseUrl;
-  static String? get endpoint => _endpoint;
+  String get endpoint => _endpoint;
 
   Future<SearchResult<T>> get({dynamic filter}) async {
     var url = "$baseUrl/$_endpoint";

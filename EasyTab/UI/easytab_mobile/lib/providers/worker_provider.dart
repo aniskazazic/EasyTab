@@ -8,7 +8,7 @@ class WorkerProvider extends BaseProvider<Worker> {
   Worker fromJson(json) => Worker.fromJson(json);
 
   Future<List<Worker>> getByLocale(int localeId) async {
-    var result = await get(filter: {"LocaleId": localeId, "RetrieveAll": true});
+    var result = await get(filter: {"LocaleId": localeId});
     return result.items ?? [];
   }
 }

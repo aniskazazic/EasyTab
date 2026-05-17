@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _loadLocales() async {
     try {
-      final result = await _localeProvider.get(filter: {'RetrieveAll': true});
+      final result = await _localeProvider.get(filter: {});
       final locales = result.items ?? [];
 
       final Map<String, List<model.Locale>> grouped = {};

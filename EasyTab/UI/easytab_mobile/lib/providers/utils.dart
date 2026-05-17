@@ -26,10 +26,12 @@ class ImageUtils {
       return placeholder ?? _defaultPlaceholder();
     }
 
-    // Ako je base64 data URL
-    if (imageUrl.startsWith('data:image')) {
+    // Ako je base64 data URL ili čisti base64 string
+    if (imageUrl.startsWith('data:image') || _isBase64(imageUrl)) {
       try {
-        final base64String = imageUrl.split(',').last;
+        final base64String = imageUrl.startsWith('data:image') 
+            ? imageUrl.split(',').last 
+            : imageUrl;
         final bytes = base64Decode(base64String);
         return Image.memory(
           bytes,
@@ -85,6 +87,11 @@ class ImageUtils {
         child: Icon(Icons.store_outlined, size: 32, color: Color(0xFF1E40AF)),
       ),
     );
+  }
+  static bool _isBase64(String str) {
+    if (str.length % 4 != 0) return false;
+    final base64Regex = RegExp(r'^[a-zA-Z0-9+/]*={0,2}$');
+    return base64Regex.hasMatch(str);
   }
 }
 

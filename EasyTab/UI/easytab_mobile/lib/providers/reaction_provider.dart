@@ -17,7 +17,13 @@ class ReactionProvider extends BaseProvider<Reaction> {
     await insert({'reviewId': reviewId, 'userId': userId, 'isLike': isLike});
   }
 
-  Future<void> removeReaction(int reactionId) async {
-    await delete(reactionId);
+  /// Backend očekuje DELETE /Reactions?reviewId=X&userId=Y
+  Future<void> removeReaction(int reviewId, int userId) async {
+    final url =
+        '${BaseProvider.baseUrl}/Reactions?reviewId=$reviewId&userId=$userId';
+    final response = await http.delete(Uri.parse(url), headers: createHeaders());
+    if (!isValidResponse(response)) {
+      throw Exception('Greška pri uklanjanju reakcije');
+    }
   }
 }

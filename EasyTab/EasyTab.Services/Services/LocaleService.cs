@@ -75,6 +75,27 @@ namespace EasyTab.Services.Services
             return MapToResponse(entity);
         }
 
+        public override async Task<Locales?> GetByIdAsync(int id)
+        {
+            var entity = await Context.Locales
+                .Include(x => x.City)
+                .Include(x => x.Category)
+                .Include(x => x.Owner)
+                .Include(x => x.LocaleImages)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (entity == null)
+                return null;
+
+            var model = Mapper.Map<Locales>(entity);
+            model.CityName = entity.City?.Name;
+            model.CategoryName = entity.Category?.Name;
+            model.OwnerName = entity.Owner != null ? $"{entity.Owner.FirstName} {entity.Owner.LastName}" : null;
+
+            return model;
+        }
+
         public override async Task<bool> DeleteAsync(int id)
         {
             _logger.LogWarning("Deleting locale. LocaleId: {LocaleId}", id);

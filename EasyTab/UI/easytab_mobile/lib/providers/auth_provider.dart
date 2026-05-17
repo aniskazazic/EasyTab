@@ -1,4 +1,6 @@
 import 'package:easytab_mobile/models/user.dart';
+import 'package:easytab_mobile/models/userrole.dart';
+import 'package:easytab_mobile/models/role.dart';
 import 'package:http/http.dart' as http;
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'dart:convert';
@@ -18,6 +20,13 @@ class AuthProvider extends ChangeNotifier {
   static String? get accessToken => _accessToken;
   String? get refreshToken => _refreshToken;
   static Map<String, dynamic>? get accessTokenDecoded => _accessTokenDecoded;
+
+  static int? get currentUserId {
+    if (_accessTokenDecoded != null && _accessTokenDecoded!.containsKey('Id')) {
+      return int.tryParse(_accessTokenDecoded!['Id'].toString());
+    }
+    return null;
+  }
 
   static bool get isAdmin =>
       currentUser?.userRoles?.any((r) => r.role?.name == 'Admin') ?? false;
@@ -53,7 +62,21 @@ class AuthProvider extends ChangeNotifier {
       _refreshToken = data['refreshToken'];
       _isAuthenticated = true;
       _accessTokenDecoded = JwtDecoder.decode(_accessToken ?? "");
-      // Set a placeholder user - the actual user data will be loaded from API if needed
+      
+      if (_accessTokenDecoded != null) {
+        currentUser = User(
+          id: int.tryParse(_accessTokenDecoded!['Id']?.toString() ?? ''),
+          firstName: _accessTokenDecoded!['FirstName'],
+          lastName: _accessTokenDecoded!['LastName'],
+          email: _accessTokenDecoded!['Email'],
+          userRoles: [
+            if (_accessTokenDecoded!['Role'] != null)
+              UserRole(
+                role: Role(name: _accessTokenDecoded!['Role'].toString()),
+              )
+          ],
+        );
+      }
 
       print("AccessToken: $_accessToken");
       print("AccessTokenDecoded: $_accessTokenDecoded");

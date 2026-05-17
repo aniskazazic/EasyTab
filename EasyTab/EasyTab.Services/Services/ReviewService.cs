@@ -32,7 +32,8 @@ namespace EasyTab.Services.Services
         protected override IQueryable<Review> ApplyFilter(IQueryable<Review> query, ReviewSearchObject search)
         {
             query = query.Include(x => x.User)
-                         .Include(x => x.Locale);
+                         .Include(x => x.Locale)
+                         .Include(x => x.Reactions);
 
             // Po defaultu prikazuj samo aktivne recenzije
             query = query.Where(x => !x.IsDeleted);
@@ -85,16 +86,21 @@ namespace EasyTab.Services.Services
         {
             var dto = base.MapToResponse(entity); // Mapster mapira osnovna polja
 
-            // Broj lajkova i dislajkova
-            dto.Likes = Context.Reactions.Count(r => r.ReviewId == entity.Id && r.IsLike);
-            dto.Dislikes = Context.Reactions.Count(r => r.ReviewId == entity.Id && !r.IsLike);
+            // Popuni user podatke
+            if (entity.User != null)
+            {
+                dto.UserFullName = $"{entity.User.FirstName} {entity.User.LastName}";
+            }
+
+            // Broj lajkova i dislajkova - koristi učitane Reactions iz memorije
+            dto.Likes = entity.Reactions?.Count(r => r.IsLike) ?? 0;
+            dto.Dislikes = entity.Reactions?.Count(r => !r.IsLike) ?? 0;
 
             // Reakcija trenutnog korisnika
             var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (int.TryParse(userIdClaim, out int currentUserId))
             {
-                var userReaction = Context.Reactions
-                    .FirstOrDefault(r => r.ReviewId == entity.Id && r.UserId == currentUserId);
+                var userReaction = entity.Reactions?.FirstOrDefault(r => r.UserId == currentUserId);
                 if (userReaction != null)
                     dto.UserReaction = userReaction.IsLike ? 1 : -1;
                 else

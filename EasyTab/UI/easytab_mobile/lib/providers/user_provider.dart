@@ -12,7 +12,7 @@ class UserProvider extends BaseProvider<User> {
   }
 
   Future<dynamic> changePassword(dynamic data) async {
-    var url = "${BaseProvider.baseUrl}/${BaseProvider.endpoint}/ChangePassword";
+    var url = "${BaseProvider.baseUrl}/$endpoint/ChangePassword";
 
     var uri = Uri.parse(url);
     var jsonRequest = jsonEncode(data);

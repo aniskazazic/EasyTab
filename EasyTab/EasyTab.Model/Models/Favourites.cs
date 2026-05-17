@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,6 +14,8 @@ namespace EasyTab.Model.Models
         public string? LocaleName { get; set; }
         public string? LocaleAddress { get; set; }
         public string? LocaleLogo { get; set; }
+        public string? LocaleCategoryName { get; set; }
+        public string? LocaleCityName { get; set; }
         public TimeOnly StartOfWorkingHours { get; set; }
         public TimeOnly EndOfWorkingHours { get; set; }
         public DateTime DateAdded { get; set; }

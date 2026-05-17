@@ -1,4 +1,4 @@
-﻿using EasyTab.Model.Models;
+using EasyTab.Model.Models;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
@@ -52,7 +52,26 @@ namespace EasyTab.Services.Services
                 existing.DateAdded = DateTime.Now;
                 Context.SaveChanges();
                 _logger.LogInformation("Favourite reactivated. UserId: {UserId}, LocaleId: {LocaleId}", userId, localeId);
-                return Mapper.Map<Favourites>(existing);
+                
+                var existingResponse = Mapper.Map<Favourites>(existing);
+                existingResponse.LocaleId = existing.LocaleId;
+
+                // Učitaj detalje lokala kako bi se odmah bogato prikazali u UI
+                var existingLocale = Context.Locales
+                    .Include(l => l.Category)
+                    .Include(l => l.City)
+                    .FirstOrDefault(l => l.Id == localeId);
+
+                if (existingLocale != null)
+                {
+                    existingResponse.LocaleName = existingLocale.Name;
+                    existingResponse.LocaleLogo = existingLocale.Logo;
+                    existingResponse.LocaleAddress = existingLocale.Address;
+                    existingResponse.LocaleCategoryName = existingLocale.Category?.Name;
+                    existingResponse.LocaleCityName = existingLocale.City?.Name;
+                }
+
+                return existingResponse;
             }
 
             // Novi favorit
@@ -67,7 +86,25 @@ namespace EasyTab.Services.Services
             Context.Favourites.Add(fav);
             Context.SaveChanges();
 
-            return Mapper.Map<Favourites>(fav);
+            var newResponse = Mapper.Map<Favourites>(fav);
+            newResponse.LocaleId = fav.LocaleId;
+
+            // Učitaj detalje lokala kako bi se odmah bogato prikazali u UI
+            var newLocale = Context.Locales
+                .Include(l => l.Category)
+                .Include(l => l.City)
+                .FirstOrDefault(l => l.Id == localeId);
+
+            if (newLocale != null)
+            {
+                newResponse.LocaleName = newLocale.Name;
+                newResponse.LocaleLogo = newLocale.Logo;
+                newResponse.LocaleAddress = newLocale.Address;
+                newResponse.LocaleCategoryName = newLocale.Category?.Name;
+                newResponse.LocaleCityName = newLocale.City?.Name;
+            }
+
+            return newResponse;
         }
 
         public List<Favourites> GetByUser(int userId)
@@ -75,14 +112,22 @@ namespace EasyTab.Services.Services
             _logger.LogDebug("Fetching favourites. UserId: {UserId}", userId);
             var favourites = Context.Favourites
                            .Include(f => f.Locale)
+                             .ThenInclude(l => l.Category)
+                           .Include(f => f.Locale)
+                             .ThenInclude(l => l.City)
                            .Where(f => f.UserId == userId && f.IsActive)
                            .ToList();
 
             var result = favourites.Select(x =>
             {
                 var model = Mapper.Map<Favourites>(x);
+                model.LocaleId = x.LocaleId;
 
-                model.LocaleLogo = x.Locale.Logo;
+                model.LocaleLogo = x.Locale?.Logo;
+                model.LocaleName = x.Locale?.Name;
+                model.LocaleAddress = x.Locale?.Address;
+                model.LocaleCategoryName = x.Locale?.Category?.Name;
+                model.LocaleCityName = x.Locale?.City?.Name;
 
                 return model;
             }).ToList();

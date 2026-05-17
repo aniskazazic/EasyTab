@@ -74,7 +74,7 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
       } else {
         await _reviewProvider.addReview(
           localeId: widget.localeId,
-          userId: AuthProvider.currentUser!.id!,
+          userId: AuthProvider.currentUserId!,
           rating: _selectedRating,
           description: _descController.text.trim(),
         );

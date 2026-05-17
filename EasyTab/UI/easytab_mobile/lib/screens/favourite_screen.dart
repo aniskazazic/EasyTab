@@ -6,7 +6,6 @@ import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/locale_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:easytab_mobile/models/locale.dart' as model;
 
 class FavouritesScreen extends StatefulWidget {
   const FavouritesScreen({super.key});
@@ -18,7 +17,6 @@ class FavouritesScreen extends StatefulWidget {
 class _FavouritesScreenState extends State<FavouritesScreen> {
   late FavouriteProvider _favouriteProvider;
   late LocaleProvider _localeProvider;
-  List<Favourite> _favourites = [];
   bool _isLoading = true;
 
   @override
@@ -26,22 +24,15 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
     super.initState();
     _favouriteProvider = context.read<FavouriteProvider>();
     _localeProvider = context.read<LocaleProvider>();
-    // Ne učitavaj ovdje, nego u didChangeDependencies
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadFavourites(); // svaki put kad se ekran prikaže
+    _loadFavourites();
   }
 
   Future<void> _loadFavourites() async {
     setState(() => _isLoading = true);
     try {
-      final userId = AuthProvider.currentUser?.id;
+      final userId = AuthProvider.currentUserId;
       if (userId == null) return;
-      final favs = await _favouriteProvider.getMyFavourites(userId);
-      setState(() => _favourites = favs);
+      await _favouriteProvider.getMyFavourites(userId);
     } catch (e) {
       debugPrint('Error loading favourites: $e');
     } finally {
@@ -52,10 +43,9 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
   Future<void> _removeFavourite(Favourite fav) async {
     try {
       await _favouriteProvider.removeFavourite(
-        AuthProvider.currentUser!.id!,
+        AuthProvider.currentUserId!,
         fav.localeId!,
       );
-      setState(() => _favourites.remove(fav));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -74,40 +64,57 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
   }
 
   Future<void> _goToLocale(Favourite fav) async {
+    debugPrint('Favoritiran lokal ${fav.localeId}');
+    debugPrint('Favoritiran lokal ${fav.localeName}');
+    debugPrint('Favoritiran lokal ${fav.localeCategoryName}');
+    debugPrint('Favoritiran lokal ${fav.localeCityName}');
+    debugPrint('Favoritiran lokal ${fav.localeLogo}');
     try {
-      final result = await _localeProvider.get(filter: {'RetrieveAll': true});
-      final locale = result.items?.firstWhere(
-        (l) => l.id == fav.localeId,
-        orElse: () => model.Locale(),
-      );
-      if (locale?.id != null && mounted) {
+      if (fav.localeId == null) return;
+      final locale = await _localeProvider.getById(fav.localeId!);
+      debugPrint('Locale: $locale');
+      if (locale == null || locale.id == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Ne mogu učitati podatke lokala')),
+          );
+        }
+        return;
+      }
+      if (mounted) {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => LocaleDetailScreen(locale: locale!),
-          ),
+          MaterialPageRoute(builder: (_) => LocaleDetailScreen(locale: locale)),
         ).then((_) => _loadFavourites());
+        debugPrint('Uspješno navigiranje do lokala ${locale.name}');
       }
     } catch (e) {
       debugPrint('Error navigating to locale: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Greška pri učitavanju lokala: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final favourites = context.watch<FavouriteProvider>().myFavourites;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _favourites.isEmpty
+          : favourites.isEmpty
           ? _buildEmpty()
           : RefreshIndicator(
               onRefresh: _loadFavourites,
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: _favourites.length,
+                itemCount: favourites.length,
                 itemBuilder: (context, index) =>
-                    _buildFavouriteCard(_favourites[index]),
+                    _buildFavouriteCard(favourites[index]),
               ),
             ),
     );

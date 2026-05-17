@@ -39,7 +39,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   };
 
   model.Locale get locale => widget.locale;
-  int? get _currentUserId => AuthProvider.currentUser?.id;
+  int? get _currentUserId => AuthProvider.currentUserId;
 
   @override
   void initState() {

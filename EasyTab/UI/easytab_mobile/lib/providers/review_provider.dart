@@ -10,9 +10,7 @@ class ReviewProvider extends BaseProvider<Review> {
   Review fromJson(json) => Review.fromJson(json);
 
   Future<List<Review>> getByLocale(int localeId) async {
-    final result = await get(
-      filter: {'LocaleId': localeId, 'RetrieveAll': true},
-    );
+    final result = await get(filter: {'LocaleId': localeId});
     return result.items ?? [];
   }
 
@@ -68,6 +66,14 @@ class ReviewProvider extends BaseProvider<Review> {
   }
 
   Future<void> deleteReview(int reviewId) async {
-    await delete(reviewId);
+    // Koristi soft-delete endpoint
+    final url = '${BaseProvider.baseUrl}/Reviews/soft-delete/$reviewId';
+    final response = await http.delete(
+      Uri.parse(url),
+      headers: createHeaders(),
+    );
+    if (!isValidResponse(response)) {
+      throw Exception('Greška pri brisanju recenzije');
+    }
   }
 }

@@ -122,7 +122,7 @@ namespace EasyTab.Services.BaseServices.Implementation
                 query = query.Take(search.PageSize.Value);
             }
 
-            var list = query.Select(item => MapToResponse(item)).ToList();
+            var list = query.ToList().Select(item => MapToResponse(item)).ToList();
 
             var pageResult = new Model.PagedResult<TModel>
             {
