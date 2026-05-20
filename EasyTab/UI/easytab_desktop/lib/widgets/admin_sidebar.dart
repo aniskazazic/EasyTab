@@ -90,7 +90,8 @@ class AdminSidebar extends StatelessWidget {
                     context: context,
                     icon: Icons.star,
                     label: 'Recenzije',
-                    // onTap: () => Navigator.pushReplacementNamed(context, '/reviews'),
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/reviews'),
                   ),
                   _item(
                     context: context,

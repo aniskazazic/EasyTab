@@ -10,7 +10,7 @@ namespace EasyTab.Model.Models
     {
         public int Id { get; set; }
         public string Description { get; set; }
-        public float Rating { get; set; }
+        public int Rating { get; set; }
         public int UserId { get; set; }
         public string? UserFullName { get; set; }
         public int LocaleId { get; set; }

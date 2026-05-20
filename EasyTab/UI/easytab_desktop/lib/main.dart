@@ -4,6 +4,7 @@ import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
+import 'package:easytab_desktop/providers/review_provider.dart';
 import 'package:easytab_desktop/providers/table_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
@@ -14,6 +15,7 @@ import 'package:easytab_desktop/screens/admin_categories_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_cities_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_country_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_dashboard_screen.dart';
+import 'package:easytab_desktop/screens/admin_reviews_screen.dart';
 import 'package:easytab_desktop/screens/admin_settings_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
@@ -41,6 +43,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => WorkerProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => LocaleImageProvider()),
+        ChangeNotifierProvider(create: (_) => ReviewProvider()),
       ],
       child: const MyLoginApp(),
     ),
@@ -78,6 +81,7 @@ class MyLoginApp extends StatelessWidget {
         '/owner-add-locale': (context) => const OwnerLocaleDetailsScreen(),
         '/add-user': (context) => const AdminAddUserScreen(),
         '/admin-settings': (context) => const AdminSettingsScreen(),
+        '/reviews': (context) => const AdminReviewsScreen(),
         '/owner-settings': (context) => const OwnerSettingsScreen(),
         '/owner-locale-settings': (context) {
           final locale =

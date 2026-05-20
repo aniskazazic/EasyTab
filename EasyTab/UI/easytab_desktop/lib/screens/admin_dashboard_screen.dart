@@ -3,6 +3,7 @@ import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
+import 'package:easytab_desktop/providers/review_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -37,23 +38,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final cityProvider = context.read<CityProvider>();
       final categoryProvider = context.read<CategoryProvider>();
       final userProvider = context.read<UserProvider>();
+      final reviewProvider = context.read<ReviewProvider>();
 
       final results = await Future.wait([
-        localeProvider.get(
-          filter: {"IncludeTotalCount": true, "RetrieveAll": true},
-        ),
-        countryProvider.get(
-          filter: {"IncludeTotalCount": true, "RetrieveAll": true},
-        ),
-        cityProvider.get(
-          filter: {"IncludeTotalCount": true, "RetrieveAll": true},
-        ),
-        categoryProvider.get(
-          filter: {"IncludeTotalCount": true, "RetrieveAll": true},
-        ),
-        userProvider.get(
-          filter: {"IncludeTotalCount": true, "RetrieveAll": true},
-        ),
+        localeProvider.get(filter: {"IncludeTotalCount": true}),
+        countryProvider.get(filter: {"IncludeTotalCount": true}),
+        cityProvider.get(filter: {"IncludeTotalCount": true}),
+        categoryProvider.get(filter: {"IncludeTotalCount": true}),
+        userProvider.get(filter: {"IncludeTotalCount": true}),
+        reviewProvider.get(filter: {"IncludeTotalCount": true}),
       ]);
 
       setState(() {
@@ -63,6 +56,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         countCategories =
             results[3].totalCount ?? results[3].items?.length ?? 0;
         countUsers = results[4].totalCount ?? results[4].items?.length ?? 0;
+        countReviews = results[5].totalCount ?? results[5].items?.length ?? 0;
         isLoading = false;
       });
     } catch (e) {
