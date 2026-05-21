@@ -2,6 +2,7 @@
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,5 +15,7 @@ namespace EasyTab.Services.Interfaces
     {
         ReviewAverage GetAverageRating(int localeId);
         ReviewRatingCount GetRatingCounts(int localeId);
+
+        Task<List<Reviews>> GetByLocaleId(int localeId);
     }
 }

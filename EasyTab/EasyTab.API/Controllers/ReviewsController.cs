@@ -39,5 +39,12 @@ namespace EasyTab.API.Controllers
             _service.DeleteAsync(id);
             return Ok(new { Message = "Recenzija obrisana!" });
         }
+
+        [HttpGet("{localeId}")]
+        public IActionResult GetReviewsByLocaleId(int localeId)
+        {
+            var reviews = _service.GetByLocaleId(localeId).Result;
+            return Ok(reviews);
+        }
     }
 }

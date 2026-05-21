@@ -3,6 +3,7 @@ import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
+import 'package:easytab_desktop/screens/owner_reviews_screen.dart';
 import 'package:easytab_desktop/screens/owner_tables_screen.dart';
 import 'package:easytab_desktop/screens/owner_workers_screen.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
@@ -135,6 +136,15 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         );
         break;
       case 'Recenzije':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OwnerReviewsScreen(
+              localeId: localeId,
+              localeName: locale.name ?? '',
+            ),
+          ),
+        );
         break;
       case 'Radnici':
         Navigator.push(

@@ -16,6 +16,7 @@ using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 
 namespace EasyTab.Services.Services
 {
@@ -189,6 +190,20 @@ namespace EasyTab.Services.Services
 
             _logger.LogDebug("Rating distribution fetched. LocaleId: {LocaleId}", localeId);
             return counts;
+        }
+
+        public async Task<List<Reviews>> GetByLocaleId(int localeId)
+        {
+            var entities = await Context.Reviews
+                .Include(r => r.User)
+                .Include(r => r.Locale)
+                .Include(r => r.Reactions)
+                .Where(r => r.LocaleId == localeId && !r.IsDeleted)
+                .OrderByDescending(r => r.DateAdded)
+                .ToListAsync();
+
+            var dtos = entities.Select(e => MapToResponse(e)).ToList();
+            return dtos;
         }
     }
 }

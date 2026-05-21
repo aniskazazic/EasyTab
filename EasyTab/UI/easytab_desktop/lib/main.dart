@@ -24,7 +24,10 @@ import 'package:easytab_desktop/providers/localeimage_provider.dart';
 import 'package:easytab_desktop/screens/owner_dashboard_screen.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
+import 'package:easytab_desktop/screens/owner_reviews_screen.dart';
 import 'package:easytab_desktop/screens/owner_settings_screen.dart';
+import 'package:easytab_desktop/screens/owner_workers_screen.dart';
+import 'package:easytab_desktop/screens/owner_tables_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -87,6 +90,27 @@ class MyLoginApp extends StatelessWidget {
           final locale =
               ModalRoute.of(context)!.settings.arguments as model.Locale?;
           return OwnerLocaleDetailsScreen(locale: locale);
+        },
+        '/owner-reviews': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          return OwnerReviewsScreen(
+            localeId: args?['localeId'] as int? ?? 0,
+            localeName: args?['localeName'] as String? ?? '',
+          );
+        },
+        '/owner-workers': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          return OwnerWorkersScreen(
+            localeId: args?['localeId'] as int? ?? 0,
+            localeName: args?['localeName'] as String? ?? '',
+          );
+        },
+        '/owner-tables': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          return OwnerTablesScreen(
+            localeId: args?['localeId'] as int? ?? 0,
+            localeName: args?['localeName'] as String? ?? '',
+          );
         },
       },
     );
