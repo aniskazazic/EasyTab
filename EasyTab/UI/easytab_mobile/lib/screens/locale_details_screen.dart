@@ -1,12 +1,15 @@
 import 'package:easytab_mobile/models/favourite.dart';
 import 'package:easytab_mobile/models/locale.dart' as model;
+import 'package:easytab_mobile/models/localeimage.dart';
 import 'package:easytab_mobile/models/review.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/favourite_provider.dart';
+import 'package:easytab_mobile/providers/localeimage_provider.dart';
 import 'package:easytab_mobile/providers/reaction_provider.dart';
 import 'package:easytab_mobile/providers/review_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/add_review_screen.dart';
+import 'package:easytab_mobile/widgets/locale_image_gallery_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,9 +25,12 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   late ReviewProvider _reviewProvider;
   late ReactionProvider _reactionProvider;
   late FavouriteProvider _favouriteProvider;
+  late LocaleImageProvider _localeImageProvider;
 
   bool _isFavourite = false;
   bool _isLoadingReviews = true;
+  bool _isLoadingImages = true;
+  List<LocaleImage> _localeImages = [];
   Favourite? _currentFavourite;
   bool _isTogglingFav = false;
 
@@ -47,11 +53,34 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     _reviewProvider = context.read<ReviewProvider>();
     _reactionProvider = context.read<ReactionProvider>();
     _favouriteProvider = context.read<FavouriteProvider>();
+    _localeImageProvider = context.read<LocaleImageProvider>();
     _loadAll();
   }
 
   Future<void> _loadAll() async {
-    await Future.wait([_loadReviews(), _checkFavourite()]);
+    await Future.wait([_loadReviews(), _checkFavourite(), _loadLocaleImages()]);
+  }
+
+  Future<void> _loadLocaleImages() async {
+    if (locale.id == null) return;
+    setState(() => _isLoadingImages = true);
+    try {
+      final images = await _localeImageProvider.getByLocale(locale.id!);
+      if (mounted) setState(() => _localeImages = images);
+    } catch (e) {
+      debugPrint('Error loading locale images: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingImages = false);
+    }
+  }
+
+  void _openGallery({int initialIndex = 0}) {
+    if (_localeImages.isEmpty) return;
+    LocaleImageGalleryModal.show(
+      context,
+      images: _localeImages,
+      initialIndex: initialIndex,
+    );
   }
 
   Future<void> _loadReviews() async {
@@ -429,6 +458,10 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   }
 
   Widget _buildGallerySection() {
+    final hasImages = _localeImages.isNotEmpty;
+    final previewCount = _localeImages.length < 3 ? _localeImages.length : 3;
+    final previewImages = _localeImages.take(previewCount).toList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -446,38 +479,87 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () {},
-                child: const Text(
+                onPressed: hasImages ? _openGallery : null,
+                child: Text(
                   'Prikaži sve',
-                  style: TextStyle(color: Color(0xFF1E40AF), fontSize: 13),
+                  style: TextStyle(
+                    color: hasImages
+                        ? const Color(0xFF1E40AF)
+                        : Colors.grey.shade400,
+                    fontSize: 13,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            height: 110,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: 3,
-              separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, i) => ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  width: 130,
-                  color: const Color(0xFFEFF6FF),
-                  child: const Center(
-                    child: Icon(
-                      Icons.image_outlined,
-                      size: 36,
-                      color: Color(0xFF1E40AF),
+          if (_isLoadingImages)
+            const SizedBox(
+              height: 110,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else if (!hasImages)
+            _buildGalleryEmptyState()
+          else
+            SizedBox(
+              height: 110,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: previewImages.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 10),
+                itemBuilder: (context, i) => GestureDetector(
+                  onTap: () => _openGallery(initialIndex: i),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      width: 130,
+                      child: ImageUtils.buildImage(
+                        previewImages[i].imageSource,
+                        fit: BoxFit.cover,
+                        placeholder: _galleryPlaceholder(),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGalleryEmptyState() {
+    return Container(
+      width: double.infinity,
+      height: 110,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_library_outlined,
+            size: 32,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Trenutno nema slika lokala.',
+            style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _galleryPlaceholder() {
+    return Container(
+      color: const Color(0xFFEFF6FF),
+      child: const Center(
+        child: Icon(Icons.image_outlined, size: 36, color: Color(0xFF1E40AF)),
       ),
     );
   }

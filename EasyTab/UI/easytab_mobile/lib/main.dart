@@ -2,6 +2,7 @@ import 'package:easytab_mobile/layout/master_screen.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/favourite_provider.dart';
 import 'package:easytab_mobile/providers/locale_provider.dart';
+import 'package:easytab_mobile/providers/localeimage_provider.dart';
 import 'package:easytab_mobile/providers/reaction_provider.dart';
 import 'package:easytab_mobile/providers/review_provider.dart';
 import 'package:easytab_mobile/providers/user_provider.dart';
@@ -15,6 +16,7 @@ void main() {
       providers: [
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
+        ChangeNotifierProvider(create: (_) => LocaleImageProvider()),
         ChangeNotifierProvider(create: (_) => ReviewProvider()),
         ChangeNotifierProvider(create: (_) => ReactionProvider()),
         ChangeNotifierProvider(create: (_) => FavouriteProvider()),
