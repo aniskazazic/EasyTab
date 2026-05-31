@@ -40,7 +40,7 @@ namespace EasyTab.API.Controllers
             return Ok(new { Message = "Recenzija obrisana!" });
         }
 
-        [HttpGet("{localeId}")]
+        [HttpGet("by-locale/{localeId}")]
         public IActionResult GetReviewsByLocaleId(int localeId)
         {
             var reviews = _service.GetByLocaleId(localeId).Result;

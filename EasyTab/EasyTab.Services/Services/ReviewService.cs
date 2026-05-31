@@ -45,33 +45,10 @@ namespace EasyTab.Services.Services
             if (search?.IsDeleted.HasValue == true)
                 query = query.Where(x => x.IsDeleted == search.IsDeleted);
 
-            //// Sortiranje - zahtijeva join sa Reactions
-            //var reactions = Context.Reactions.AsQueryable();
-
-            //var queryWithReactions = query.Select(review => new
-            //{
-            //    Review = review,
-            //    Likes = reactions.Count(r => r.ReviewId == review.Id && r.IsLike),
-            //    Dislikes = reactions.Count(r => r.ReviewId == review.Id && !r.IsLike)
-            //});
-
-            //queryWithReactions = search?.SortBy?.ToLower() switch
-            //{
-            //    "mostlikes" => queryWithReactions.OrderByDescending(x => x.Likes),
-            //    "mostdislikes" => queryWithReactions.OrderByDescending(x => x.Dislikes),
-            //    "highestrating" => queryWithReactions.OrderByDescending(x => x.Review.Rating),
-            //    "lowestrating" => queryWithReactions.OrderBy(x => x.Review.Rating),
-            //    "latest" => queryWithReactions.OrderByDescending(x => x.Review.DateAdded),
-            //    "earliest" => queryWithReactions.OrderBy(x => x.Review.DateAdded),
-            //    _ => queryWithReactions.OrderByDescending(x => x.Review.Id)
-            //};
-
-            
-            //return queryWithReactions.Select(x => x.Review);
-
-            // Jednostavno sortiranje (ne po lajkovima)
             query = search?.SortBy?.ToLower() switch
             {
+                "mostlikes" => query.OrderByDescending(x => x.Reactions.Count(r => r.IsLike)),
+                "mostdislikes" => query.OrderByDescending(x => x.Reactions.Count(r => !r.IsLike)),
                 "highestrating" => query.OrderByDescending(x => x.Rating),
                 "lowestrating" => query.OrderBy(x => x.Rating),
                 "latest" => query.OrderByDescending(x => x.DateAdded),

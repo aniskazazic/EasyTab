@@ -10,7 +10,7 @@ class ReviewProvider extends BaseProvider<Review> {
   Review fromJson(json) => Review.fromJson(json);
 
   Future<List<Review>> getByLocaleId(int localeId) async {
-    var url = "${BaseProvider.baseUrl}/Reviews/$localeId";
+    var url = "${BaseProvider.baseUrl}/Reviews/by-locale/$localeId";
     var uri = Uri.parse(url);
     var response = await http.get(uri, headers: createHeaders());
 

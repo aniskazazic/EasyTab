@@ -36,6 +36,15 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
 
   List<Review> _reviews = [];
   double _averageRating = 0;
+  String _reviewSortBy = 'latest';
+  static const _reviewSortOptions = {
+    'latest': 'Najnovije',
+    'earliest': 'Najstarije',
+    'mostlikes': 'Najviše lajkova',
+    'mostdislikes': 'Najviše dislajkova',
+    'highestrating': 'Najbolje ocjene',
+    'lowestrating': 'Najniže ocjene',
+  };
   Map<String, int> _ratingCounts = {
     'Odlično': 0,
     'Dobro': 0,
@@ -87,7 +96,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     setState(() => _isLoadingReviews = true);
     try {
       final results = await Future.wait([
-        _reviewProvider.getByLocale(locale.id!),
+        _reviewProvider.getByLocale(locale.id!, sortBy: _reviewSortBy),
         _reviewProvider.getAverage(locale.id!),
         _reviewProvider.getRatingCounts(locale.id!),
       ]);
@@ -210,23 +219,79 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   }
 
   Future<void> _handleReaction(Review review, bool isLike) async {
-    // Ne dozvoli reakciju na vlastitu recenziju
-    if (review.userId == _currentUserId) return;
+    if (review.userId == _currentUserId || _currentUserId == null) return;
 
-    debugPrint(
-      'ReviweId: ${review.id}, userId: $_currentUserId, islike: $isLike',
-    );
+    final currentReaction = review.userReaction ?? 0;
+    final togglingOff =
+        (isLike && currentReaction == 1) || (!isLike && currentReaction == -1);
+
+    _applyReactionLocally(review, isLike);
 
     try {
-      await _reactionProvider.react(
-        reviewId: review.id!,
-        userId: _currentUserId!,
-        isLike: isLike,
-      );
-      _loadReviews();
+      if (togglingOff) {
+        await _reactionProvider.removeReaction(review.id!, _currentUserId!);
+      } else {
+        await _reactionProvider.react(
+          reviewId: review.id!,
+          userId: _currentUserId!,
+          isLike: isLike,
+        );
+      }
     } catch (e) {
       debugPrint('Reaction error: $e');
+      _loadReviews();
     }
+  }
+
+  void _applyReactionLocally(Review review, bool isLike) {
+    final index = _reviews.indexWhere((r) => r.id == review.id);
+    if (index == -1) return;
+
+    var likes = review.likes ?? 0;
+    var dislikes = review.dislikes ?? 0;
+    final currentReaction = review.userReaction ?? 0;
+    int newReaction;
+
+    if (isLike) {
+      if (currentReaction == 1) {
+        newReaction = 0;
+        likes = (likes - 1).clamp(0, likes);
+      } else {
+        if (currentReaction == -1) {
+          dislikes = (dislikes - 1).clamp(0, dislikes);
+        }
+        newReaction = 1;
+        likes++;
+      }
+    } else {
+      if (currentReaction == -1) {
+        newReaction = 0;
+        dislikes = (dislikes - 1).clamp(0, dislikes);
+      } else {
+        if (currentReaction == 1) {
+          likes = (likes - 1).clamp(0, likes);
+        }
+        newReaction = -1;
+        dislikes++;
+      }
+    }
+
+    setState(() {
+      _reviews[index] = Review(
+        id: review.id,
+        description: review.description,
+        rating: review.rating,
+        userId: review.userId,
+        userFullName: review.userFullName,
+        localeId: review.localeId,
+        localeName: review.localeName,
+        dateAdded: review.dateAdded,
+        isDeleted: review.isDeleted,
+        likes: likes,
+        dislikes: dislikes,
+        userReaction: newReaction,
+      );
+    });
   }
 
   String _formatTime(DateTime? dt) {
@@ -709,6 +774,52 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Icon(Icons.sort, size: 16, color: Colors.grey.shade600),
+              const SizedBox(width: 6),
+              Text(
+                'Sortiraj:',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _reviewSortBy,
+                      isExpanded: true,
+                      isDense: true,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF0F172A),
+                      ),
+                      items: _reviewSortOptions.entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) {
+                        if (value == null || value == _reviewSortBy) return;
+                        setState(() => _reviewSortBy = value);
+                        _loadReviews();
+                      },
+                    ),
                   ),
                 ),
               ),

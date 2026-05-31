@@ -9,8 +9,12 @@ class ReviewProvider extends BaseProvider<Review> {
   @override
   Review fromJson(json) => Review.fromJson(json);
 
-  Future<List<Review>> getByLocale(int localeId) async {
-    final result = await get(filter: {'LocaleId': localeId});
+  Future<List<Review>> getByLocale(int localeId, {String? sortBy}) async {
+    final filter = <String, dynamic>{'LocaleId': localeId, 'PageSize': 1000};
+    if (sortBy != null && sortBy.isNotEmpty) {
+      filter['SortBy'] = sortBy;
+    }
+    final result = await get(filter: filter);
     return result.items ?? [];
   }
 
