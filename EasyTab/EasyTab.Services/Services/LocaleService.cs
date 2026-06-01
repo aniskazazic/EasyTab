@@ -1,3 +1,4 @@
+using EasyTab.Model;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
@@ -92,8 +93,19 @@ namespace EasyTab.Services.Services
             model.CityName = entity.City?.Name;
             model.CategoryName = entity.Category?.Name;
             model.OwnerName = entity.Owner != null ? $"{entity.Owner.FirstName} {entity.Owner.LastName}" : null;
+            model.AverageRating = await GetAverageRatingForLocaleAsync(entity.Id);
 
             return model;
+        }
+
+        public override async Task<PagedResult<Locales>> GetAsync(LocaleSearchObject search)
+        {
+            var result = await base.GetAsync(search);
+            if (result.Items == null || result.Items.Count == 0)
+                return result;
+
+            await ApplyAverageRatingsAsync(result.Items);
+            return result;
         }
 
         public override async Task<bool> DeleteAsync(int id)
@@ -163,6 +175,8 @@ namespace EasyTab.Services.Services
         {
             var model = base.MapToResponse(entity);
 
+            model.CityName = entity.City?.Name;
+            model.CategoryName = entity.Category?.Name;
             model.CountryName = entity.City?.Country?.Name;
             model.OwnerName = entity.Owner != null
                 ? $"{entity.Owner.FirstName} {entity.Owner.LastName}"
@@ -189,6 +203,32 @@ namespace EasyTab.Services.Services
             }
 
             return model;
+        }
+
+        private async Task ApplyAverageRatingsAsync(IList<Locales> locales)
+        {
+            var localeIds = locales.Select(x => x.Id).ToList();
+            var averages = await Context.Reviews
+                .Where(r => localeIds.Contains(r.LocaleId) && !r.IsDeleted)
+                .GroupBy(r => r.LocaleId)
+                .Select(g => new { LocaleId = g.Key, Average = g.Average(r => (double)r.Rating) })
+                .ToDictionaryAsync(x => x.LocaleId, x => x.Average);
+
+            foreach (var locale in locales)
+            {
+                locale.AverageRating = averages.TryGetValue(locale.Id, out var average) ? average : 0;
+            }
+        }
+
+        private async Task<double> GetAverageRatingForLocaleAsync(int localeId)
+        {
+            var reviews = Context.Reviews
+                .Where(r => r.LocaleId == localeId && !r.IsDeleted);
+
+            if (!await reviews.AnyAsync())
+                return 0;
+
+            return await reviews.AverageAsync(r => (double)r.Rating);
         }
 
         protected override async Task BeforeUpdate(Locale entity, LocaleUpdateRequest request)
