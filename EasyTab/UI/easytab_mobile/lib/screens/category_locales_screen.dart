@@ -1,23 +1,29 @@
-import 'package:easytab_mobile/models/category.dart';
-import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/providers/locale_provider.dart';
+import 'package:easytab_mobile/models/category.dart';
+
+import 'package:easytab_mobile/models/locale.dart';
 import 'package:easytab_mobile/providers/utils.dart';
-import 'package:easytab_mobile/screens/category_locales_screen.dart';
 import 'package:easytab_mobile/screens/locale_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class CategoryLocalesScreen extends StatefulWidget {
+  final int categoryId;
+  final String categoryName;
+  const CategoryLocalesScreen({
+    super.key,
+    required this.categoryId,
+    required this.categoryName,
+  });
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<CategoryLocalesScreen> createState() => _CategoryLocalesScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _CategoryLocalesScreenState extends State<CategoryLocalesScreen> {
   late LocaleProvider _localeProvider;
   bool _isLoading = true;
-  Map<Category, List<model.Locale>> _groupedLocales = {};
+  List<Locale> _locales = [];
 
   @override
   void initState() {
@@ -27,36 +33,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadLocales() async {
+    setState(() => _isLoading = true);
     try {
-      final result = await _localeProvider.get(filter: {});
-      final locales = result.items ?? [];
-
-      // Grupiranje po kategoriji (Category objekt)
-      final Map<int, Category> categoryMap = {};
-      final Map<int, List<model.Locale>> tempGroup = {};
-
-      for (final locale in locales) {
-        final catId = locale.categoryId ?? -1;
-        final catName = locale.categoryName ?? 'Ostalo';
-        if (!categoryMap.containsKey(catId)) {
-          categoryMap[catId] = Category(id: catId, name: catName);
-        }
-        tempGroup.putIfAbsent(catId, () => []).add(locale);
-      }
-
-      // Ograniči na max 3 lokala po kategoriji
-      final Map<Category, List<model.Locale>> trimmed = {};
-      tempGroup.forEach((catId, list) {
-        final category = categoryMap[catId]!;
-        trimmed[category] = list.take(3).toList();
+      final result = await _localeProvider.getByCategory(widget.categoryId);
+      setState(() {
+        _locales = result;
+        _isLoading = false;
       });
-
-      if (mounted) {
-        setState(() {
-          _groupedLocales = trimmed;
-          _isLoading = false;
-        });
-      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
       debugPrint('Error loading locales: $e');
@@ -67,24 +50,47 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _groupedLocales.isEmpty
-            ? _buildEmpty()
-            : RefreshIndicator(
-                onRefresh: _loadLocales,
-                child: ListView(
-                  padding: const EdgeInsets.only(top: 20, bottom: 8),
-                  children: _groupedLocales.entries.map((entry) {
-                    return _CategoryCarousel(
-                      category: entry.key,
-                      locales: entry.value,
-                    );
-                  }).toList(),
-                ),
-              ),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1E40AF),
+        elevation: 0,
+        scrolledUnderElevation: 1,
+        toolbarHeight: 45,
+        shadowColor: Colors.black12,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 18),
+          color: Colors.white,
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          widget.categoryName,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        centerTitle: false, // tekst lijevo, odmah iza strelice
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _locales.isEmpty
+          ? _buildEmpty()
+          : RefreshIndicator(
+              onRefresh: _loadLocales,
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(
+                  vertical: 16,
+                  horizontal: 16,
+                ),
+                itemCount: _locales.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _LocaleCard(locale: _locales[index]),
+                  );
+                },
+              ),
+            ),
     );
   }
 
@@ -96,7 +102,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Icon(Icons.store_outlined, size: 56, color: Colors.grey.shade300),
           const SizedBox(height: 14),
           Text(
-            'Nema dostupnih lokala',
+            'Nema lokala u ovoj kategoriji',
             style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
           ),
         ],
@@ -105,115 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _CategoryCarousel extends StatefulWidget {
-  final Category category;
-  final List<model.Locale> locales;
-
-  const _CategoryCarousel({required this.category, required this.locales});
-
-  @override
-  State<_CategoryCarousel> createState() => _CategoryCarouselState();
-}
-
-class _CategoryCarouselState extends State<_CategoryCarousel> {
-  final PageController _pageController = PageController();
-  int _currentPage = 0;
-
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                widget.category.name ?? '',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              TextButton(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CategoryLocalesScreen(
-                      categoryId: widget.category.id ?? 0,
-                      categoryName: widget.category.name ?? '',
-                    ),
-                  ),
-                ),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text(
-                  'Prikaži sve',
-                  style: TextStyle(color: Color(0xFF1E40AF), fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        const SizedBox(height: 12),
-        SizedBox(
-          height: 248,
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: widget.locales.length,
-            onPageChanged: (i) => setState(() => _currentPage = i),
-            itemBuilder: (context, index) {
-              return _LocaleCard(locale: widget.locales[index]);
-            },
-          ),
-        ),
-        if (widget.locales.length > 1) ...[
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(widget.locales.length, (i) {
-              final isActive = i == _currentPage;
-              return GestureDetector(
-                onTap: () => _pageController.animateToPage(
-                  i,
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                ),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 5),
-                  width: 12,
-                  height: 12,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isActive
-                        ? const Color(0xFF1E40AF)
-                        : Colors.grey.shade300,
-                  ),
-                ),
-              );
-            }),
-          ),
-        ],
-        const SizedBox(height: 24),
-      ],
-    );
-  }
-}
-
 class _LocaleCard extends StatelessWidget {
-  final model.Locale locale;
+  final Locale locale;
   const _LocaleCard({required this.locale});
 
   @override
@@ -224,7 +123,6 @@ class _LocaleCard extends StatelessWidget {
         MaterialPageRoute(builder: (_) => LocaleDetailScreen(locale: locale)),
       ),
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
@@ -240,6 +138,7 @@ class _LocaleCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Slika
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(18),
@@ -254,6 +153,7 @@ class _LocaleCard extends StatelessWidget {
                 ),
               ),
             ),
+            // Informacije
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: SizedBox(

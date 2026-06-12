@@ -13,13 +13,53 @@ class MasterScreen extends StatefulWidget {
 class _MasterScreenState extends State<MasterScreen> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    HomeScreen(),
-    _SearchScreen(),
-    FavouritesScreen(),
-    _ReservationsScreen(),
-    SettingsUserScreen(),
+  // Lista navigator ključeva – po jedan za svaku karticu
+  final List<GlobalKey<NavigatorState>> _navigatorKeys = [
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
   ];
+
+  // Metoda koja vraća trenutni navigator za odabrani indeks
+  Widget _buildOffstageNavigator(int index) {
+    return Offstage(
+      offstage: _currentIndex != index,
+      child: Navigator(
+        key: _navigatorKeys[index],
+        onGenerateRoute: (RouteSettings settings) {
+          return MaterialPageRoute(
+            settings: settings,
+            builder: (context) => _getScreenForIndex(index),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _getScreenForIndex(int index) {
+    switch (index) {
+      case 0:
+        return const HomeScreen();
+      case 1:
+        return const _SearchScreen();
+      case 2:
+        return const FavouritesScreen();
+      case 3:
+        return const _ReservationsScreen();
+      case 4:
+        return const SettingsUserScreen();
+      default:
+        return const HomeScreen();
+    }
+  }
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,15 +68,19 @@ class _MasterScreenState extends State<MasterScreen> {
         children: [
           _buildHeader(),
           Expanded(
-            child: IndexedStack(index: _currentIndex, children: _screens),
+            child: Stack(
+              children: List.generate(_navigatorKeys.length, (index) {
+                return _buildOffstageNavigator(index);
+              }),
+            ),
           ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+        onTap: _onTabTapped,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color(0xFF1E40AF),
+        selectedItemColor: const Color(0xFF1E40AF), // ista boja
         unselectedItemColor: Colors.grey,
         selectedFontSize: 11,
         unselectedFontSize: 11,
@@ -76,13 +120,7 @@ class _MasterScreenState extends State<MasterScreen> {
   Widget _buildHeader() {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF1E3A8A), Color(0xFF1E40AF)],
-        ),
-      ),
+      color: const Color(0xFF1E40AF), // SAMO OVA BOJA, bez gradijenta
       padding: EdgeInsets.fromLTRB(
         16,
         MediaQuery.of(context).padding.top + 12,
@@ -98,7 +136,6 @@ class _MasterScreenState extends State<MasterScreen> {
               fontSize: 28,
               fontWeight: FontWeight.w400,
               color: Colors.white,
-              // Po želji dodaj fontFamily: 'Pacifico' ili 'cursive'
             ),
           ),
           SizedBox(width: 10),

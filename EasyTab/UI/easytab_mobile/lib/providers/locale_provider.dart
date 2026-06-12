@@ -13,4 +13,9 @@ class LocaleProvider extends BaseProvider<Locale> {
     var result = await get(filter: {"OwnerId": ownerId});
     return result.items ?? [];
   }
+
+  Future<List<Locale>> getByCategory(int categoryId) async {
+    var result = await get(filter: {"categoryId": categoryId});
+    return result.items ?? [];
+  }
 }
