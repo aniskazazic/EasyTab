@@ -133,7 +133,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
               localeName: locale.name ?? '',
             ),
           ),
-        );
+        ).then((value) {
+          if (value == true) {
+            _loadStats(localeId);
+          }
+        });
         break;
       case 'Recenzije':
         Navigator.push(

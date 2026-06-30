@@ -369,11 +369,31 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
       ]);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Raspored uspješno snimljen!'),
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Text(
+                  'Raspored uspješno snimljen!',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            width: 320,
           ),
         );
+        Navigator.pop(context, true);
       }
     } catch (e) {
       _showError(e.toString());
