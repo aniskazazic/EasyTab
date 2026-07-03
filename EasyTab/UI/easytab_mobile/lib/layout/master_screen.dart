@@ -1,5 +1,6 @@
 import 'package:easytab_mobile/screens/favourite_screen.dart';
 import 'package:easytab_mobile/screens/home_screen.dart';
+import 'package:easytab_mobile/screens/search_locales_screen.dart';
 import 'package:easytab_mobile/screens/settings_user_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -43,7 +44,7 @@ class _MasterScreenState extends State<MasterScreen> {
       case 0:
         return const HomeScreen();
       case 1:
-        return const _SearchScreen();
+        return const SearchLocalesScreen();
       case 2:
         return const FavouritesScreen();
       case 3:
@@ -144,14 +145,6 @@ class _MasterScreenState extends State<MasterScreen> {
       ),
     );
   }
-}
-
-// Placeholder ekrani (nepromijenjeni)
-class _SearchScreen extends StatelessWidget {
-  const _SearchScreen();
-  @override
-  Widget build(BuildContext context) =>
-      const _PlaceholderScreen(label: 'Pretraga', icon: Icons.search_outlined);
 }
 
 class _ReservationsScreen extends StatelessWidget {

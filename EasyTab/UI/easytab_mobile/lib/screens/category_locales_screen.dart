@@ -1,6 +1,4 @@
 import 'package:easytab_mobile/providers/locale_provider.dart';
-import 'package:easytab_mobile/models/category.dart';
-
 import 'package:easytab_mobile/models/locale.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/locale_details_screen.dart';

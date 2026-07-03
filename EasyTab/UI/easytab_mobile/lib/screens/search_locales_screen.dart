@@ -1,0 +1,777 @@
+import 'package:easytab_mobile/models/category.dart';
+import 'package:easytab_mobile/models/city.dart';
+import 'package:easytab_mobile/models/country.dart';
+import 'package:easytab_mobile/models/locale.dart';
+import 'package:easytab_mobile/providers/category_provider.dart';
+import 'package:easytab_mobile/providers/city_provider.dart';
+import 'package:easytab_mobile/providers/country_provider.dart';
+import 'package:easytab_mobile/providers/locale_provider.dart';
+import 'package:easytab_mobile/providers/utils.dart';
+import 'package:easytab_mobile/screens/locale_details_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+class SearchLocalesScreen extends StatefulWidget {
+  const SearchLocalesScreen({super.key});
+
+  @override
+  State<SearchLocalesScreen> createState() => _SearchLocalesScreenState();
+}
+
+class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
+  late LocaleProvider _localeProvider;
+  late CategoryProvider _categoryProvider;
+  late CountryProvider _countryProvider;
+  late CityProvider _cityProvider;
+
+  final TextEditingController _searchController = TextEditingController();
+  DateTime? _lastSearchTime;
+
+  bool _isLoading = true;
+  bool _filtersExpanded = true;
+  List<Locale> _locales = [];
+  List<Category> _categories = [];
+  List<Country> _countries = [];
+  List<City> _allCities = [];
+  List<City> _filteredCities = [];
+
+  int? _selectedCategoryId;
+  int? _selectedCountryId;
+  int? _selectedCityId;
+
+  int _totalCount = 0;
+  int _currentPage = 0;
+  final int _pageSize = 10;
+
+  @override
+  void initState() {
+    super.initState();
+    _localeProvider = context.read<LocaleProvider>();
+    _categoryProvider = context.read<CategoryProvider>();
+    _countryProvider = context.read<CountryProvider>();
+    _cityProvider = context.read<CityProvider>();
+    _searchController.addListener(_onSearchChanged);
+    _loadDropdowns();
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    final now = DateTime.now();
+    _lastSearchTime = now;
+
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (_lastSearchTime == now && mounted) {
+        setState(() => _currentPage = 0);
+        _loadLocales();
+      }
+    });
+  }
+
+  Future<void> _loadDropdowns() async {
+    setState(() => _isLoading = true);
+    try {
+      final categoryResult = await _categoryProvider.get(filter: {});
+      final countryResult = await _countryProvider.get(filter: {});
+      final cityResult = await _cityProvider.get(filter: {});
+
+      if (!mounted) return;
+
+      setState(() {
+        _categories = categoryResult.items ?? [];
+        _countries = countryResult.items ?? [];
+        _allCities = cityResult.items ?? [];
+        _filteredCities = _allCities;
+      });
+
+      await _loadLocales();
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error loading filters: $e');
+    }
+  }
+
+  Future<void> _loadLocales() async {
+    setState(() => _isLoading = true);
+    try {
+      final filter = <String, dynamic>{
+        "Page": _currentPage + 1,
+        "PageSize": _pageSize,
+        "IncludeTotalCount": true,
+        if (_searchController.text.trim().isNotEmpty)
+          "Name": _searchController.text.trim(),
+        if (_selectedCategoryId != null) "CategoryId": _selectedCategoryId,
+        if (_selectedCityId != null) "CityId": _selectedCityId,
+        if (_selectedCountryId != null && _selectedCityId == null)
+          "CountryId": _selectedCountryId,
+      };
+
+      final result = await _localeProvider.get(filter: filter);
+
+      if (!mounted) return;
+      setState(() {
+        _locales = result.items ?? [];
+        _totalCount = result.totalCount ?? 0;
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error loading locales: $e');
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    setState(() => _currentPage = 0);
+    await _loadLocales();
+  }
+
+  int get _totalPages =>
+      _totalCount == 0 ? 1 : (_totalCount / _pageSize).ceil();
+
+  bool get _hasActiveFilters =>
+      _searchController.text.trim().isNotEmpty ||
+      _selectedCategoryId != null ||
+      _selectedCountryId != null ||
+      _selectedCityId != null;
+
+  void _goToPage(int page) {
+    if (page < 0 || page >= _totalPages) return;
+    setState(() => _currentPage = page);
+    _loadLocales();
+  }
+
+  void _clearFilters() {
+    _searchController.clear();
+    setState(() {
+      _selectedCategoryId = null;
+      _selectedCountryId = null;
+      _selectedCityId = null;
+      _filteredCities = _allCities;
+      _currentPage = 0;
+    });
+    _loadLocales();
+  }
+
+  void _onCountryChanged(int? countryId) {
+    setState(() {
+      _selectedCountryId = countryId;
+      _selectedCityId = null;
+      _filteredCities = countryId == null
+          ? _allCities
+          : _allCities.where((c) => c.countryId == countryId).toList();
+      _currentPage = 0;
+    });
+    _loadLocales();
+  }
+
+  void _onCategoryChanged(int? categoryId) {
+    setState(() {
+      _selectedCategoryId = categoryId;
+      _currentPage = 0;
+    });
+    _loadLocales();
+  }
+
+  void _onCityChanged(int? cityId) {
+    setState(() {
+      _selectedCityId = cityId;
+      _currentPage = 0;
+    });
+    _loadLocales();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF5F7FA),
+      body: Column(
+        children: [
+          _buildSearchHeader(),
+          if (_filtersExpanded) _buildFilters(),
+          if (_hasActiveFilters && !_isLoading)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Pronađeno: $_totalCount ${_totalCount == 1 ? 'lokal' : 'lokala'}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _locales.isEmpty
+                ? _buildEmpty()
+                : RefreshIndicator(
+                    onRefresh: _handleRefresh,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      itemCount: _locales.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == _locales.length) {
+                          return _buildPagination();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _LocaleCard(locale: _locales[index]),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.06),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Pretraži po nazivu lokala...',
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 14,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: Color(0xFF1E40AF),
+                  ),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.close_rounded,
+                            color: Colors.grey.shade400,
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() => _currentPage = 0);
+                            _loadLocales();
+                          },
+                        )
+                      : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Material(
+            color: _filtersExpanded ? const Color(0xFF1E40AF) : Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            elevation: 2,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => setState(() => _filtersExpanded = !_filtersExpanded),
+              child: Container(
+                width: 48,
+                height: 48,
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.tune_rounded,
+                  color: _filtersExpanded
+                      ? Colors.white
+                      : const Color(0xFF1E40AF),
+                  size: 22,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Filteri',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                if (_hasActiveFilters)
+                  TextButton(
+                    onPressed: _clearFilters,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'Očisti',
+                      style: TextStyle(
+                        color: Color(0xFF1E40AF),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _buildDropdown<int>(
+              label: 'Kategorija',
+              icon: Icons.category_outlined,
+              value: _selectedCategoryId,
+              hint: 'Sve kategorije',
+              items: [
+                const DropdownMenuItem<int>(
+                  value: null,
+                  child: Text('Sve kategorije'),
+                ),
+                ..._categories.map(
+                  (c) => DropdownMenuItem(
+                    value: c.id,
+                    child: Text(c.name ?? '', overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+              onChanged: _onCategoryChanged,
+            ),
+            const SizedBox(height: 10),
+            _buildDropdown<int>(
+              label: 'Država',
+              icon: Icons.public_outlined,
+              value: _selectedCountryId,
+              hint: 'Sve države',
+              items: [
+                const DropdownMenuItem<int>(
+                  value: null,
+                  child: Text('Sve države'),
+                ),
+                ..._countries.map(
+                  (c) => DropdownMenuItem(
+                    value: c.id,
+                    child: Text(c.name ?? '', overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+              onChanged: _onCountryChanged,
+            ),
+            const SizedBox(height: 10),
+            _buildDropdown<int>(
+              label: 'Grad',
+              icon: Icons.location_city_outlined,
+              value: _selectedCityId,
+              hint: 'Svi gradovi',
+              items: [
+                const DropdownMenuItem<int>(
+                  value: null,
+                  child: Text('Svi gradovi'),
+                ),
+                ..._filteredCities.map(
+                  (c) => DropdownMenuItem(
+                    value: c.id,
+                    child: Text(c.name ?? '', overflow: TextOverflow.ellipsis),
+                  ),
+                ),
+              ],
+              onChanged: _onCityChanged,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown<T>({
+    required String label,
+    required IconData icon,
+    required T? value,
+    required String hint,
+    required List<DropdownMenuItem<T>> items,
+    required ValueChanged<T?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 15, color: Colors.grey.shade500),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<T>(
+          value: value,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: Colors.grey.shade200),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFF1E40AF)),
+            ),
+          ),
+          hint: Text(hint, style: TextStyle(color: Colors.grey.shade500)),
+          isExpanded: true,
+          items: items,
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPagination() {
+    if (_totalPages <= 1) {
+      return const SizedBox(height: 16);
+    }
+
+    const int maxVisible = 3;
+    int startPage = (_currentPage - maxVisible ~/ 2).clamp(0, _totalPages - 1);
+    int endPage = (startPage + maxVisible - 1).clamp(0, _totalPages - 1);
+    if (endPage - startPage < maxVisible - 1) {
+      startPage = (endPage - maxVisible + 1).clamp(0, _totalPages - 1);
+    }
+
+    return Container(
+      padding: const EdgeInsets.only(top: 8, bottom: 24),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Stranica ${_currentPage + 1}/$_totalPages',
+              style: TextStyle(
+                color: Colors.grey[600],
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _pageButton(
+                  icon: Icons.first_page_rounded,
+                  onTap: _currentPage > 0 ? () => _goToPage(0) : null,
+                ),
+                _pageButton(
+                  icon: Icons.keyboard_arrow_left_rounded,
+                  onTap: _currentPage > 0
+                      ? () => _goToPage(_currentPage - 1)
+                      : null,
+                ),
+                for (int i = startPage; i <= endPage; i++) _pageNumberButton(i),
+                _pageButton(
+                  icon: Icons.keyboard_arrow_right_rounded,
+                  onTap: _currentPage < _totalPages - 1
+                      ? () => _goToPage(_currentPage + 1)
+                      : null,
+                ),
+                _pageButton(
+                  icon: Icons.last_page_rounded,
+                  onTap: _currentPage < _totalPages - 1
+                      ? () => _goToPage(_totalPages - 1)
+                      : null,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pageButton({required IconData icon, VoidCallback? onTap}) {
+    return IconButton(
+      icon: Icon(icon, size: 18),
+      onPressed: onTap,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
+      color: onTap != null ? const Color(0xFF1E40AF) : Colors.grey.shade400,
+    );
+  }
+
+  Widget _pageNumberButton(int page) {
+    final isActive = page == _currentPage;
+    return GestureDetector(
+      onTap: () => _goToPage(page),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 1.5),
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF1E40AF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isActive ? const Color(0xFF1E40AF) : Colors.grey.shade300,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            '${page + 1}',
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.grey.shade700,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off_rounded, size: 56, color: Colors.grey.shade300),
+          const SizedBox(height: 14),
+          Text(
+            _hasActiveFilters
+                ? 'Nema lokala za zadane kriterije'
+                : 'Nema dostupnih lokala',
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
+          ),
+          if (_hasActiveFilters) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _clearFilters,
+              child: const Text(
+                'Očisti filtere',
+                style: TextStyle(color: Color(0xFF1E40AF)),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LocaleCard extends StatelessWidget {
+  final Locale locale;
+  const _LocaleCard({required this.locale});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => LocaleDetailScreen(locale: locale)),
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.12),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+              spreadRadius: 4,
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(18),
+              ),
+              child: SizedBox(
+                height: 148,
+                width: double.infinity,
+                child: ImageUtils.buildImage(
+                  locale.logo,
+                  fit: BoxFit.cover,
+                  placeholder: _placeholder(),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              child: SizedBox(
+                height: 68,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            locale.name ?? '',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF0F172A),
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (locale.averageRating != null &&
+                            locale.averageRating! > 0) ...[
+                          const SizedBox(width: 12),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                locale.averageRating!.toStringAsFixed(1),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF0F172A),
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              const Icon(
+                                Icons.star_rounded,
+                                color: Color(0xFFFBBF24),
+                                size: 25,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            locale.categoryName ?? 'Ostalo',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (locale.address != null &&
+                            locale.address!.isNotEmpty) ...[
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    locale.address!,
+                                    textAlign: TextAlign.right,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF1E40AF),
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 3),
+                                const Icon(
+                                  Icons.location_on_outlined,
+                                  size: 13,
+                                  color: Color(0xFF1E40AF),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _placeholder() {
+    return Container(
+      color: const Color(0xFFEFF6FF),
+      child: const Center(
+        child: Icon(Icons.store_outlined, size: 48, color: Color(0xFF1E40AF)),
+      ),
+    );
+  }
+}
