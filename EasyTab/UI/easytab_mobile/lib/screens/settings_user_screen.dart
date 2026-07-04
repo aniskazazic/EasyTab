@@ -3,6 +3,7 @@ import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/user_provider.dart';
 import 'package:easytab_mobile/screens/change_password_screeen.dart';
 import 'package:easytab_mobile/screens/profile_edit_screen.dart';
+import 'package:easytab_mobile/screens/user_reviews_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
@@ -98,6 +99,16 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
         child: ListView(
           shrinkWrap: true,
           children: [
+            ListTile(
+              leading: Icon(Icons.reviews),
+              title: Text("Moje recenzije"),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => UserReviewsScreen()),
+                );
+              },
+            ),
             ListTile(
               leading: Icon(Icons.pending),
               title: Text("Uredi profil"),

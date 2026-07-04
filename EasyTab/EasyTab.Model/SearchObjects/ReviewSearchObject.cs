@@ -9,6 +9,8 @@ namespace EasyTab.Model.SearchObjects
 {
     public class ReviewSearchObject : BaseSearchObject
     {
+        public int? UserId { get; set; }
+        public int? Rating { get; set; }
         public int? LocaleId { get; set; }
         public bool? IsDeleted { get; set; }
         public string? SortBy { get; set; }

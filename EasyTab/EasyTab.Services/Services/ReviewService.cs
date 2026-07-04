@@ -45,6 +45,12 @@ namespace EasyTab.Services.Services
             if (search?.IsDeleted.HasValue == true)
                 query = query.Where(x => x.IsDeleted == search.IsDeleted);
 
+            if (search?.UserId.HasValue == true)
+                query = query.Where(x => x.UserId == search.UserId);
+
+            if (search?.Rating.HasValue == true)
+                query = query.Where(x => x.Rating == search.Rating);
+
             query = search?.SortBy?.ToLower() switch
             {
                 "mostlikes" => query.OrderByDescending(x => x.Reactions.Count(r => r.IsLike)),
