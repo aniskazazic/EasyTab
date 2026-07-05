@@ -1,6 +1,7 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/review.dart';
 import 'package:easytab_desktop/providers/review_provider.dart';
+import 'package:easytab_desktop/screens/admin_reviews_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -22,9 +23,18 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   List<Review> _reviews = [];
   bool _initialized = false;
   DateTime? _selectedDate;
+  int? _selectedRating;
 
   DateTime? _lastSearchTime;
   final TextEditingController searchController = TextEditingController();
+  final Map<int, String> ratings = {
+    5: '5 - Odlično',
+    4: '4 - Vrlo dobro',
+    3: '3 - Dobro',
+    2: '2 - Loše',
+    1: '1 - Vrlo loše',
+    0: 'Sve ocjene',
+  };
 
   @override
   void didChangeDependencies() {
@@ -106,6 +116,36 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
           ),
           const SizedBox(width: 12),
           SizedBox(
+            width: 190,
+            child: DropdownButtonFormField<int>(
+              value: _selectedRating ?? 0,
+              decoration: InputDecoration(
+                labelText: 'Ocjena',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+              items: ratings.entries.map((entry) {
+                return DropdownMenuItem<int>(
+                  value: entry.key,
+                  child: Text(entry.value),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedRating = value == 0 ? null : value;
+                  _currentPage = 0;
+                });
+                _loadReviews();
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
             height: 48,
             child: OutlinedButton.icon(
               icon: const Icon(Icons.calendar_today, size: 18),
@@ -137,6 +177,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
         "IncludeTotalCount": true,
         "IsDeleted": showDeleted,
         if (searchController.text.isNotEmpty) "Name": searchController.text,
+        if (_selectedRating != null) "Rating": _selectedRating,
       };
 
       final result = await _reviewProvider.get(filter: filter);
@@ -194,7 +235,9 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   }
 
   bool get _isFiltering =>
-      searchController.text.isNotEmpty || _selectedDate != null;
+      searchController.text.isNotEmpty ||
+      _selectedDate != null ||
+      _selectedRating != null;
 
   String _formatDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');
@@ -387,7 +430,13 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
               cells: [
                 DataCell(Text(review.userFullName ?? '')),
                 DataCell(Text(review.localeName ?? '')),
-                DataCell(Text(review.description ?? '')),
+                DataCell(
+                  Text(
+                    (review.description?.length ?? 0) > 10
+                        ? "${review.description?.substring(0, 10)}..."
+                        : review.description ?? '',
+                  ),
+                ),
                 DataCell(
                   Row(
                     children: [
@@ -408,10 +457,28 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                 ),
                 DataCell(Text(formattedDate)),
                 DataCell(
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    tooltip: 'Obriši',
-                    onPressed: () => _confirmDelete(review),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.visibility, color: Colors.blue),
+                        tooltip: 'Detalji',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  AdminReviewsDetailsScreen(review: review),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        tooltip: 'Obriši',
+                        onPressed: () => _confirmDelete(review),
+                      ),
+                    ],
                   ),
                 ),
               ],
