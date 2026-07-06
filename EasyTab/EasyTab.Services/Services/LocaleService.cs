@@ -138,6 +138,13 @@ namespace EasyTab.Services.Services
             if (search?.CountryId.HasValue == true)
                 query = query.Where(x => x.City.CountryId == search.CountryId);
 
+            if (search?.Rating.HasValue == true)
+                query = query.Where(x => x.Reviews
+                    .Where(r => !r.IsDeleted)
+                    .Any() && x.Reviews
+                    .Where(r => !r.IsDeleted)
+                    .Average(r => r.Rating) >= search.Rating.Value);
+
             if (search?.OwnerId.HasValue == true)
                 query = query.Where(x => x.OwnerId == search.OwnerId);
 

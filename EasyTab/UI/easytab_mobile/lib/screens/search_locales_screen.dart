@@ -25,10 +25,10 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
   late CityProvider _cityProvider;
 
   final TextEditingController _searchController = TextEditingController();
-  DateTime? _lastSearchTime;
 
   bool _isLoading = true;
   bool _filtersExpanded = true;
+  bool _hasSearched = false;
   List<Locale> _locales = [];
   List<Category> _categories = [];
   List<Country> _countries = [];
@@ -38,6 +38,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
   int? _selectedCategoryId;
   int? _selectedCountryId;
   int? _selectedCityId;
+  int? _selectedRating;
 
   int _totalCount = 0;
   int _currentPage = 0;
@@ -50,27 +51,13 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
     _categoryProvider = context.read<CategoryProvider>();
     _countryProvider = context.read<CountryProvider>();
     _cityProvider = context.read<CityProvider>();
-    _searchController.addListener(_onSearchChanged);
     _loadDropdowns();
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
-  }
-
-  void _onSearchChanged() {
-    final now = DateTime.now();
-    _lastSearchTime = now;
-
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (_lastSearchTime == now && mounted) {
-        setState(() => _currentPage = 0);
-        _loadLocales();
-      }
-    });
   }
 
   Future<void> _loadDropdowns() async {
@@ -88,8 +75,19 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
         _allCities = cityResult.items ?? [];
         _filteredCities = _allCities;
       });
+      if (mounted) setState(() => _isLoading = false);
 
-      await _loadLocales();
+      // Ako nema nijednog filtera, učitaj sve lokacije (po paginaciji)
+      final noFilters =
+          _searchController.text.trim().isEmpty &&
+          _selectedCategoryId == null &&
+          _selectedCountryId == null &&
+          _selectedCityId == null &&
+          _selectedRating == null;
+      if (noFilters) {
+        setState(() => _currentPage = 0);
+        _loadLocales();
+      }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
       debugPrint('Error loading filters: $e');
@@ -109,6 +107,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
         if (_selectedCityId != null) "CityId": _selectedCityId,
         if (_selectedCountryId != null && _selectedCityId == null)
           "CountryId": _selectedCountryId,
+        if (_selectedRating != null) "Rating": _selectedRating,
       };
 
       final result = await _localeProvider.get(filter: filter);
@@ -130,6 +129,14 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
     await _loadLocales();
   }
 
+  void _searchLocales() {
+    setState(() {
+      _currentPage = 0;
+      _hasSearched = true;
+    });
+    _loadLocales();
+  }
+
   int get _totalPages =>
       _totalCount == 0 ? 1 : (_totalCount / _pageSize).ceil();
 
@@ -137,7 +144,8 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
       _searchController.text.trim().isNotEmpty ||
       _selectedCategoryId != null ||
       _selectedCountryId != null ||
-      _selectedCityId != null;
+      _selectedCityId != null ||
+      _selectedRating != null;
 
   void _goToPage(int page) {
     if (page < 0 || page >= _totalPages) return;
@@ -151,9 +159,12 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
       _selectedCategoryId = null;
       _selectedCountryId = null;
       _selectedCityId = null;
+      _selectedRating = null;
       _filteredCities = _allCities;
       _currentPage = 0;
+      _hasSearched = false;
     });
+    // Nakon čišćenja filtera, učitaj sve lokacije
     _loadLocales();
   }
 
@@ -166,7 +177,6 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
           : _allCities.where((c) => c.countryId == countryId).toList();
       _currentPage = 0;
     });
-    _loadLocales();
   }
 
   void _onCategoryChanged(int? categoryId) {
@@ -174,7 +184,6 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
       _selectedCategoryId = categoryId;
       _currentPage = 0;
     });
-    _loadLocales();
   }
 
   void _onCityChanged(int? cityId) {
@@ -182,7 +191,13 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
       _selectedCityId = cityId;
       _currentPage = 0;
     });
-    _loadLocales();
+  }
+
+  void _onRatingChanged(int? rating) {
+    setState(() {
+      _selectedRating = rating;
+      _currentPage = 0;
+    });
   }
 
   @override
@@ -193,7 +208,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
         children: [
           _buildSearchHeader(),
           if (_filtersExpanded) _buildFilters(),
-          if (_hasActiveFilters && !_isLoading)
+          if (_hasSearched && !_isLoading)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Align(
@@ -277,8 +292,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
                           ),
                           onPressed: () {
                             _searchController.clear();
-                            setState(() => _currentPage = 0);
-                            _loadLocales();
+                            setState(() {});
                           },
                         )
                       : null,
@@ -314,6 +328,25 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
               ),
             ),
           ),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: _searchLocales,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              minimumSize: const Size(96, 48),
+            ),
+            child: const Text(
+              'Pretraži',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -336,7 +369,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
           ],
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -344,7 +377,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
                 const Text(
                   'Filteri',
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: 20,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF0F172A),
                   ),
@@ -361,7 +394,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
                       'Očisti',
                       style: TextStyle(
                         color: Color(0xFF1E40AF),
-                        fontSize: 13,
+                        fontSize: 20,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -428,6 +461,29 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
               ],
               onChanged: _onCityChanged,
             ),
+            const SizedBox(height: 10),
+            _buildDropdown<int>(
+              label: 'Prosječna ocjena',
+              icon: Icons.star_outline,
+              value: _selectedRating,
+              hint: 'Sve ocjene',
+              items: [
+                const DropdownMenuItem<int>(
+                  value: null,
+                  child: Text('Sve ocjene'),
+                ),
+                ...List.generate(
+                  5,
+                  (index) => DropdownMenuItem<int>(
+                    value: index + 1,
+                    child: Text(
+                      '${index + 1} ${index == 0 ? 'zvijezdica' : 'zvjezdice'}',
+                    ),
+                  ),
+                ),
+              ],
+              onChanged: _onRatingChanged,
+            ),
           ],
         ),
       ),
@@ -443,7 +499,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
     required ValueChanged<T?> onChanged,
   }) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Row(
           children: [
