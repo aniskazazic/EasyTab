@@ -80,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     return _CategoryCarousel(
                       category: entry.key,
                       locales: entry.value,
+                      onLocaleOpened: _loadLocales,
                     );
                   }).toList(),
                 ),
@@ -108,8 +109,13 @@ class _HomeScreenState extends State<HomeScreen> {
 class _CategoryCarousel extends StatefulWidget {
   final Category category;
   final List<model.Locale> locales;
+  final Future<void> Function() onLocaleOpened;
 
-  const _CategoryCarousel({required this.category, required this.locales});
+  const _CategoryCarousel({
+    required this.category,
+    required this.locales,
+    required this.onLocaleOpened,
+  });
 
   @override
   State<_CategoryCarousel> createState() => _CategoryCarouselState();
@@ -175,7 +181,10 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
             itemCount: widget.locales.length,
             onPageChanged: (i) => setState(() => _currentPage = i),
             itemBuilder: (context, index) {
-              return _LocaleCard(locale: widget.locales[index]);
+              return _LocaleCard(
+                locale: widget.locales[index],
+                onLocaleOpened: widget.onLocaleOpened,
+              );
             },
           ),
         ),
@@ -214,15 +223,19 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
 
 class _LocaleCard extends StatelessWidget {
   final model.Locale locale;
-  const _LocaleCard({required this.locale});
+  final Future<void> Function() onLocaleOpened;
+  const _LocaleCard({required this.locale, required this.onLocaleOpened});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => LocaleDetailScreen(locale: locale)),
-      ),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => LocaleDetailScreen(locale: locale)),
+        );
+        await onLocaleOpened();
+      },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(

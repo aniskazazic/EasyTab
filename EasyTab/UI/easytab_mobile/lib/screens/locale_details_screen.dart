@@ -1,4 +1,3 @@
-import 'package:easytab_mobile/models/favourite.dart';
 import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/models/localeimage.dart';
 import 'package:easytab_mobile/models/review.dart';
@@ -31,8 +30,8 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   bool _isLoadingReviews = true;
   bool _isLoadingImages = true;
   List<LocaleImage> _localeImages = [];
-  Favourite? _currentFavourite;
   bool _isTogglingFav = false;
+  bool _hasUserReview = false;
 
   List<Review> _reviews = [];
   double _averageRating = 0;
@@ -105,6 +104,9 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
         _reviews = results[0] as List<Review>;
         _averageRating = results[1] as double;
         _ratingCounts = results[2] as Map<String, int>;
+        _hasUserReview = _reviews.any(
+          (review) => review.userId == _currentUserId,
+        );
       });
     } catch (e) {
       debugPrint('Error loading reviews: $e');
@@ -758,72 +760,101 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                   color: Color(0xFF0F172A),
                 ),
               ),
-              OutlinedButton.icon(
-                onPressed: () => _goToAddReview(),
-                icon: const Icon(Icons.edit_outlined, size: 14),
-                label: const Text(
-                  'Napiši recenziju',
-                  style: TextStyle(fontSize: 12),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF1E40AF),
-                  side: const BorderSide(color: Color(0xFF1E40AF)),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
+              if (!_hasUserReview)
+                OutlinedButton.icon(
+                  onPressed: () => _goToAddReview(),
+                  icon: const Icon(Icons.edit_outlined, size: 14),
+                  label: const Text(
+                    'Napiši recenziju',
+                    style: TextStyle(fontSize: 12),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(Icons.sort, size: 16, color: Colors.grey.shade600),
-              const SizedBox(width: 6),
-              Text(
-                'Sortiraj:',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      value: _reviewSortBy,
-                      isExpanded: true,
-                      isDense: true,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Color(0xFF0F172A),
-                      ),
-                      items: _reviewSortOptions.entries
-                          .map(
-                            (entry) => DropdownMenuItem(
-                              value: entry.key,
-                              child: Text(entry.value),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null || value == _reviewSortBy) return;
-                        setState(() => _reviewSortBy = value);
-                        _loadReviews();
-                      },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF1E40AF),
+                    side: const BorderSide(color: Color(0xFF1E40AF)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                 ),
-              ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E40AF).withOpacity(0.06),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: const Color(0xFF1E40AF).withOpacity(0.16),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF1E40AF),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.sort_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Sortiraj recenzije',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _reviewSortBy,
+                          isExpanded: true,
+                          isDense: true,
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Color(0xFF1E40AF),
+                            size: 20,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0F172A),
+                          ),
+                          items: _reviewSortOptions.entries
+                              .map(
+                                (entry) => DropdownMenuItem(
+                                  value: entry.key,
+                                  child: Text(entry.value),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value == null || value == _reviewSortBy) return;
+                            setState(() => _reviewSortBy = value);
+                            _loadReviews();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 12),
           _isLoadingReviews
