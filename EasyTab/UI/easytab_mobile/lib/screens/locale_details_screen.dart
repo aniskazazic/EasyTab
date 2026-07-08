@@ -1,6 +1,7 @@
 import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/models/localeimage.dart';
 import 'package:easytab_mobile/models/review.dart';
+import 'package:easytab_mobile/models/search_result.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/favourite_provider.dart';
 import 'package:easytab_mobile/providers/localeimage_provider.dart';
@@ -34,6 +35,9 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   bool _hasUserReview = false;
 
   List<Review> _reviews = [];
+  int _reviewTotalCount = 0;
+  int _reviewCurrentPage = 0;
+  final int _reviewPageSize = 5;
   double _averageRating = 0;
   String _reviewSortBy = 'latest';
   static const _reviewSortOptions = {
@@ -92,16 +96,24 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   }
 
   Future<void> _loadReviews() async {
+    if (locale.id == null) return;
     setState(() => _isLoadingReviews = true);
     try {
       final results = await Future.wait([
-        _reviewProvider.getByLocale(locale.id!, sortBy: _reviewSortBy),
+        _reviewProvider.getByLocale(
+          locale.id!,
+          sortBy: _reviewSortBy,
+          page: _reviewCurrentPage + 1,
+          pageSize: _reviewPageSize,
+        ),
         _reviewProvider.getAverage(locale.id!),
         _reviewProvider.getRatingCounts(locale.id!),
       ]);
 
+      final reviewResult = results[0] as SearchResult<Review>;
       setState(() {
-        _reviews = results[0] as List<Review>;
+        _reviews = reviewResult.items ?? [];
+        _reviewTotalCount = reviewResult.totalCount ?? 0;
         _averageRating = results[1] as double;
         _ratingCounts = results[2] as Map<String, int>;
         _hasUserReview = _reviews.any(
@@ -113,6 +125,16 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     } finally {
       if (mounted) setState(() => _isLoadingReviews = false);
     }
+  }
+
+  void _goToReviewPage(int page) {
+    if (page < 0 ||
+        page >=
+            PaginationUtils.totalPages(_reviewTotalCount, _reviewPageSize)) {
+      return;
+    }
+    setState(() => _reviewCurrentPage = page);
+    _loadReviews();
   }
 
   Future<void> _toggleFavourite() async {
@@ -454,7 +476,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 const Icon(Icons.star, color: Color(0xFFFBBF24), size: 20),
                 const SizedBox(width: 4),
                 Text(
-                  '$_averageRating  (${_reviews.length} recenzije)',
+                  '$_averageRating  ($_reviewTotalCount recenzije)',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -845,7 +867,10 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                               .toList(),
                           onChanged: (value) {
                             if (value == null || value == _reviewSortBy) return;
-                            setState(() => _reviewSortBy = value);
+                            setState(() {
+                              _reviewSortBy = value;
+                              _reviewCurrentPage = 0;
+                            });
                             _loadReviews();
                           },
                         ),
@@ -867,7 +892,18 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                   ),
                 )
               : Column(
-                  children: _reviews.map((r) => _buildReviewCard(r)).toList(),
+                  children: [
+                    ..._reviews.map((r) => _buildReviewCard(r)).toList(),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: PaginationUtils.buildPageControls(
+                        currentPage: _reviewCurrentPage,
+                        totalCount: _reviewTotalCount,
+                        pageSize: _reviewPageSize,
+                        onPageChanged: _goToReviewPage,
+                      ),
+                    ),
+                  ],
                 ),
         ],
       ),

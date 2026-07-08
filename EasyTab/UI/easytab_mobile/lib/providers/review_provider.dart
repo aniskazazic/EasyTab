@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:easytab_mobile/models/review.dart';
+import 'package:easytab_mobile/models/search_result.dart';
 import 'package:easytab_mobile/providers/base_provider.dart';
 import 'package:http/http.dart' as http;
 
@@ -9,13 +10,21 @@ class ReviewProvider extends BaseProvider<Review> {
   @override
   Review fromJson(json) => Review.fromJson(json);
 
-  Future<List<Review>> getByLocale(int localeId, {String? sortBy}) async {
-    final filter = <String, dynamic>{'LocaleId': localeId, 'PageSize': 1000};
+  Future<SearchResult<Review>> getByLocale(
+    int localeId, {
+    String? sortBy,
+    int page = 1,
+    int pageSize = 10,
+  }) async {
+    final filter = <String, dynamic>{
+      'LocaleId': localeId,
+      'Page': page,
+      'PageSize': pageSize,
+    };
     if (sortBy != null && sortBy.isNotEmpty) {
       filter['SortBy'] = sortBy;
     }
-    final result = await get(filter: filter);
-    return result.items ?? [];
+    return await get(filter: filter);
   }
 
   Future<double> getAverage(int localeId) async {
