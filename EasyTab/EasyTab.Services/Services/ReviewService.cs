@@ -81,7 +81,7 @@ namespace EasyTab.Services.Services
             dto.Dislikes = entity.Reactions?.Count(r => !r.IsLike) ?? 0;
 
             // Reakcija trenutnog korisnika
-            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("Id")?.Value;
             if (int.TryParse(userIdClaim, out int currentUserId))
             {
                 var userReaction = entity.Reactions?.FirstOrDefault(r => r.UserId == currentUserId);

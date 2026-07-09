@@ -111,8 +111,15 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
       ]);
 
       final reviewResult = results[0] as SearchResult<Review>;
+      var reviews = reviewResult.items ?? [];
+
+      if (_currentUserId != null) {
+        await _reactionProvider.ensureUserReactionsLoaded(_currentUserId!);
+        reviews = reviews.map(_mergeUserReaction).toList();
+      }
+
       setState(() {
-        _reviews = reviewResult.items ?? [];
+        _reviews = reviews;
         _reviewTotalCount = reviewResult.totalCount ?? 0;
         _averageRating = results[1] as double;
         _ratingCounts = results[2] as Map<String, int>;
@@ -242,38 +249,76 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     );
   }
 
+  int _effectiveUserReaction(Review review) {
+    if (review.id == null) return review.userReaction ?? 0;
+    return _reactionProvider.userReactionFor(review.id!) ??
+        review.userReaction ??
+        0;
+  }
+
+  Review _mergeUserReaction(Review review) {
+    if (review.id == null) return review;
+
+    final reaction = _effectiveUserReaction(review);
+    if (reaction == (review.userReaction ?? 0)) return review;
+
+    return Review(
+      id: review.id,
+      description: review.description,
+      rating: review.rating,
+      userId: review.userId,
+      userFullName: review.userFullName,
+      localeId: review.localeId,
+      localeName: review.localeName,
+      dateAdded: review.dateAdded,
+      isDeleted: review.isDeleted,
+      likes: review.likes,
+      dislikes: review.dislikes,
+      userReaction: reaction,
+    );
+  }
+
   Future<void> _handleReaction(Review review, bool isLike) async {
     if (review.userId == _currentUserId || _currentUserId == null) return;
 
-    final currentReaction = review.userReaction ?? 0;
+    final currentReaction = _effectiveUserReaction(review);
     final togglingOff =
         (isLike && currentReaction == 1) || (!isLike && currentReaction == -1);
 
-    _applyReactionLocally(review, isLike);
+    final previousReviews = List<Review>.from(_reviews);
+    _applyReactionLocally(review, isLike, currentReaction: currentReaction);
 
     try {
       if (togglingOff) {
         await _reactionProvider.removeReaction(review.id!, _currentUserId!);
+        _reactionProvider.updateUserReaction(review.id!, 0);
       } else {
         await _reactionProvider.react(
           reviewId: review.id!,
           userId: _currentUserId!,
           isLike: isLike,
         );
+        _reactionProvider.updateUserReaction(review.id!, isLike ? 1 : -1);
       }
     } catch (e) {
       debugPrint('Reaction error: $e');
-      _loadReviews();
+      if (mounted) {
+        setState(() => _reviews = previousReviews);
+        await _reactionProvider.loadUserReactions(_currentUserId!);
+      }
     }
   }
 
-  void _applyReactionLocally(Review review, bool isLike) {
+  void _applyReactionLocally(
+    Review review,
+    bool isLike, {
+    required int currentReaction,
+  }) {
     final index = _reviews.indexWhere((r) => r.id == review.id);
     if (index == -1) return;
 
     var likes = review.likes ?? 0;
     var dislikes = review.dislikes ?? 0;
-    final currentReaction = review.userReaction ?? 0;
     int newReaction;
 
     if (isLike) {
@@ -912,6 +957,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
 
   Widget _buildReviewCard(Review review) {
     final isMyReview = review.userId == _currentUserId;
+    final userReaction = _effectiveUserReaction(review);
     final rating = review.rating ?? 0;
     final dateStr = review.dateAdded != null
         ? '${review.dateAdded!.day}.${review.dateAdded!.month}.${review.dateAdded!.year}.'
@@ -1009,7 +1055,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 _reactionButton(
                   Icons.thumb_up,
                   review.likes?.toString() ?? '0',
-                  isActive: review.userReaction == 1,
+                  isActive: userReaction == 1,
                   activeColor: Colors.green,
                   onTap: () => _handleReaction(review, true),
                 ),
@@ -1017,7 +1063,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 _reactionButton(
                   Icons.thumb_down,
                   review.dislikes?.toString() ?? '0',
-                  isActive: review.userReaction == -1,
+                  isActive: userReaction == -1,
                   activeColor: Colors.red,
                   onTap: () => _handleReaction(review, false),
                 ),
