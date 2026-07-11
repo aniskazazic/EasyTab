@@ -31,16 +31,10 @@ namespace EasyTab.API.Services.AccessManager
         {
             var user = await _userService.GetByUsernameAsync(request.Username);
 
-            if (user == null)
+            if (user == null
+                || !_cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password))
             {
-                throw new Exception($"Korisnik sa korisničkim imenom {request.Username} ne postoji!");
-            }
-
-            var validPassword = _cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password);
-
-            if (!validPassword)
-            {
-                throw new Exception("Pogrešni kredencijali !");
+                throw new UserException("Pogrešno korisničko ime ili lozinka.");
             }
 
             var accessToken = GenerateToken(user);

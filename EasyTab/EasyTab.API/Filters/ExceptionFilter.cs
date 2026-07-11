@@ -28,24 +28,38 @@ namespace EasyTab.API.Filters
                 }
 
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                _logger.LogWarning(context.Exception, "Validation failed for request.");
+
             }
-            else if (context.Exception is UserException)
+            else if (context.Exception is UserException ue)
             {
-                context.ModelState.AddModelError("userError", context.Exception.Message);
+                context.ModelState.AddModelError("userError", ue.Message);
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                _logger.LogWarning("User rule: {Message}", ue.Message);
             }
             else
             {
                 //context.ModelState.AddModelError("serverError", context.Exception.Message);
                 context.ModelState.AddModelError("serverError", "Server side error, please check logs.");
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                _logger.LogError(context.Exception, "Unhandled exception.");
             }
 
-            var list = context.ModelState.Where(c => c.Value.Errors.Count > 0)
-                .ToDictionary(c => c.Key, c => c.Value.Errors.Select(z => z.ErrorMessage));
+            var list = context.ModelState
+                .Where(c => c.Value is { Errors.Count: > 0 })
+                .ToDictionary(
+                    c => c.Key,
+                    c => c.Value!.Errors.Select(z => z.ErrorMessage).ToList());
+
+            // Single human-readable line for mobile/clients; "clientError" is used for ClinetException.
+            var allMessages = list.Values.SelectMany(v => v).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
+            var message = allMessages.FirstOrDefault()
+                ?? (context.Exception is UserException ? context.Exception.Message : null)
+                ?? "Request could not be processed.";
 
             context.Result = new JsonResult(new
             {
+                message,
                 errors = list
             });
 

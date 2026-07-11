@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:easytab_desktop/models/search_result.dart';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
@@ -30,19 +31,17 @@ abstract class BaseProvider<T> extends ChangeNotifier {
 
     var response = await http.get(uri, headers: headers);
 
-    if (isValidResponse(response)) {
-      var data = jsonDecode(response.body);
+    validateResponse(response);
 
-      var result = SearchResult<T>();
+    var data = jsonDecode(response.body);
 
-      result.totalCount = data['totalCount'];
+    var result = SearchResult<T>();
 
-      result.items = List<T>.from(data['items'].map((item) => fromJson(item)));
+    result.totalCount = data['totalCount'];
 
-      return result;
-    } else {
-      throw Exception('Something went wrong, please try again later');
-    }
+    result.items = List<T>.from(data['items'].map((item) => fromJson(item)));
+
+    return result;
   }
 
   Future<T> insert(dynamic request) async {
@@ -53,12 +52,10 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var jsonRequest = jsonEncode(request);
     var response = await http.post(uri, headers: headers, body: jsonRequest);
 
-    if (isValidResponse(response)) {
-      var data = jsonDecode(response.body);
-      return fromJson(data);
-    } else {
-      throw new Exception("Unknown error");
-    }
+    validateResponse(response);
+
+    var data = jsonDecode(response.body);
+    return fromJson(data);
   }
 
   Future<T> update(int id, [dynamic request]) async {
@@ -69,21 +66,17 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var jsonRequest = jsonEncode(request);
     var response = await http.put(uri, headers: headers, body: jsonRequest);
 
-    if (isValidResponse(response)) {
-      var data = jsonDecode(response.body);
-      return fromJson(data);
-    } else {
-      throw new Exception("Unknown error");
-    }
+    validateResponse(response);
+
+    var data = jsonDecode(response.body);
+    return fromJson(data);
   }
 
   Future<void> delete(int id) async {
     var url = "$baseUrl/$_endpoint/$id";
     var uri = Uri.parse(url);
     var response = await http.delete(uri, headers: createHeaders());
-    if (!isValidResponse(response)) {
-      throw Exception("Greška pri brisanju");
-    }
+    validateResponse(response);
   }
 
   T fromJson(data) {
@@ -100,26 +93,37 @@ abstract class BaseProvider<T> extends ChangeNotifier {
       body: jsonEncode({"username": username, "password": password}),
     );
 
-    if (response.statusCode == 200) {
-      return fromJson(jsonDecode(response.body));
-    } else if (response.statusCode == 401) {
-      throw Exception('Pogresno korisnicko ime ili lozinka!');
-    } else {
-      throw Exception('Greska na serveru');
-      // throw Exception('Greska na serveru: ${response.statusCode}');
-    }
+    validateResponse(response);
+    return fromJson(jsonDecode(response.body));
   }
 
   bool isValidResponse(Response response) {
+    validateResponse(response);
+    return true;
+  }
+
+  /// Throws [ApiClientException] with a message from the API when status is not successful.
+  void validateResponse(Response response) {
     if (response.statusCode < 299) {
-      return true;
-    } else if (response.statusCode == 401) {
-      throw Exception("Unauthorized");
-    } else {
-      throw Exception(
-        'Server greška (${response.statusCode}): ${response.body}',
+      return;
+    }
+    if (response.statusCode == 401) {
+      throw ApiClientException(
+        ApiErrorParser.messageFromBody(response.body) ??
+            'Niste autorizirani. Prijavite se ponovo.',
       );
     }
+
+    final parsed = ApiErrorParser.messageFromBody(response.body);
+    if (response.statusCode >= 500) {
+      throw ApiClientException(
+        parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+      );
+    }
+
+    throw ApiClientException(
+      parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+    );
   }
 
   Map<String, String> createHeaders() {
@@ -178,15 +182,12 @@ abstract class BaseProvider<T> extends ChangeNotifier {
 
     var response = await http.get(uri, headers: headers);
     // throw new Exception("Greška");
-    if (isValidResponse(response)) {
-      var data = jsonDecode(response.body);
+    validateResponse(response);
+    var data = jsonDecode(response.body);
 
-      // var result = data as T;
-      return fromJson(data);
-      // return result;
-    } else {
-      throw new Exception("Unknown error");
-    }
+    // var result = data as T;
+    return fromJson(data);
+    // return result;
     // print("response: ${response.request} ${response.statusCode}, ${response.body}");
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -42,20 +43,18 @@ class AuthProvider extends ChangeNotifier {
 
     http.Response response = await http.post(uri, headers: headers, body: body);
 
-    if (isValidResponse(response)) {
-      print("Response body: ${response.body}");
-      var data = jsonDecode(response.body);
-      print("Decoded data: $data");
-      _accessToken = data['accessToken'];
-      _refreshToken = data['refreshToken'];
-      _isAuthenticated = true;
-      _accessTokenDecoded = JwtDecoder.decode(_accessToken ?? "");
-      print("AccessToken: $_accessToken");
-      print("AccessTokenDecoded: $_accessTokenDecoded");
-      notifyListeners();
-    } else {
-      throw Exception("Unknown error !");
-    }
+    validateLoginResponse(response);
+
+    print("Response body: ${response.body}");
+    var data = jsonDecode(response.body);
+    print("Decoded data: $data");
+    _accessToken = data['accessToken'];
+    _refreshToken = data['refreshToken'];
+    _isAuthenticated = true;
+    _accessTokenDecoded = JwtDecoder.decode(_accessToken ?? "");
+    print("AccessToken: $_accessToken");
+    print("AccessTokenDecoded: $_accessTokenDecoded");
+    notifyListeners();
   }
 
   void logout() {
@@ -67,15 +66,43 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool isValidResponse(http.Response response) {
+  /// Login failures must not reveal whether the username exists (username enumeration).
+  void validateLoginResponse(http.Response response) {
     if (response.statusCode < 299) {
-      return true;
-    } else if (response.statusCode == 401) {
-      throw Exception("Unauthorized");
-    } else {
-      print(response.body);
-      throw Exception('Nesto se desilo, molimo pokusajte kasnije');
+      return;
     }
+
+    if (response.statusCode == 400 || response.statusCode == 401) {
+      throw ApiClientException('Pogrešno korisničko ime ili lozinka.');
+    }
+
+    final parsed = ApiErrorParser.messageFromBody(response.body);
+    throw ApiClientException(
+      parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+    );
+  }
+
+  /// Throws [ApiClientException] with a message from the API when status is not successful.
+  void validateResponse(http.Response response) {
+    if (response.statusCode < 299) {
+      return;
+    }
+
+    final parsed = ApiErrorParser.messageFromBody(response.body);
+    if (response.statusCode == 401) {
+      throw ApiClientException(
+        parsed ?? 'Pogrešno korisničko ime ili lozinka!',
+      );
+    }
+    if (response.statusCode >= 500) {
+      throw ApiClientException(
+        parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+      );
+    }
+
+    throw ApiClientException(
+      parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+    );
   }
 
   Map<String, String> createHeaders() {
