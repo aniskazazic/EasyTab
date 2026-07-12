@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/search_result.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
+import 'package:easytab_mobile/providers/session_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 import 'package:http/http.dart' as http;
@@ -31,9 +32,8 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     }
 
     var uri = Uri.parse(url);
-    var headers = createHeaders();
 
-    var response = await http.get(uri, headers: headers);
+    var response = await _sendRequestWithRetry(() => http.get(uri, headers: createHeaders()));
 
     validateResponse(response);
 
@@ -51,10 +51,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   Future<T> insert(dynamic request) async {
     var url = "$baseUrl/$_endpoint";
     var uri = Uri.parse(url);
-    var headers = createHeaders();
 
     var jsonRequest = jsonEncode(request);
-    var response = await http.post(uri, headers: headers, body: jsonRequest);
+    var response = await _sendRequestWithRetry(() => http.post(uri, headers: createHeaders(), body: jsonRequest));
 
     validateResponse(response);
 
@@ -65,10 +64,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   Future<T> update(int id, [dynamic request]) async {
     var url = "$baseUrl/$_endpoint/$id";
     var uri = Uri.parse(url);
-    var headers = createHeaders();
 
     var jsonRequest = jsonEncode(request);
-    var response = await http.put(uri, headers: headers, body: jsonRequest);
+    var response = await _sendRequestWithRetry(() => http.put(uri, headers: createHeaders(), body: jsonRequest));
 
     validateResponse(response);
 
@@ -79,7 +77,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   Future<void> delete(int id) async {
     var url = "$baseUrl/$_endpoint/$id";
     var uri = Uri.parse(url);
-    var response = await http.delete(uri, headers: createHeaders());
+    var response = await _sendRequestWithRetry(() => http.delete(uri, headers: createHeaders()));
     validateResponse(response);
   }
 
@@ -182,13 +180,27 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var url = "$baseUrl/$_endpoint/$id";
 
     var uri = Uri.parse(url);
-    var headers = createHeaders();
 
-    var response = await http.get(uri, headers: headers);
+    var response = await _sendRequestWithRetry(() => http.get(uri, headers: createHeaders()));
     validateResponse(response);
 
     var data = jsonDecode(response.body);
 
     return fromJson(data);
+  }
+
+  Future<Response> _sendRequestWithRetry(Future<Response> Function() requestBuilder) async {
+    var response = await requestBuilder();
+    
+    if (response.statusCode == 401) {
+      final success = await SessionManager().triggerSessionExpiredFlow();
+      if (success) {
+        // Retry original request since token has been refreshed
+        response = await requestBuilder();
+      } else {
+        throw ApiClientException('Niste autorizirani. Prijavite se ponovo.');
+      }
+    }
+    return response;
   }
 }

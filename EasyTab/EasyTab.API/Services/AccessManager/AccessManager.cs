@@ -41,6 +41,8 @@ namespace EasyTab.API.Services.AccessManager
 
             var refreshTokenValue = GenerateRefreshToken();
 
+            await _refreshTokenService.DeleteAllUserRefreshTokensAsync(user.Id);
+
             var refreshToken = new RefreshToken
             {
                 Token = refreshTokenValue,

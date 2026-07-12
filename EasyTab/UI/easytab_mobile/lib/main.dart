@@ -13,6 +13,8 @@ import 'package:easytab_mobile/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+final GlobalKey<NavigatorState> globalNavigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
   runApp(
     MultiProvider(
@@ -39,6 +41,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: globalNavigatorKey,
       title: 'EasyTab',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(

@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:easytab_mobile/providers/session_manager.dart';
 
 class AuthProvider extends ChangeNotifier {
   static String? username;
@@ -73,9 +74,7 @@ class AuthProvider extends ChangeNotifier {
         email: _accessTokenDecoded!['Email'],
         userRoles: [
           if (_accessTokenDecoded!['Role'] != null)
-            UserRole(
-              role: Role(name: _accessTokenDecoded!['Role'].toString()),
-            ),
+            UserRole(role: Role(name: _accessTokenDecoded!['Role'].toString())),
         ],
       );
     }
@@ -83,6 +82,42 @@ class AuthProvider extends ChangeNotifier {
     print("AccessToken: $_accessToken");
     print("AccessTokenDecoded: $_accessTokenDecoded");
     notifyListeners();
+    if (_accessToken != null) {
+      SessionManager().startSession(_accessToken!);
+    }
+  }
+
+  Future<bool> renewSession() async {
+    if (_refreshToken == null) return false;
+
+    try {
+      var url = "$_baseUrl/Access/LoginWithRefreshToken";
+      var uri = Uri.parse(url);
+      var headers = createHeaders();
+      var body = jsonEncode({"refreshToken": _refreshToken});
+
+      http.Response response = await http.post(
+        uri,
+        headers: headers,
+        body: body,
+      );
+
+      if (response.statusCode >= 200 && response.statusCode <= 299) {
+        var data = jsonDecode(response.body);
+        _accessToken = data['accessToken'];
+        _refreshToken = data['refreshToken'];
+        _accessTokenDecoded = JwtDecoder.decode(_accessToken ?? "");
+
+        if (_accessToken != null) {
+          SessionManager().startSession(_accessToken!);
+        }
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
   }
 
   /// Login failures must not reveal whether the username exists (username enumeration).
@@ -134,6 +169,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void logout() {
+    SessionManager().stopSession();
     _accessToken = null;
     _refreshToken = null;
     _isAuthenticated = false;
