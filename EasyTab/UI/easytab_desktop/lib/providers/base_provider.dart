@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:easytab_desktop/models/search_result.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
+import 'package:easytab_desktop/main.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:http/http.dart';
 import 'package:http/http.dart' as http;
 
@@ -108,6 +110,38 @@ abstract class BaseProvider<T> extends ChangeNotifier {
       return;
     }
     if (response.statusCode == 401) {
+      final context = globalNavigatorKey.currentContext;
+      if (context != null) {
+        // Clear auth details
+        Provider.of<AuthProvider>(context, listen: false).logout();
+
+        // Show dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false, // User must click the button
+          builder: (BuildContext dialogContext) {
+            return AlertDialog(
+              title: const Text('Sesija je istekla'),
+              content: const Text(
+                'Vaša sesija je istekla. Molimo prijavite se ponovo.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext); // Close dialog
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      '/login',
+                      (route) => false,
+                    );
+                  },
+                  child: const Text('Nazad na prijavu'),
+                ),
+              ],
+            );
+          },
+        );
+      }
       throw ApiClientException(
         ApiErrorParser.messageFromBody(response.body) ??
             'Niste autorizirani. Prijavite se ponovo.',

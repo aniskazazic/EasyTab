@@ -1,6 +1,7 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/review.dart';
 import 'package:easytab_desktop/providers/review_provider.dart';
+import 'package:easytab_desktop/screens/owner_reviews_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -32,9 +33,18 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   List<Review> _reviews = [];
   bool _initialized = false;
   DateTime? _selectedDate;
+  int? _selectedRating;
 
-  DateTime? _lastSearchTime;
   final TextEditingController searchController = TextEditingController();
+
+  final Map<int, String> ratings = {
+    5: '5 - Odlično',
+    4: '4 - Vrlo dobro',
+    3: '3 - Dobro',
+    2: '2 - Loše',
+    1: '1 - Vrlo loše',
+    0: 'Sve ocjene',
+  };
 
   @override
   void didChangeDependencies() {
@@ -49,26 +59,12 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   @override
   void initState() {
     super.initState();
-    searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     super.dispose();
-  }
-
-  void _onSearchChanged() {
-    final now = DateTime.now();
-    _lastSearchTime = now;
-
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (_lastSearchTime == now) {
-        setState(() => _currentPage = 0);
-        _loadReviews();
-      }
-    });
   }
 
   @override
@@ -116,6 +112,34 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
           ),
           const SizedBox(width: 12),
           SizedBox(
+            width: 190,
+            child: DropdownButtonFormField<int>(
+              value: _selectedRating ?? 0,
+              decoration: InputDecoration(
+                labelText: 'Ocjena',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+              ),
+              items: ratings.entries.map((entry) {
+                return DropdownMenuItem<int>(
+                  value: entry.key,
+                  child: Text(entry.value),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedRating = value == 0 ? null : value;
+                });
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+          SizedBox(
             height: 48,
             child: OutlinedButton.icon(
               icon: const Icon(Icons.calendar_today, size: 18),
@@ -133,9 +157,29 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
               onPressed: _clearDateFilter,
             ),
           ],
+          const SizedBox(width: 12),
+          SizedBox(
+            height: 48,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.search),
+              label: const Text('Pretraži'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E40AF),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: _onSearchPressed,
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  void _onSearchPressed() {
+    setState(() {
+      _currentPage = 0;
+    });
+    _loadReviews();
   }
 
   Future<void> _loadReviews() async {
@@ -158,6 +202,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   void _applyFilters(int serverTotalCount) {
     final query = searchController.text.toLowerCase();
     final selectedDate = _selectedDate;
+    final selectedRating = _selectedRating;
 
     _reviews = _allReviews.where((review) {
       final combinedText =
@@ -168,7 +213,9 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
           selectedDate == null ||
           (review.dateAdded != null &&
               _isSameDay(review.dateAdded!, selectedDate));
-      return matchesQuery && matchesDate;
+      final matchesRating =
+          selectedRating == null || review.rating == selectedRating;
+      return matchesQuery && matchesDate && matchesRating;
     }).toList();
 
     if (_isFiltering) {
@@ -185,7 +232,9 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   }
 
   bool get _isFiltering =>
-      searchController.text.isNotEmpty || _selectedDate != null;
+      searchController.text.isNotEmpty ||
+      _selectedDate != null ||
+      _selectedRating != null;
 
   String _formatDate(DateTime date) {
     final day = date.day.toString().padLeft(2, '0');
@@ -206,7 +255,6 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
         _selectedDate = pickedDate;
         _currentPage = 0;
       });
-      _loadReviews();
     }
   }
 
@@ -215,7 +263,6 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
       _selectedDate = null;
       _currentPage = 0;
     });
-    _loadReviews();
   }
 
   Widget _buildPagination() {
@@ -373,7 +420,13 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
             return DataRow(
               cells: [
                 DataCell(Text(review.userFullName ?? '')),
-                DataCell(Text(review.description ?? '')),
+                DataCell(
+                  Text(
+                    (review.description?.length ?? 0) > 10
+                        ? "${review.description!.substring(0, 10)}..."
+                        : review.description ?? '',
+                  ),
+                ),
                 DataCell(
                   Row(
                     children: [
@@ -394,10 +447,28 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
                 ),
                 DataCell(Text(formattedDate)),
                 DataCell(
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    tooltip: 'Obriši',
-                    onPressed: () => _confirmDelete(review),
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.visibility, color: Colors.blue),
+                        tooltip: 'Detalji',
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  OwnerReviewsDetailsScreen(review: review),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        tooltip: 'Obriši',
+                        onPressed: () => _confirmDelete(review),
+                      ),
+                    ],
                   ),
                 ),
               ],
