@@ -4,6 +4,7 @@ import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:easytab_desktop/screens/admin_add_user_screen.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:provider/provider.dart';
 
 class AdminUsersListScreen extends StatefulWidget {
@@ -86,13 +87,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
     }
   }
 
-  int get _totalPages => (_totalCount / _pageSize).ceil();
 
-  void _goToPage(int page) {
-    if (page < 0 || page >= _totalPages) return;
-    setState(() => _currentPage = page);
-    _loadUsers();
-  }
 
   void _showError(String message) {
     showDialog(
@@ -198,7 +193,17 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               : _buildTable(),
-          if (!isLoading && _totalPages > 1) _buildPagination(),
+          if (!isLoading)
+            PaginationUtils.buildPageControls(
+              currentPage: _currentPage,
+              totalCount: _totalCount,
+              pageSize: _pageSize,
+              onPageChanged: (page) {
+                setState(() => _currentPage = page);
+                _loadUsers();
+              },
+              pageButtonSize: 36,
+            ),
         ],
       ),
     );
@@ -353,96 +358,5 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
     );
   }
 
-  Widget _buildPagination() {
-    // Koliko stranica prikazati oko trenutne
-    const int maxVisible = 5;
-    int startPage = (_currentPage - maxVisible ~/ 2).clamp(0, _totalPages - 1);
-    int endPage = (startPage + maxVisible - 1).clamp(0, _totalPages - 1);
-    if (endPage - startPage < maxVisible - 1) {
-      startPage = (endPage - maxVisible + 1).clamp(0, _totalPages - 1);
-    }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Info o ukupnom broju
-          Text(
-            'Ukupno: $_totalCount  |  Stranica ${_currentPage + 1} od $_totalPages',
-            style: TextStyle(color: Colors.grey[600], fontSize: 13),
-          ),
-          const SizedBox(width: 24),
-
-          // Prva stranica
-          _pageButton(
-            icon: Icons.first_page,
-            onTap: _currentPage > 0 ? () => _goToPage(0) : null,
-          ),
-
-          // Prethodna stranica
-          _pageButton(
-            icon: Icons.chevron_left,
-            onTap: _currentPage > 0 ? () => _goToPage(_currentPage - 1) : null,
-          ),
-
-          // Brojevi stranica
-          for (int i = startPage; i <= endPage; i++) _pageNumberButton(i),
-
-          // Sljedeća stranica
-          _pageButton(
-            icon: Icons.chevron_right,
-            onTap: _currentPage < _totalPages - 1
-                ? () => _goToPage(_currentPage + 1)
-                : null,
-          ),
-
-          // Zadnja stranica
-          _pageButton(
-            icon: Icons.last_page,
-            onTap: _currentPage < _totalPages - 1
-                ? () => _goToPage(_totalPages - 1)
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _pageButton({required IconData icon, VoidCallback? onTap}) {
-    return IconButton(
-      icon: Icon(icon),
-      onPressed: onTap,
-      color: onTap != null ? const Color(0xFF1E40AF) : Colors.grey.shade400,
-    );
-  }
-
-  Widget _pageNumberButton(int page) {
-    final isActive = page == _currentPage;
-    return GestureDetector(
-      onTap: () => _goToPage(page),
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 3),
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF1E40AF) : Colors.transparent,
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(
-            color: isActive ? const Color(0xFF1E40AF) : Colors.grey.shade400,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            '${page + 1}',
-            style: TextStyle(
-              color: isActive ? Colors.white : Colors.grey.shade700,
-              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

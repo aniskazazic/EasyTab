@@ -3,6 +3,7 @@ import 'package:easytab_desktop/providers/worker_provider.dart';
 import 'package:easytab_desktop/screens/owner_worker_details_screen.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:flutter/material.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:provider/provider.dart';
 
 class OwnerWorkersScreen extends StatefulWidget {
@@ -25,8 +26,10 @@ class OwnerWorkersScreen extends StatefulWidget {
 
 class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
   late WorkerProvider workerProvider;
-  List<Worker> _allWorkers = [];
-  List<Worker> _displayWorkers = [];
+  List<Worker> _workers = [];
+  int _totalCount = 0;
+  int _currentPage = 0;
+  final int _pageSize = 10;
   final TextEditingController searchController = TextEditingController();
   bool isLoading = false;
 
@@ -34,13 +37,11 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
   void initState() {
     super.initState();
     workerProvider = context.read<WorkerProvider>();
-    searchController.addListener(_applyFilters);
     _loadWorkers();
   }
 
   @override
   void dispose() {
-    searchController.removeListener(_applyFilters);
     searchController.dispose();
     super.dispose();
   }
@@ -48,10 +49,17 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
   Future<void> _loadWorkers() async {
     setState(() => isLoading = true);
     try {
-      final workers = await workerProvider.getByLocale(widget.localeId);
+      final filter = {
+        "Page": _currentPage + 1,
+        "PageSize": _pageSize,
+        "IncludeTotalCount": true,
+        "LocaleId": widget.localeId,
+        if (searchController.text.isNotEmpty) "Q": searchController.text,
+      };
+      final result = await workerProvider.get(filter: filter);
       setState(() {
-        _allWorkers = workers;
-        _applyFilters();
+        _workers = result.items ?? [];
+        _totalCount = result.totalCount ?? 0;
         isLoading = false;
       });
     } catch (e) {
@@ -61,16 +69,8 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
   }
 
   void _applyFilters() {
-    final query = searchController.text.toLowerCase();
-    setState(() {
-      _displayWorkers = _allWorkers.where((w) {
-        return query.isEmpty ||
-            ('${w.firstName} ${w.lastName}'.toLowerCase().contains(query)) ||
-            (w.username?.toLowerCase().contains(query) ?? false) ||
-            (w.email?.toLowerCase().contains(query) ?? false) ||
-            (w.phoneNumber?.toLowerCase().contains(query) ?? false);
-      }).toList();
-    });
+    setState(() => _currentPage = 0);
+    _loadWorkers();
   }
 
   void _showError(String message) {
@@ -188,10 +188,24 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        height: 33,
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.search),
+                          label: const Text('Pretraži'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1E40AF),
+                            foregroundColor: Colors.white,
+                          ),
+                          onPressed: _applyFilters,
+                        ),
+                      ),
                       const SizedBox(width: 16),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF1E40AF),
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 24,
                             vertical: 14,
@@ -219,6 +233,17 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : _buildTable(),
+                  if (!isLoading)
+                    PaginationUtils.buildPageControls(
+                      currentPage: _currentPage,
+                      totalCount: _totalCount,
+                      pageSize: _pageSize,
+                      onPageChanged: (page) {
+                        setState(() => _currentPage = page);
+                        _loadWorkers();
+                      },
+                      pageButtonSize: 36,
+                    ),
                 ],
               ),
             ),
@@ -229,7 +254,7 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
   }
 
   Widget _buildTable() {
-    if (_displayWorkers.isEmpty) {
+    if (_workers.isEmpty) {
       return const Expanded(
         child: Center(child: Text('Nema radnika za prikaz.')),
       );
@@ -256,7 +281,7 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
               DataColumn(label: Text('Broj telefona')),
               DataColumn(label: Text('Akcija')),
             ],
-            rows: _displayWorkers.map((worker) {
+            rows: _workers.map((worker) {
               return DataRow(
                 cells: [
                   DataCell(
