@@ -50,26 +50,17 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   @override
   void initState() {
     super.initState();
-    searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    final now = DateTime.now();
-    _lastSearchTime = now;
-
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (_lastSearchTime == now) {
-        setState(() => _currentPage = 0);
-        _loadReviews();
-      }
-    });
+  void _onSearchPressed() {
+    setState(() => _currentPage = 0);
+    _loadReviews();
   }
 
   @override
@@ -122,6 +113,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                   vertical: 10,
                 ),
               ),
+              onSubmitted: (_) => _onSearchPressed(),
             ),
           ),
           const SizedBox(width: 12),
@@ -148,9 +140,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
               onChanged: (value) {
                 setState(() {
                   _selectedRating = value == 0 ? null : value;
-                  _currentPage = 0;
                 });
-                _loadReviews();
               },
             ),
           ),
@@ -173,6 +163,19 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
               onPressed: _clearDateFilter,
             ),
           ],
+          const SizedBox(width: 12),
+          SizedBox(
+            height: 48,
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.search),
+              label: const Text('Pretraži'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E40AF),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: _onSearchPressed,
+            ),
+          ),
         ],
       ),
     );
@@ -268,7 +271,6 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
         _selectedDate = pickedDate;
         _currentPage = 0;
       });
-      _loadReviews();
     }
   }
 
@@ -277,7 +279,6 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       _selectedDate = null;
       _currentPage = 0;
     });
-    _loadReviews();
   }
 
   void _showError(String message) {

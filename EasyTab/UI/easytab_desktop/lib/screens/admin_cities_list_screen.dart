@@ -23,9 +23,6 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
   final TextEditingController searchController = TextEditingController();
   bool isLoading = false;
 
-  // Debounce za pretragu
-  DateTime? _lastSearchTime;
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -36,26 +33,17 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
   @override
   void initState() {
     super.initState();
-    searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    final now = DateTime.now();
-    _lastSearchTime = now;
-
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (_lastSearchTime == now) {
-        setState(() => _currentPage = 0);
-        _loadCities();
-      }
-    });
+  void _onSearchPressed() {
+    setState(() => _currentPage = 0);
+    _loadCities();
   }
 
   Future<void> _loadCities() async {
@@ -79,8 +67,6 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
       _showError(e.toString());
     }
   }
-
-
 
   void _showError(String message) {
     showDialog(
@@ -176,21 +162,39 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
                 vertical: 12,
               ),
             ),
+            onSubmitted: (_) => _onSearchPressed(),
           ),
         ),
-        const SizedBox(width: 16),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1E40AF),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          ),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AdminCityDetailsScreen(),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.search),
+            label: const Text('Pretraži'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             ),
-          ).then((_) => _loadCities()),
-          child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
+            onPressed: _onSearchPressed,
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AdminCityDetailsScreen(),
+              ),
+            ).then((_) => _loadCities()),
+            child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
+          ),
         ),
       ],
     );
@@ -257,6 +261,4 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
       ),
     );
   }
-
-
 }

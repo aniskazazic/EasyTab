@@ -26,9 +26,6 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
   bool showDeleted = false;
   bool isLoading = false;
 
-  // Debounce za pretragu
-  DateTime? _lastSearchTime;
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -39,27 +36,17 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
   @override
   void initState() {
     super.initState();
-    searchController.addListener(_onSearchChanged);
   }
 
   @override
   void dispose() {
-    searchController.removeListener(_onSearchChanged);
     searchController.dispose();
     super.dispose();
   }
 
-  void _onSearchChanged() {
-    final now = DateTime.now();
-    _lastSearchTime = now;
-
-    Future.delayed(const Duration(milliseconds: 400), () {
-      if (_lastSearchTime == now) {
-        // Reset na prvu stranicu kad se mijenja pretraga
-        setState(() => _currentPage = 0);
-        _loadUsers();
-      }
-    });
+  void _onSearchPressed() {
+    setState(() => _currentPage = 0);
+    _loadUsers();
   }
 
   Future<void> _loadUsers() async {
@@ -86,8 +73,6 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
       _showError(e.toString());
     }
   }
-
-
 
   void _showError(String message) {
     showDialog(
@@ -226,21 +211,39 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
                 vertical: 12,
               ),
             ),
+            onSubmitted: (_) => _onSearchPressed(),
           ),
         ),
-        const SizedBox(width: 16),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1E40AF),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-          ),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AdminAddUserScreen(onSaved: _loadUsers),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.search),
+            label: const Text('Pretraži'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             ),
+            onPressed: _onSearchPressed,
           ),
-          child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AdminAddUserScreen(onSaved: _loadUsers),
+              ),
+            ),
+            child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
+          ),
         ),
       ],
     );
@@ -257,7 +260,6 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
               showDeleted = value ?? false;
               _currentPage = 0;
             });
-            _loadUsers();
           },
         ),
       ],
@@ -357,6 +359,4 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
       ),
     );
   }
-
-
 }

@@ -6,6 +6,7 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -41,6 +42,16 @@ namespace EasyTab.Services.Services
         {
             _logger.LogWarning("Deleting country. CountryId: {CountryId}", id);
             return await base.DeleteAsync(id);
+        }
+
+        protected override IQueryable<Country> ApplyFilter(IQueryable<Country> query, CountrySearchObject? search)
+        {
+            if (!string.IsNullOrEmpty(search?.Name))
+            {
+                query = query.Where(x => x.Name.Contains(search.Name));
+            }
+
+            return base.ApplyFilter(query, search);
         }
     }
 }
