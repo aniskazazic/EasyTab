@@ -9,6 +9,7 @@ import 'package:easytab_mobile/providers/reaction_provider.dart';
 import 'package:easytab_mobile/providers/review_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/add_review_screen.dart';
+import 'package:easytab_mobile/screens/reservation_screen.dart';
 import 'package:easytab_mobile/widgets/locale_image_gallery_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -443,7 +444,14 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 MediaQuery.of(context).padding.bottom + 12,
               ),
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ReservationScreen(locale: locale),
+                      ),
+                    );
+                  },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E40AF),
                   padding: const EdgeInsets.symmetric(vertical: 16),

@@ -8,7 +8,9 @@ import 'package:easytab_mobile/providers/locale_provider.dart';
 import 'package:easytab_mobile/providers/localeimage_provider.dart';
 import 'package:easytab_mobile/providers/reaction_provider.dart';
 import 'package:easytab_mobile/providers/review_provider.dart';
+import 'package:easytab_mobile/providers/table_provider.dart';
 import 'package:easytab_mobile/providers/user_provider.dart';
+import 'package:easytab_mobile/providers/zone_provider.dart';
 import 'package:easytab_mobile/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +31,8 @@ void main() {
         ChangeNotifierProvider(create: (_) => ReactionProvider()),
         ChangeNotifierProvider(create: (_) => FavouriteProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => TableProvider()),
+        ChangeNotifierProvider(create: (_) => ZoneProvider()),
       ],
       child: const MyApp(),
     ),
