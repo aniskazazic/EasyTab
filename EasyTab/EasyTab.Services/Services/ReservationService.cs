@@ -1,4 +1,4 @@
-﻿using EasyTab.Model.Models;
+using EasyTab.Model.Models;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
@@ -104,12 +104,34 @@ namespace EasyTab.Services.Services
 
             var open = locale.StartOfWorkingHours.ToTimeSpan();
             var close = locale.EndOfWorkingHours.ToTimeSpan();
-            var slotLength = TimeSpan.FromHours(locale.LengthOfReservation != 0 ? locale.LengthOfReservation : 2);
+
+            // Fallback ako radno vrijeme nije podešeno u bazi ili je 00:00 - 00:00
+            if (open == TimeSpan.Zero && close == TimeSpan.Zero)
+            {
+                open = new TimeSpan(8, 0, 0);   // 08:00
+                close = new TimeSpan(23, 0, 0); // 23:00
+            }
+            else if (close <= open)
+            {
+                if (close == TimeSpan.Zero)
+                {
+                    close = TimeSpan.FromHours(24); // 24:00 (kraj dana)
+                }
+                else
+                {
+                    close = new TimeSpan(23, 0, 0);
+                }
+            }
+
+            var slotHours = (locale.LengthOfReservation > 0) ? locale.LengthOfReservation : 2.0;
+            var slotLength = TimeSpan.FromHours(slotHours);
 
             // Generiši sve slotove
             var allSlots = new List<(TimeSpan Start, TimeSpan End)>();
             for (var t = open; t + slotLength <= close; t += slotLength)
+            {
                 allSlots.Add((t, t + slotLength));
+            }
 
             // Dohvati zauzete termine
             var reserved = Context.Reservations
@@ -121,6 +143,14 @@ namespace EasyTab.Services.Services
 
             var now = DateTime.Now;
 
+            string FormatSlotTime(TimeSpan ts)
+            {
+                int h = (int)ts.TotalHours;
+                if (h >= 24) h %= 24;
+                int m = ts.Minutes;
+                return $"{h:D2}:{m:D2}";
+            }
+
             // Filtriraj slobodne slotove
             var slots = allSlots
                 .Where(slot =>
@@ -129,8 +159,8 @@ namespace EasyTab.Services.Services
                     date.Date.Add(slot.Start) > now)
                 .Select(s => new TimeSlots
                 {
-                    Start = s.Start.ToString(@"hh\:mm"),
-                    End = s.End.ToString(@"hh\:mm")
+                    Start = FormatSlotTime(s.Start),
+                    End = FormatSlotTime(s.End)
                 })
                 .ToList();
 

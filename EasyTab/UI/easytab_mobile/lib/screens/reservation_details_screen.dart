@@ -1,5 +1,7 @@
 import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/models/table.dart';
+import 'package:easytab_mobile/models/time_slot.dart';
+import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:flutter/material.dart';
 
 class ReservationDetailsScreen extends StatefulWidget {
@@ -19,74 +21,60 @@ class ReservationDetailsScreen extends StatefulWidget {
 
 class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
   DateTime _selectedDate = DateTime.now();
-  int _guestCount = 2;
+
   int? _selectedSlotIndex;
   bool _isProcessing = false;
+
+  List<TimeSlot> _slots = [];
+  bool _slotsLoading = false;
+  String? _slotsError;
+
+  final ReservationProvider _reservationProvider = ReservationProvider();
 
   model.Locale get locale => widget.locale;
   Tables get table => widget.selectedTable;
 
-  /// Generate time slots based on locale's working hours and reservation duration
-  List<_TimeSlot> get _timeSlots {
-    final start = locale.startOfWorkingHours;
-    final end = locale.endOfWorkingHours;
-    final durationHours = locale.lengthOfReservation ?? 2.0;
-
-    if (start == null || end == null) {
-      // Fallback - generate default slots
-      return _generateDefaultSlots(durationHours);
-    }
-
-    final slots = <_TimeSlot>[];
-    var current = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        start.hour,
-        start.minute);
-    final endTime = DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-        end.hour,
-        end.minute);
-
-    // Duration in minutes
-    final durationMinutes = (durationHours * 60).round();
-    final slotStep = durationMinutes;
-
-    while (current.isBefore(endTime)) {
-      final slotEnd = current.add(Duration(minutes: durationMinutes));
-      if (slotEnd.isAfter(endTime)) break;
-      slots.add(_TimeSlot(start: current, end: slotEnd));
-      current = current.add(Duration(minutes: slotStep));
-    }
-
-    return slots;
+  @override
+  void initState() {
+    super.initState();
+    _loadSlots();
   }
 
-  List<_TimeSlot> _generateDefaultSlots(double durationHours) {
-    final slots = <_TimeSlot>[];
-    final starts = [8, 10, 12, 14, 16, 18, 20];
-    final durationMinutes = (durationHours * 60).round();
-    for (final hour in starts) {
-      final start = DateTime(
-          _selectedDate.year, _selectedDate.month, _selectedDate.day, hour);
-      final end = start.add(Duration(minutes: durationMinutes));
-      if (end.hour <= 23) slots.add(_TimeSlot(start: start, end: end));
-    }
-    return slots;
-  }
+  Future<void> _loadSlots() async {
+    final tableId = table.id;
+    if (tableId == null) return;
 
-  String _fmt(DateTime dt) =>
-      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    setState(() {
+      _slotsLoading = true;
+      _slotsError = null;
+      _selectedSlotIndex = null;
+    });
+
+    try {
+      final slots = await _reservationProvider.getAvailableSlots(
+        tableId,
+        _selectedDate,
+      );
+      print(
+        '[Slots] tableId=$tableId date=$_selectedDate count=${slots.length}',
+      );
+      if (!mounted) return;
+      setState(() {
+        _slots = slots;
+        _slotsLoading = false;
+      });
+    } catch (e) {
+      print('[Slots] ERROR: $e');
+      if (!mounted) return;
+      setState(() {
+        _slotsError = 'Greška pri učitavanju termina.';
+        _slotsLoading = false;
+      });
+    }
+  }
 
   String _fmtDate(DateTime dt) {
-    const months = [
-      '', 'Jan', 'Feb', 'Mar', 'Apr', 'Maj', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dec'
-    ];
-    return '${dt.day}. ${months[dt.month]} ${dt.year}.';
+    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
   }
 
   Future<void> _pickDate() async {
@@ -114,6 +102,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
         _selectedDate = picked;
         _selectedSlotIndex = null;
       });
+      _loadSlots();
     }
   }
 
@@ -141,8 +130,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
   }
 
   void _showSuccessDialog() {
-    final slots = _timeSlots;
-    final slot = slots[_selectedSlotIndex!];
+    final slot = _slots[_selectedSlotIndex!];
 
     showDialog(
       context: context,
@@ -161,14 +149,17 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                   color: const Color(0xFFDCFCE7),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check_rounded,
-                    color: Color(0xFF16A34A), size: 40),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Color(0xFF16A34A),
+                  size: 40,
+                ),
               ),
               const SizedBox(height: 20),
               const Text(
                 'Rezervacija potvrđena!',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF0F172A),
                 ),
@@ -188,10 +179,12 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                     const SizedBox(height: 6),
                     _confirmRow('Datum', _fmtDate(_selectedDate)),
                     const SizedBox(height: 6),
-                    _confirmRow(
-                        'Termin', '${_fmt(slot.start)} - ${_fmt(slot.end)}'),
+                    _confirmRow('Termin', '${slot.start} - ${slot.end}'),
                     const SizedBox(height: 6),
-                    _confirmRow('Gosti', '$_guestCount osoba'),
+                    _confirmRow(
+                      'Gosti',
+                      '${table.numberOfGuests ?? '-'} ${(table.numberOfGuests ?? 0) == 1 ? 'osoba' : 'osobe/a'}',
+                    ),
                   ],
                 ),
               ),
@@ -211,8 +204,14 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text('Zatvori',
-                      style: TextStyle(color: Colors.white, fontSize: 15)),
+                  child: const Text(
+                    'Zatvori',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -226,22 +225,24 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 13, color: Color(0xFF64748B))),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF0F172A))),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 14.5, color: Color(0xFF64748B)),
+        ),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF0F172A),
+          ),
+        ),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final slots = _timeSlots;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: Column(
@@ -255,7 +256,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                 children: [
                   _buildTableInfoBanner(),
                   _buildDateAndGuestsSection(),
-                  _buildTimeSlotsSection(slots),
+                  _buildTimeSlotsSection(),
                 ],
               ),
             ),
@@ -268,13 +269,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
 
   Widget _buildHeader() {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1E40AF), Color(0xFF3B82F6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFF1E40AF)),
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -290,8 +285,11 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                     color: Colors.white.withOpacity(0.2),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.arrow_back_rounded,
-                      color: Colors.white, size: 20),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -302,15 +300,15 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                     'Rezervišite - "${table.name ?? 'Stol'}"',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   Text(
                     locale.name ?? '',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.85),
+                      fontSize: 13.5,
                     ),
                   ),
                 ],
@@ -327,11 +325,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF1E40AF), Color(0xFF3B82F6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: const Color(0xFF1E40AF),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -350,8 +344,11 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.table_restaurant,
-                color: Colors.white, size: 24),
+            child: const Icon(
+              Icons.table_restaurant,
+              color: Colors.white,
+              size: 24,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -362,7 +359,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                   table.name ?? 'Odabrani stol',
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 15,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -371,29 +368,27 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                   'Kapacitet: ${table.numberOfGuests ?? '-'} ${(table.numberOfGuests ?? 0) == 1 ? 'osoba' : 'osobe/a'}',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.85),
-                    fontSize: 12,
+                    fontSize: 13.5,
                   ),
                 ),
               ],
             ),
           ),
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Row(
               children: [
-                Icon(Icons.check_circle_rounded,
-                    color: Colors.white, size: 14),
+                Icon(Icons.check_circle_rounded, color: Colors.white, size: 15),
                 SizedBox(width: 4),
                 Text(
                   'Odabran',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 11,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -405,94 +400,72 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
     );
   }
 
+  String _fmtGuestCount(int? count) {
+    if (count == null) return '-';
+    if (count == 1) return '1 osoba';
+    if (count >= 2 && count <= 4) return '$count osobe';
+    return '$count osoba';
+  }
+
   Widget _buildDateAndGuestsSection() {
+    final guestsText = _fmtGuestCount(table.numberOfGuests);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          // Date picker
           Expanded(
             child: _SectionCard(
               label: 'Datum',
               child: GestureDetector(
                 onTap: _pickDate,
+                behavior: HitTestBehavior.opaque,
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.calendar_today_outlined,
-                        size: 18, color: Color(0xFF1E40AF)),
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 20,
+                      color: Color(0xFF1E40AF),
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${_selectedDate.day.toString().padLeft(2, '0')}/${_selectedDate.month.toString().padLeft(2, '0')}/${_selectedDate.year}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF0F172A),
-                        ),
+                    Text(
+                      '${_selectedDate.day.toString().padLeft(2, '0')}.${_selectedDate.month.toString().padLeft(2, '0')}.${_selectedDate.year}.',
+                      style: const TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
-                    const Icon(Icons.arrow_drop_down_rounded,
-                        color: Color(0xFF64748B)),
+                    const Icon(
+                      Icons.arrow_drop_down_rounded,
+                      color: Color(0xFF64748B),
+                      size: 22,
+                    ),
                   ],
                 ),
               ),
             ),
           ),
           const SizedBox(width: 12),
-          // Guest count
           Expanded(
             child: _SectionCard(
               label: 'Broj gostiju',
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.people_outline,
-                      size: 18, color: Color(0xFF1E40AF)),
+                  const Icon(
+                    Icons.people_outline,
+                    size: 20,
+                    color: Color(0xFF1E40AF),
+                  ),
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      if (_guestCount > 1) {
-                        setState(() => _guestCount--);
-                      }
-                    },
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: const Color(0xFFBFDBFE)),
-                      ),
-                      child: const Icon(Icons.remove,
-                          size: 14, color: Color(0xFF1E40AF)),
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '$_guestCount',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      final max = table.numberOfGuests ?? 10;
-                      if (_guestCount < max) {
-                        setState(() => _guestCount++);
-                      }
-                    },
-                    child: Container(
-                      width: 26,
-                      height: 26,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E40AF),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(Icons.add,
-                          size: 14, color: Colors.white),
+                  Text(
+                    guestsText,
+                    style: const TextStyle(
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
                     ),
                   ),
                 ],
@@ -504,41 +477,56 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
     );
   }
 
-  Widget _buildTimeSlotsSection(List<_TimeSlot> slots) {
+  Widget _buildTimeSlotsSection() {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Dostupni termini',
+            'Dostupni termini :',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: FontWeight.w700,
               color: Color(0xFF0F172A),
             ),
           ),
           const SizedBox(height: 12),
-          if (slots.isEmpty)
+          if (_slotsLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 24),
+                child: CircularProgressIndicator(color: Color(0xFF1E40AF)),
+              ),
+            )
+          else if (_slotsError != null)
+            _buildErrorCard(_slotsError!)
+          else if (_slots.isEmpty)
             _buildNoSlotsCard()
           else
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: List.generate(slots.length, (i) {
-                final slot = slots[i];
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _slots.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 2.2,
+              ),
+              itemBuilder: (context, i) {
+                final slot = _slots[i];
                 final isSelected = _selectedSlotIndex == i;
                 return GestureDetector(
                   onTap: () => setState(() => _selectedSlotIndex = i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 9),
+                    alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xFF1E40AF)
                           : Colors.white,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
                             ? const Color(0xFF1E40AF)
@@ -548,22 +536,21 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                       boxShadow: isSelected
                           ? [
                               BoxShadow(
-                                color: const Color(0xFF1E40AF)
-                                    .withOpacity(0.3),
+                                color: const Color(0xFF1E40AF).withOpacity(0.3),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
-                              )
+                              ),
                             ]
                           : [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.04),
                                 blurRadius: 6,
                                 offset: const Offset(0, 2),
-                              )
+                              ),
                             ],
                     ),
                     child: Text(
-                      '${_fmt(slot.start)} - ${_fmt(slot.end)}',
+                      '${slot.start} - ${slot.end}',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -574,8 +561,37 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                     ),
                   ),
                 );
-              }),
+              },
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorCard(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFCDD2)),
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, size: 36, color: Color(0xFFE57373)),
+          const SizedBox(height: 8),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Color(0xFFB71C1C), fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: _loadSlots,
+            icon: const Icon(Icons.refresh, size: 16),
+            label: const Text('Pokušaj ponovo'),
+          ),
         ],
       ),
     );
@@ -634,14 +650,16 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
                   : const Text(
                       'Rezerviši i plati',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 17.5,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
             ),
@@ -650,15 +668,11 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.lock_outlined,
-                  size: 13, color: Colors.grey.shade500),
+              Icon(Icons.lock_outlined, size: 14, color: Colors.grey.shade500),
               const SizedBox(width: 4),
               Text(
                 'Plaćanje putem PayPal-a  ·  100% sigurno',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.grey.shade500,
-                ),
+                style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500),
               ),
             ],
           ),
@@ -668,14 +682,6 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
   }
 }
 
-/// Simple time slot model
-class _TimeSlot {
-  final DateTime start;
-  final DateTime end;
-  const _TimeSlot({required this.start, required this.end});
-}
-
-/// Reusable card section widget
 class _SectionCard extends StatelessWidget {
   final String label;
   final Widget child;
@@ -685,31 +691,32 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withOpacity(0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             label,
-            style: TextStyle(
-              fontSize: 11,
-              color: Colors.grey.shade500,
-              fontWeight: FontWeight.w500,
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: Color(0xFF64748B),
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 8),
-          child,
+          SizedBox(height: 30, child: child),
         ],
       ),
     );

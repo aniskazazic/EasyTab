@@ -27,9 +27,10 @@ class _ReservationScreenState extends State<ReservationScreen> {
   bool _isLoading = true;
   String? _error;
 
-  // Canvas dimensions for floor plan
-  static const double _canvasWidth = 320;
-  static const double _canvasHeight = 300;
+  // Iste dimenzije platna kao u desktop aplikaciji (owner_tables_screen)
+  static const double _canvasWidth = 900.0;
+  static const double _canvasHeight = 600.0;
+  static const double _tableSize = 80.0;
 
   model.Locale get locale => widget.locale;
 
@@ -99,37 +100,35 @@ class _ReservationScreenState extends State<ReservationScreen> {
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFF1E40AF)),
+                    child: CircularProgressIndicator(
+                      color: Color.fromARGB(255, 175, 30, 30),
+                    ),
                   )
                 : _error != null
-                    ? _buildErrorState()
-                    : SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildLocaleInfoCard(),
-                            _buildFloorPlanSection(),
-                            _buildLocaleDetailsSection(),
-                            const SizedBox(height: 100),
-                          ],
-                        ),
-                      ),
+                ? _buildErrorState()
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildLocaleInfoCard(),
+                        _buildFloorPlanSection(),
+                        _buildLocaleDetailsSection(),
+                        const SizedBox(height: 100),
+                      ],
+                    ),
+                  ),
           ),
         ],
       ),
-      bottomNavigationBar: _selectedTable != null ? _buildProceedButton() : null,
+      bottomNavigationBar: _selectedTable != null
+          ? _buildProceedButton()
+          : null,
     );
   }
 
   Widget _buildHeader() {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF1E40AF), Color(0xFF3B82F6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      decoration: const BoxDecoration(color: const Color(0xFF1E40AF)),
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -196,8 +195,11 @@ class _ReservationScreenState extends State<ReservationScreen> {
               locale.logo,
               fit: BoxFit.cover,
               placeholder: const Center(
-                child: Icon(Icons.store_outlined,
-                    size: 28, color: Color(0xFF1E40AF)),
+                child: Icon(
+                  Icons.store_outlined,
+                  size: 28,
+                  color: Color(0xFF1E40AF),
+                ),
               ),
             ),
           ),
@@ -219,8 +221,11 @@ class _ReservationScreenState extends State<ReservationScreen> {
                 if (locale.averageRating != null && locale.averageRating! > 0)
                   Row(
                     children: [
-                      const Icon(Icons.star,
-                          color: Color(0xFFFBBF24), size: 16),
+                      const Icon(
+                        Icons.star,
+                        color: Color(0xFFFBBF24),
+                        size: 16,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         locale.averageRating!.toStringAsFixed(1),
@@ -285,23 +290,42 @@ class _ReservationScreenState extends State<ReservationScreen> {
     );
   }
 
+  String _tableAssetPath(int? guests) {
+    final count = (guests ?? 2).clamp(2, 8);
+    return 'assets/tables/${count}Seat.png';
+  }
+
+  Widget _tableImage(int? guests, double size) {
+    return Image.asset(
+      _tableAssetPath(guests),
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
+      errorBuilder: (_, __, ___) => Icon(
+        Icons.table_restaurant,
+        size: size * 0.55,
+        color: const Color(0xFF3B82F6),
+      ),
+    );
+  }
+
   Widget _buildEmptyFloorPlan() {
     return Container(
-      height: 200,
+      height: 280,
       color: const Color(0xFFF8FAFC),
       child: const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.table_restaurant_outlined,
-                size: 48, color: Color(0xFFCBD5E1)),
+            Icon(
+              Icons.table_restaurant_outlined,
+              size: 48,
+              color: Color(0xFFCBD5E1),
+            ),
             SizedBox(height: 12),
             Text(
               'Nema postavljenih stolova',
-              style: TextStyle(
-                color: Color(0xFF94A3B8),
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
             ),
           ],
         ),
@@ -310,42 +334,22 @@ class _ReservationScreenState extends State<ReservationScreen> {
   }
 
   Widget _buildFloorPlan() {
-    // Find bounding box from tables and zones to compute scale
-    double maxX = _canvasWidth;
-    double maxY = _canvasHeight;
-
-    for (var t in _tables) {
-      if ((t.xCoordinate ?? 0) > maxX) maxX = t.xCoordinate! + 60;
-      if ((t.yCoordinate ?? 0) > maxY) maxY = t.yCoordinate! + 60;
-    }
-    for (var z in _zones) {
-      if ((z.xCoordinate ?? 0) + (z.width ?? 0) > maxX) {
-        maxX = (z.xCoordinate ?? 0) + (z.width ?? 0);
-      }
-      if ((z.yCoordinate ?? 0) + (z.height ?? 0) > maxY) {
-        maxY = (z.yCoordinate ?? 0) + (z.height ?? 0);
-      }
-    }
-
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = constraints.maxWidth;
-        final scaleX = availableWidth / maxX;
-        final scaleY = (_canvasHeight / maxY).clamp(0.3, 1.5);
-        final scale = scaleX < scaleY ? scaleX : scaleY;
-        final scaledHeight = maxY * scale;
+        final scale = availableWidth / _canvasWidth;
+        final scaledHeight = _canvasHeight * scale;
 
         return SizedBox(
-          height: scaledHeight.clamp(180, 360),
+          width: availableWidth,
+          height: scaledHeight,
           child: Stack(
+            clipBehavior: Clip.hardEdge,
             children: [
-              // Grid background
               Positioned.fill(
-                child: CustomPaint(painter: _GridPainter()),
+                child: CustomPaint(painter: _GridPainter(gridStep: 60 * scale)),
               ),
-              // Zones
               ..._zones.map((zone) => _buildZone(zone, scale)),
-              // Tables
               ..._tables.map((table) => _buildTableWidget(table, scale)),
             ],
           ),
@@ -389,60 +393,74 @@ class _ReservationScreenState extends State<ReservationScreen> {
   Widget _buildTableWidget(Tables table, double scale) {
     final x = (table.xCoordinate ?? 0) * scale;
     final y = (table.yCoordinate ?? 0) * scale;
-    final tableSize = 44.0 * scale;
+    final tableSize = _tableSize * scale;
     final isSelected = _selectedTable?.id == table.id;
 
     return Positioned(
       left: x,
       top: y,
+      width: tableSize,
+      height: tableSize,
       child: GestureDetector(
         onTap: () => _onTableTap(table),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          width: tableSize,
-          height: tableSize,
+          clipBehavior: Clip.hardEdge,
           decoration: BoxDecoration(
-            color: isSelected
-                ? const Color(0xFF1E40AF)
-                : const Color(0xFFEFF6FF),
+            color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
             borderRadius: BorderRadius.circular(8 * scale),
             border: Border.all(
               color: isSelected
                   ? const Color(0xFF1E40AF)
-                  : const Color(0xFF93C5FD),
-              width: isSelected ? 2 : 1.5,
+                  : const Color(0xFFCBD5E1),
+              width: isSelected ? 2 : 1,
             ),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
-                      color: const Color(0xFF1E40AF).withOpacity(0.35),
+                      color: const Color(0xFF1E40AF).withOpacity(0.25),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
-                    )
+                    ),
                   ]
-                : [],
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 4,
+                      offset: const Offset(1, 2),
+                    ),
+                  ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.table_restaurant,
-                size: (16 * scale).clamp(10, 20),
-                color: isSelected ? Colors.white : const Color(0xFF3B82F6),
+          child: FittedBox(
+            fit: BoxFit.contain,
+            child: SizedBox(
+              width: _tableSize,
+              height: _tableSize,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _tableImage(table.numberOfGuests, _tableSize - 16),
+                  if ((table.name ?? '').isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        table.name ?? '',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected
+                              ? const Color(0xFF1E40AF)
+                              : const Color(0xFF475569),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
               ),
-              if (tableSize > 28)
-                Text(
-                  table.name ?? '',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: (7 * scale).clamp(6, 9),
-                    fontWeight: FontWeight.w600,
-                    color: isSelected ? Colors.white : const Color(0xFF1E40AF),
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-            ],
+            ),
           ),
         ),
       ),
@@ -462,8 +480,11 @@ class _ReservationScreenState extends State<ReservationScreen> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.check_circle_rounded,
-                color: Color(0xFF1E40AF), size: 18),
+            const Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF1E40AF),
+              size: 18,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -519,11 +540,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
             if (locale.phoneNumber != null &&
                 locale.phoneNumber!.isNotEmpty) ...[
               const Divider(height: 20),
-              _detailRow(
-                Icons.phone_outlined,
-                'Telefon',
-                locale.phoneNumber!,
-              ),
+              _detailRow(Icons.phone_outlined, 'Telefon', locale.phoneNumber!),
             ],
           ],
         ),
@@ -596,8 +613,11 @@ class _ReservationScreenState extends State<ReservationScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(Icons.arrow_forward_rounded,
-                color: Colors.white, size: 18),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ],
         ),
       ),
@@ -611,8 +631,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline,
-                size: 56, color: Color(0xFFCBD5E1)),
+            const Icon(Icons.error_outline, size: 56, color: Color(0xFFCBD5E1)),
             const SizedBox(height: 16),
             Text(
               _error ?? 'Greška pri učitavanju',
@@ -625,8 +644,10 @@ class _ReservationScreenState extends State<ReservationScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E40AF),
               ),
-              child: const Text('Pokušaj ponovo',
-                  style: TextStyle(color: Colors.white)),
+              child: const Text(
+                'Pokušaj ponovo',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -637,27 +658,30 @@ class _ReservationScreenState extends State<ReservationScreen> {
 
 /// Custom painter for grid background on floor plan
 class _GridPainter extends CustomPainter {
+  final double gridStep;
+
+  const _GridPainter({this.gridStep = 40});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFFF1F5F9)
+      ..color = const Color(0xFFE2E8F0)
       ..strokeWidth = 1;
 
-    // Fill background
     canvas.drawRect(
       Rect.fromLTWH(0, 0, size.width, size.height),
       Paint()..color = const Color(0xFFF8FAFC),
     );
 
-    const step = 30.0;
-    for (double x = 0; x < size.width; x += step) {
+    for (double x = 0; x < size.width; x += gridStep) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
     }
-    for (double y = 0; y < size.height; y += step) {
+    for (double y = 0; y < size.height; y += gridStep) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _GridPainter oldDelegate) =>
+      oldDelegate.gridStep != gridStep;
 }
