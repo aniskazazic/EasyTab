@@ -5,6 +5,7 @@ using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.ReservationStateMachine;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Hosting;
@@ -22,11 +23,13 @@ namespace EasyTab.Services.Services
     {
         private readonly IWebHostEnvironment _wh;
         private readonly ILogger<ReservationService> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
-        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<ReservationService> logger, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<ReservationService> logger, IServiceProvider serviceProvider, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
             _logger = logger;
+            _serviceProvider = serviceProvider;
         }
 
         protected override IQueryable<Reservation> ApplyFilter(IQueryable<Reservation> query, ReservationSearchObject search)
@@ -170,16 +173,21 @@ namespace EasyTab.Services.Services
 
         public void CancelReservation(int id)
         {
+            CancelReservationAsync(id).GetAwaiter().GetResult();
+        }
+
+        public async Task CancelReservationAsync(int id)
+        {
             _logger.LogWarning("Cancelling reservation. ReservationId: {ReservationId}", id);
-            var reservation = Context.Reservations.Find(id);
+            var reservation = await Context.Reservations.FindAsync(id);
             if (reservation == null)
             {
                 _logger.LogWarning("Cannot cancel reservation because it was not found. ReservationId: {ReservationId}", id);
                 throw new UserException("Rezervacija nije pronađena!");
             }
 
-            reservation.IsCancelled = true;
-            Context.SaveChanges();
+            var state = GetStateMachine(reservation.ReservationState);
+            await state.CancelAsync(id);
             _logger.LogWarning("Reservation cancelled successfully. ReservationId: {ReservationId}", id);
         }
 
@@ -193,6 +201,77 @@ namespace EasyTab.Services.Services
 
             byte[] imageBytes = await File.ReadAllBytesAsync(logoPath, cancellationToken);
             return $"data:image/png;base64,{Convert.ToBase64String(imageBytes)}";
+        }
+
+        public override async Task<Reservations> CreateAsync(ReservationInsertRequest request)
+        {
+            var initialState = GetStateMachine(nameof(InitialReservationState));
+            return await initialState.CreateAsync(request);
+        }
+
+        public async Task<Reservations> ActivateAsync(int id)
+        {
+            var reservation = await Context.Reservations.FindAsync(id);
+            if (reservation == null)
+            {
+                throw new UserException("Rezervacija nije pronađena!");
+            }
+
+            var state = GetStateMachine(reservation.ReservationState);
+            return await state.ConfirmAsync(id);
+        }
+
+        public async Task<Reservations> DeactivateAsync(int id)
+        {
+            var reservation = await Context.Reservations.FindAsync(id);
+            if (reservation == null)
+            {
+                throw new UserException("Rezervacija nije pronađena!");
+            }
+
+            var state = GetStateMachine(reservation.ReservationState);
+            return await state.CompleteAsync(id);
+        }
+
+        public async Task<Reservations> ConfirmAsync(int id)
+        {
+            var reservation = await Context.Reservations.FindAsync(id);
+            if (reservation == null)
+            {
+                throw new UserException("Rezervacija nije pronađena!");
+            }
+
+            var state = GetStateMachine(reservation.ReservationState);
+            return await state.ConfirmAsync(id);
+        }
+
+        public async Task<Reservations> CompleteAsync(int id)
+        {
+            var reservation = await Context.Reservations.FindAsync(id);
+            if (reservation == null)
+            {
+                throw new UserException("Rezervacija nije pronađena!");
+            }
+
+            var state = GetStateMachine(reservation.ReservationState);
+            return await state.CompleteAsync(id);
+        }
+
+        public Task<List<string>> GetAllowedActionsAsync(int id)
+        {
+            var reservation = Context.Reservations.Find(id);
+            if (reservation == null)
+            {
+                throw new UserException("Rezervacija nije pronađena!");
+            }
+
+            var state = GetStateMachine(reservation.ReservationState);
+            return Task.FromResult(state.GetAllowedActions());
+        }
+
+        private BaseReservationState GetStateMachine(string stateName)
+        {
+            return new BaseReservationState(Context, _mapper, _serviceProvider).GetReservationState(stateName);
         }
     }
 }

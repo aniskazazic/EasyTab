@@ -26,10 +26,31 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPut("cancel/{id}")]
-        public IActionResult CancelReservation(int id)
+        public async Task<IActionResult> CancelReservation(int id)
         {
-            _service.CancelReservation(id);
+            await _service.CancelReservationAsync(id);
             return Ok(new { Message = "Rezervacija otkazana!" });
+        }
+
+        [HttpPut("confirm/{id}")]
+        public async Task<IActionResult> ConfirmReservation(int id)
+        {
+            var reservation = await _service.ConfirmAsync(id);
+            return Ok(reservation);
+        }
+
+        [HttpPut("complete/{id}")]
+        public async Task<IActionResult> CompleteReservation(int id)
+        {
+            var reservation = await _service.CompleteAsync(id);
+            return Ok(reservation);
+        }
+
+        [HttpGet("allowed-actions/{id}")]
+        public async Task<IActionResult> GetAllowedActions(int id)
+        {
+            var actions = await _service.GetAllowedActionsAsync(id);
+            return Ok(actions);
         }
     }
 }

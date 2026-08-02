@@ -7,6 +7,7 @@ using EasyTab.Model.Requests;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using EasyTab.Services.QueryOptimization;
+using EasyTab.Services.ReservationStateMachine;
 using EasyTab.Services.Services;
 using EasyTab.Services.Validators;
 using FluentValidation;
@@ -44,7 +45,11 @@ builder.Services.AddScoped<IQueryOptimizationService, QueryOptimizationService>(
 builder.Services.AddScoped<ICryptoService, CryptoService>();
 builder.Services.AddScoped<IAccessManager, AccessManager>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
-
+builder.Services.AddScoped<InitialReservationState>();
+builder.Services.AddScoped<PendingReservationState>();
+builder.Services.AddScoped<ConfirmedReservationState>();
+builder.Services.AddScoped<CancelledReservationState>();
+builder.Services.AddScoped<CompletedReservationState>();
 
 builder.Services.AddScoped<IValidator<UserInsertRequest>, UserInsertValidator>();
 builder.Services.AddScoped<IValidator<UserUpdateRequest>, UserUpdateValidator>();

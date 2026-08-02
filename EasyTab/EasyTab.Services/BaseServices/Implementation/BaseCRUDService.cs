@@ -26,7 +26,7 @@ namespace EasyTab.Services.BaseServices.Implementation
     {
 
         protected readonly _220030Context _context;
-        private readonly IMapper _mapper;
+        protected readonly IMapper _mapper;
         protected readonly IValidator<TInsert> _insertValidator;
         protected readonly IValidator<TUpdate> _updateValidator;
 

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace EasyTab.Services.Database;
 
@@ -24,4 +25,7 @@ public partial class Reservation
     public virtual Table Table { get; set; } = null!;
 
     public virtual User User { get; set; } = null!;
+
+    [MaxLength(1000)]
+    public string ReservationState { get; set; } = string.Empty;
 }
