@@ -128,6 +128,16 @@ public partial class _220030Context : DbContext
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__Reservati__UserI__6477ECF3");
+
+            entity.HasOne(d => d.ApprovedBy).WithMany()
+                .HasForeignKey(d => d.ApprovedById)
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_Reservations_ApprovedBy");
+
+            entity.HasOne(d => d.CancelledBy).WithMany()
+                .HasForeignKey(d => d.CancelledById)
+                .OnDelete(DeleteBehavior.NoAction)
+                .HasConstraintName("FK_Reservations_CancelledBy");
         });
 
         modelBuilder.Entity<Review>(entity =>

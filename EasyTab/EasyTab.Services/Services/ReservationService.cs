@@ -46,8 +46,8 @@ namespace EasyTab.Services.Services
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.Table.LocaleId == search.LocaleId);
 
-            if (search?.IsCancelled.HasValue == true)
-                query = query.Where(x => x.IsCancelled == search.IsCancelled);
+            if (search?.ReservationState != null)
+                query = query.Where(x => x.ReservationState == search.ReservationState);
 
             // Aktivne rezervacije
             if (search?.IsUpcoming == true)
@@ -73,10 +73,33 @@ namespace EasyTab.Services.Services
         {
             _logger.LogInformation("Creating reservation. UserId: {UserId}, TableId: {TableId}, ReservationDate: {ReservationDate}", request.UserId, request.TableId, request.ReservationDate);
 
-            var overlaps = Context.Reservations.Any(r =>
+            var table = await Context.Tables.FindAsync(request.TableId);
+            if (table == null)
+            {
+                throw new UserException("Stol nije pronađen!");
+            }
+
+            if (request.NumberOfGuests != table.NumberOfGuests)
+            {
+                throw new UserException($"Stol prima tačno {table.NumberOfGuests} gostiju.");
+            }
+
+            var duplicate = await Context.Reservations.AnyAsync(r =>
+                r.UserId == request.UserId &&
                 r.TableId == request.TableId &&
                 r.ReservationDate.Date == request.ReservationDate.Date &&
-                r.IsCancelled == false &&
+                r.StartTime == TimeOnly.FromTimeSpan(request.StartTime) &&
+                r.ReservationState != CancelledReservationState.StateName);
+
+            if (duplicate)
+            {
+                throw new UserException("Već imate rezervaciju za ovaj stol u ovom terminu!");
+            }
+
+            var overlaps = await Context.Reservations.AnyAsync(r =>
+                r.TableId == request.TableId &&
+                r.ReservationDate.Date == request.ReservationDate.Date &&
+                r.ReservationState != CancelledReservationState.StateName &&
                 r.StartTime < TimeOnly.FromTimeSpan(request.EndTime) &&
                 TimeOnly.FromTimeSpan(request.StartTime) < r.EndTime);
 
@@ -87,7 +110,7 @@ namespace EasyTab.Services.Services
             }
 
             entity.CreatedAt = DateTime.Now;
-            entity.IsCancelled = false;
+            entity.ReservationState = PendingReservationState.StateName;
 
             await Task.CompletedTask;
         }
@@ -140,7 +163,7 @@ namespace EasyTab.Services.Services
             var reserved = Context.Reservations
                 .Where(r => r.TableId == tableId &&
                             r.ReservationDate.Date == date.Date &&
-                            r.IsCancelled == false)
+                            r.ReservationState != CancelledReservationState.StateName)
                 .Select(r => new { r.StartTime, r.EndTime })
                 .ToList();
 
@@ -171,12 +194,12 @@ namespace EasyTab.Services.Services
             return slots;
         }
 
-        public void CancelReservation(int id)
+        public void CancelReservation(int id, string reason, int cancelledById)
         {
-            CancelReservationAsync(id).GetAwaiter().GetResult();
+            CancelReservationAsync(id, reason, cancelledById).GetAwaiter().GetResult();
         }
 
-        public async Task CancelReservationAsync(int id)
+        public async Task CancelReservationAsync(int id, string reason, int cancelledById)
         {
             _logger.LogWarning("Cancelling reservation. ReservationId: {ReservationId}", id);
             var reservation = await Context.Reservations.FindAsync(id);
@@ -186,8 +209,13 @@ namespace EasyTab.Services.Services
                 throw new UserException("Rezervacija nije pronađena!");
             }
 
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                throw new UserException("Razlog otkazivanja je obavezan.");
+            }
+
             var state = GetStateMachine(reservation.ReservationState);
-            await state.CancelAsync(id);
+            await state.CancelAsync(id, reason, cancelledById);
             _logger.LogWarning("Reservation cancelled successfully. ReservationId: {ReservationId}", id);
         }
 
@@ -218,7 +246,7 @@ namespace EasyTab.Services.Services
             }
 
             var state = GetStateMachine(reservation.ReservationState);
-            return await state.ConfirmAsync(id);
+            return await state.ConfirmAsync(id, reservation.UserId);
         }
 
         public async Task<Reservations> DeactivateAsync(int id)
@@ -233,7 +261,7 @@ namespace EasyTab.Services.Services
             return await state.CompleteAsync(id);
         }
 
-        public async Task<Reservations> ConfirmAsync(int id)
+        public async Task<Reservations> ConfirmAsync(int id, int approvedById)
         {
             var reservation = await Context.Reservations.FindAsync(id);
             if (reservation == null)
@@ -242,7 +270,7 @@ namespace EasyTab.Services.Services
             }
 
             var state = GetStateMachine(reservation.ReservationState);
-            return await state.ConfirmAsync(id);
+            return await state.ConfirmAsync(id, approvedById);
         }
 
         public async Task<Reservations> CompleteAsync(int id)

@@ -27,13 +27,15 @@ namespace EasyTab.Services.ReservationStateMachine
             }
 
             entity.ReservationState = CompletedReservationState.StateName;
-            entity.IsCancelled = false;
+            entity.CancelledById = null;
+            entity.CancelledAt = null;
+            entity.CancellationReason = null;
             await _context.SaveChangesAsync();
 
             return _mapper.Map<Reservations>(entity);
         }
 
-        public override async Task<Reservations> CancelAsync(int id)
+        public override async Task<Reservations> CancelAsync(int id, string reason, int cancelledById)
         {
             var entity = await GetReservationOrThrowAsync(id);
 
@@ -43,7 +45,9 @@ namespace EasyTab.Services.ReservationStateMachine
             }
 
             entity.ReservationState = CancelledReservationState.StateName;
-            entity.IsCancelled = true;
+            entity.CancelledById = cancelledById;
+            entity.CancelledAt = DateTime.UtcNow;
+            entity.CancellationReason = reason;
             await _context.SaveChangesAsync();
 
             return _mapper.Map<Reservations>(entity);

@@ -17,7 +17,12 @@ namespace EasyTab.Model.Models
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
         public DateTime CreatedAt { get; set; }
-        public bool IsCancelled { get; set; }
+        public string? ReservationState { get; set; }
+        public int? ApprovedById { get; set; }
+        public DateTime? ApprovedAt { get; set; }
+        public int? CancelledById { get; set; }
+        public DateTime? CancelledAt { get; set; }
+        public string? CancellationReason { get; set; }
         public int? LocaleId { get; set; }
         public string? LocaleName { get; set; }
         public string? LocaleAddress { get; set; }

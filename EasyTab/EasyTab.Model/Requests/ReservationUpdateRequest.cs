@@ -8,6 +8,7 @@ namespace EasyTab.Model.Requests
 {
     public class ReservationUpdateRequest
     {
-        public bool? IsCancelled { get; set; }
+        public string? ReservationState { get; set; }
+        public string? CancellationReason { get; set; }
     }
 }

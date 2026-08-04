@@ -33,12 +33,12 @@ namespace EasyTab.Services.ReservationStateMachine
             throw new InvalidOperationException("Cannot update a reservation in its current state.");
         }
 
-        public virtual Task<Reservations> ConfirmAsync(int id)
+        public virtual Task<Reservations> ConfirmAsync(int id, int approvedById)
         {
             throw new InvalidOperationException("Cannot confirm a reservation in its current state.");
         }
 
-        public virtual Task<Reservations> CancelAsync(int id)
+        public virtual Task<Reservations> CancelAsync(int id, string reason, int cancelledById)
         {
             throw new InvalidOperationException("Cannot cancel a reservation in its current state.");
         }
@@ -78,7 +78,7 @@ namespace EasyTab.Services.ReservationStateMachine
                 case "Confirmed":
                 case nameof(ConfirmedReservationState):
                     return _serviceProvider.GetService<ConfirmedReservationState>()!;
-                case "Otkažana":
+                case "Otkazana":
                 case "Cancelled":
                 case nameof(CancelledReservationState):
                     return _serviceProvider.GetService<CancelledReservationState>()!;

@@ -9,7 +9,7 @@ namespace EasyTab.Services.ReservationStateMachine
 {
     public class CancelledReservationState : BaseReservationState
     {
-        public const string StateName = "Otkažana";
+        public const string StateName = "Otkazana";
 
         public CancelledReservationState(_220030Context context, IMapper mapper, IServiceProvider serviceProvider)
             : base(context, mapper, serviceProvider)

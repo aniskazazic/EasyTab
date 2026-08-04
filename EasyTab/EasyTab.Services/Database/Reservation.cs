@@ -20,11 +20,23 @@ public partial class Reservation
 
     public DateTime CreatedAt { get; set; }
 
-    public bool IsCancelled { get; set; }
+    public int? ApprovedById { get; set; }
+
+    public DateTime? ApprovedAt { get; set; }
+
+    public int? CancelledById { get; set; }
+
+    public DateTime? CancelledAt { get; set; }
+
+    public string? CancellationReason { get; set; }
 
     public virtual Table Table { get; set; } = null!;
 
     public virtual User User { get; set; } = null!;
+
+    public virtual User? ApprovedBy { get; set; }
+
+    public virtual User? CancelledBy { get; set; }
 
     [MaxLength(1000)]
     public string ReservationState { get; set; } = string.Empty;

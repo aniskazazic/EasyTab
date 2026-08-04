@@ -12,7 +12,7 @@ namespace EasyTab.Model.SearchObjects
         public int? UserId { get; set; }
         public int? TableId { get; set; }
         public int? LocaleId { get; set; }
-        public bool? IsCancelled { get; set; }
+        public string? ReservationState { get; set; }
         public bool? IsUpcoming { get; set; } // true = aktivne, false = prošle
     }
 }

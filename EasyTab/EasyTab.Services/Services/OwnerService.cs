@@ -28,7 +28,7 @@ namespace EasyTab.Services.Services
             var count = await _db.Reservations
                 .Where(x => x.ReservationDate.Date == today &&
                             x.Table.LocaleId == localeId &&
-                            !x.IsCancelled)
+                            x.ReservationState != "Otkazana")
                 .CountAsync();
             return count;
         }
@@ -39,7 +39,7 @@ namespace EasyTab.Services.Services
             var guests = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
                             r.Table.LocaleId == localeId &&
-                            !r.IsCancelled)
+                            r.ReservationState != "Otkazana")
                 .SumAsync(r => r.Table.NumberOfGuests);
             return guests;
         }
@@ -50,7 +50,7 @@ namespace EasyTab.Services.Services
             var count = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
                             r.Table.LocaleId == localeId &&
-                            !r.IsCancelled)
+                            r.ReservationState != "Otkazana")
                 .Select(r => r.TableId)
                 .Distinct()
                 .CountAsync();
@@ -144,7 +144,7 @@ namespace EasyTab.Services.Services
                     StartTime = s.StartTime,
                     Guests = s.Table.NumberOfGuests,
                     TableName = s.Table.Name,
-                    s.IsCancelled
+                    IsCancelled = s.ReservationState == "Otkazana"
                 })
                 .ToListAsync();
 
