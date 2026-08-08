@@ -188,4 +188,10 @@ app.UseAuthorization();
 app.UseStaticFiles();
 app.MapControllers();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<_220030Context>();
+    dbContext.Database.Migrate();
+}
+
 app.Run();

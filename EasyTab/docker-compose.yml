@@ -1,0 +1,44 @@
+version: '3'
+
+services:
+  easytab-sql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: easytab-sql
+    environment:
+      - ACCEPT_EULA=Y
+      - SA_PASSWORD=YourStrong!Passw0rd123
+      - MSSQL_PID=Developer
+    ports:
+      - "1432:1433"
+    expose:
+      - "1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    networks:
+      - easytabnetwork
+  
+  easytab-api:
+    build: 
+      context: .
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings:EasyTabConnection=Server=easytab-sql;Database=220030;User Id=sa;Password=YourStrong!Passw0rd123;TrustServerCertificate=True;
+    ports:
+      - "5241:5241"
+    expose:
+      - "5241"
+    depends_on:
+      - easytab-sql
+    links:
+        - easytab-sql
+    networks:
+      - easytabnetwork
+
+
+
+volumes:
+  sqlserver_data:
+
+networks:
+  easytabnetwork:
+    driver: bridge 

@@ -11,9 +11,13 @@ namespace EasyTab.Services.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "FK__LocaleIma__Local__787EE5A0",
-                table: "LocaleImages");
+            migrationBuilder.Sql("""
+                IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK__LocaleIma__Local__787EE5A0' AND parent_object_id = OBJECT_ID('LocaleImages'))
+                    ALTER TABLE [LocaleImages] DROP CONSTRAINT [FK__LocaleIma__Local__787EE5A0];
+
+                IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_LocaleImages_Locales_LocaleId' AND parent_object_id = OBJECT_ID('LocaleImages'))
+                    ALTER TABLE [LocaleImages] DROP CONSTRAINT [FK_LocaleImages_Locales_LocaleId];
+                """);
 
             migrationBuilder.DropColumn(
                 name: "ImageUrl",

@@ -691,13 +691,13 @@ namespace EasyTab.Services.Migrations
                         .WithMany("UserRoles")
                         .HasForeignKey("RoleId")
                         .IsRequired()
-                        .HasConstraintName("FK__UserRoles__RoleI__45F365D3");
+                        .HasConstraintName("FK_UserRoles_Roles_RoleId");
 
                     b.HasOne("EasyTab.Services.Database.User", "User")
                         .WithMany("UserRoles")
                         .HasForeignKey("UserId")
                         .IsRequired()
-                        .HasConstraintName("FK__UserRoles__UserI__44FF419A");
+                        .HasConstraintName("FK_UserRoles_Users_UserId");
 
                     b.Navigation("Role");
 

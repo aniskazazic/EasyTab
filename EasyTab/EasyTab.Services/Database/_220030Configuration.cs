@@ -208,12 +208,12 @@ public partial class _220030Context : DbContext
 
             entity.HasOne(d => d.Role).WithMany(p => p.UserRoles)
                 .HasForeignKey(d => d.RoleId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK__UserRoles__RoleI__45F365D3");
 
             entity.HasOne(d => d.User).WithMany(p => p.UserRoles)
                 .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK__UserRoles__UserI__44FF419A");
         });
 
@@ -248,19 +248,6 @@ public partial class _220030Context : DbContext
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("FK__Zones__LocaleId__5FB337D6");
         });
-
-        modelBuilder.Entity<UserRole>()
-       .HasOne(ur => ur.User)
-       .WithMany(u => u.UserRoles)
-       .HasForeignKey(ur => ur.UserId)
-       .OnDelete(DeleteBehavior.Cascade);
-
-        // Role -> UserRoles
-        modelBuilder.Entity<UserRole>()
-            .HasOne(ur => ur.Role)
-            .WithMany(r => r.UserRoles)
-            .HasForeignKey(ur => ur.RoleId)
-            .OnDelete(DeleteBehavior.Cascade);
 
         modelBuilder.Entity<LocaleImage>()
             .HasOne(a => a.Locale)
