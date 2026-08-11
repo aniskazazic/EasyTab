@@ -30,4 +30,8 @@
     <ProjectReference Include="..\EasyTab.Model\EasyTab.Model.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="EasyNetQ" Version="7.8.0" />
+  </ItemGroup>
+
 </Project>
