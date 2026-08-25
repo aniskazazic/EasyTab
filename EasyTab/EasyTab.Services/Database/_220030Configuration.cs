@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 
@@ -268,5 +268,22 @@ public partial class _220030Context : DbContext
         //    .WithMany(u => u.Locales)
         //    .HasForeignKey(l => l.OwnerId)
         //    .OnDelete(DeleteBehavior.Cascade);
-    }
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Title).HasMaxLength(200).IsRequired();
+            entity.Property(e => e.Message).HasMaxLength(1000).IsRequired();
+            entity.Property(e => e.IsRead).HasDefaultValue(false);
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("(getdate())")
+                .HasColumnType("datetime");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Notifications)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_Notifications_Users");
+        });    }
 }

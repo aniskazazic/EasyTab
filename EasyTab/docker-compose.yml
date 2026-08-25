@@ -23,17 +23,26 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings:EasyTabConnection=Server=easytab-sql;Database=220030;User Id=sa;Password=YourStrong!Passw0rd123;TrustServerCertificate=True;
+      - RabbitMQ:Host=easytab-rabbitmq
+      - RabbitMQ:Username=admin
+      - RabbitMQ:Password=admin
+      - Email:Host=smtp.gmail.com
+      - Email:Port=587
+      - Email:Username=easytab99@gmail.com
+      - Email:Password=ovlkazoipasxvyme
+      - Email:FromName=EasyTab
     ports:
       - "5241:5241"
     expose:
       - "5241"
     depends_on:
       - easytab-sql
+      - easytab-rabbitmq
     links:
         - easytab-sql
     networks:
       - easytabnetwork
-  
+
   easytab-rabbitmq:
     image: rabbitmq:3-management
     restart: unless-stopped
@@ -49,6 +58,25 @@ services:
     networks:
       - easytabnetwork
 
+  easytab-subscriber:
+    build:
+      context: .
+      dockerfile: EasyTab.Subscriber/Dockerfile
+    container_name: easytab-subscriber
+    restart: unless-stopped
+    environment:
+      - RabbitMQ:Host=easytab-rabbitmq
+      - RabbitMQ:Username=admin
+      - RabbitMQ:Password=admin
+      - Email:Host=smtp.gmail.com
+      - Email:Port=587
+      - Email:Username=easytab99@gmail.com
+      - Email:Password=ovlkazoipasxvyme
+      - Email:FromName=EasyTab
+    depends_on:
+      - easytab-rabbitmq
+    networks:
+      - easytabnetwork
 
 
 volumes:
@@ -56,4 +84,4 @@ volumes:
 
 networks:
   easytabnetwork:
-    driver: bridge 
+    driver: bridge

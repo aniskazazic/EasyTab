@@ -1,7 +1,11 @@
+using EasyTab.Model.Messages;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Services.Database;
+using EasyTab.Services.Interfaces;
 using MapsterMapper;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -49,6 +53,35 @@ namespace EasyTab.Services.ReservationStateMachine
             entity.CancelledAt = DateTime.UtcNow;
             entity.CancellationReason = reason;
             await _context.SaveChangesAsync();
+
+            // Publish RabbitMQ poruka za otkazivanje potvrđene rezervacije
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var user = await _context.Users.FindAsync(entity.UserId);
+                    var table = await _context.Tables
+                        .Include(t => t.Locale)
+                        .FirstOrDefaultAsync(t => t.Id == entity.TableId);
+
+                    if (user != null && table?.Locale != null)
+                    {
+                        var publisher = _serviceProvider.GetRequiredService<IRabbitMQPublisher>();
+                        await publisher.PublishReservationCancelledAsync(new ReservationCancelledMessage
+                        {
+                            ReservationId = entity.Id,
+                            UserId = user.Id,
+                            UserEmail = user.Email,
+                            UserFullName = $"{user.FirstName} {user.LastName}",
+                            LocaleName = table.Locale.Name,
+                            ReservationDate = entity.ReservationDate,
+                            StartTime = entity.StartTime.ToString("HH:mm"),
+                            CancellationReason = reason
+                        });
+                    }
+                }
+                catch { /* publish greška ne blokira API */ }
+            });
 
             return _mapper.Map<Reservations>(entity);
         }

@@ -1,4 +1,4 @@
-﻿using EasyTab.Services.Interfaces;
+using EasyTab.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -47,4 +47,6 @@ public partial class User : ISoftDelete
     public virtual ICollection<Worker> Workers { get; set; } = new List<Worker>();
 
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
+
+    public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 }

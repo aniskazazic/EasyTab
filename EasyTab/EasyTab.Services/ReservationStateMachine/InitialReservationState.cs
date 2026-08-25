@@ -1,7 +1,11 @@
-﻿using EasyTab.Model.Models;
+using EasyTab.Model.Messages;
+using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Services.Database;
+using EasyTab.Services.Interfaces;
 using MapsterMapper;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -21,6 +25,37 @@ namespace EasyTab.Services.ReservationStateMachine
             entity.ReservationState = PendingReservationState.StateName;
             _context.Reservations.Add(entity);
             await _context.SaveChangesAsync();
+
+            // Publish RabbitMQ poruka za kreiranje rezervacije
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var user = await _context.Users.FindAsync(request.UserId);
+                    var table = await _context.Tables
+                        .Include(t => t.Locale)
+                        .FirstOrDefaultAsync(t => t.Id == request.TableId);
+
+                    if (user != null && table?.Locale != null)
+                    {
+                        var publisher = _serviceProvider.GetRequiredService<IRabbitMQPublisher>();
+                        await publisher.PublishReservationCreatedAsync(new ReservationCreatedMessage
+                        {
+                            ReservationId = entity.Id,
+                            UserId = user.Id,
+                            UserEmail = user.Email,
+                            UserFullName = $"{user.FirstName} {user.LastName}",
+                            LocaleName = table.Locale.Name,
+                            ReservationDate = entity.ReservationDate,
+                            StartTime = entity.StartTime.ToString("HH:mm"),
+                            EndTime = entity.EndTime.ToString("HH:mm"),
+                            NumberOfGuests = table.NumberOfGuests
+                        });
+                    }
+                }
+                catch { /* publish greška ne blokira API */ }
+            });
+
             return _mapper.Map<Reservations>(entity);
         }
 

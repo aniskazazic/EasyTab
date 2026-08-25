@@ -1,5 +1,6 @@
 using EasyTab.API.Filters;
 using EasyTab.API.Helpers;
+using EasyTab.API.Hubs;
 using EasyTab.API.Services.AccessManager;
 using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Models;
@@ -40,6 +41,10 @@ builder.Services.AddScoped<ILocaleImageService, LocaleImageService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IOwnerService, OwnerService>();
 builder.Services.AddScoped<IFileService, FileService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
+
+builder.Services.AddSignalR();
 
 builder.Services.AddScoped<IQueryOptimizationService, QueryOptimizationService>();
 builder.Services.AddScoped<ICryptoService, CryptoService>();
@@ -187,11 +192,32 @@ app.UseAuthorization();
 
 app.UseStaticFiles();
 app.MapControllers();
+app.MapHub<NotificationHub>("/notificationHub");
 
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<_220030Context>();
-    dbContext.Database.Migrate();
+    
+    try
+    {
+        // Provjeri da li se možeš povezati na bazu
+        if (dbContext.Database.CanConnect())
+        {
+            // Baza postoji – samo primijeni migracije (ako ih ima)
+            dbContext.Database.Migrate();
+        }
+        else
+        {
+            // Baza ne postoji – kreiraj je i primijeni migracije
+            dbContext.Database.Migrate();
+        }
+    }
+    catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 1801)
+    {
+        // Ako iz nekog razloga ipak dođe do greške "Database already exists",
+        // samo je ignoriraj i nastavi dalje – baza postoji i to je dovoljno.
+        Console.WriteLine("Database already exists, continuing...");
+    }
 }
 
 app.Run();

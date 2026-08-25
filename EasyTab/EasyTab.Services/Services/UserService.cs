@@ -1,6 +1,7 @@
 using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Access;
 using EasyTab.Model.Exceptions;
+using EasyTab.Model.Messages;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
@@ -18,11 +19,13 @@ namespace EasyTab.Services.Services
     {
         private readonly ILogger<IUserService> _logger;
         private readonly ICryptoService _cryptoService;
+        private readonly IRabbitMQPublisher _rabbitMQPublisher;
 
-        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IValidator<UserInsertRequest> insertValidator, IValidator<UserUpdateRequest> updateValidator, ICryptoService cryptoService) : base(context, mapper,insertValidator,updateValidator)
+        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IValidator<UserInsertRequest> insertValidator, IValidator<UserUpdateRequest> updateValidator, ICryptoService cryptoService, IRabbitMQPublisher rabbitMQPublisher) : base(context, mapper,insertValidator,updateValidator)
         {
             _logger = logger;
             _cryptoService = cryptoService;
+            _rabbitMQPublisher = rabbitMQPublisher;
         }
 
         protected override IQueryable<User> ApplyFilter(IQueryable<User> query, UserSearchObject? searchObject)
@@ -104,6 +107,25 @@ namespace EasyTab.Services.Services
 
                 await Context.SaveChangesAsync();
             }
+
+            // Publish RabbitMQ poruka za registraciju korisnika
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var registeredUser = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+                    if (registeredUser != null)
+                    {
+                        await _rabbitMQPublisher.PublishUserRegisteredAsync(new UserRegisteredMessage
+                        {
+                            Email = registeredUser.Email,
+                            FullName = $"{registeredUser.FirstName} {registeredUser.LastName}",
+                            Username = registeredUser.Username
+                        });
+                    }
+                }
+                catch { /* publish greška ne blokira registraciju */ }
+            });
 
             return result;
         }
