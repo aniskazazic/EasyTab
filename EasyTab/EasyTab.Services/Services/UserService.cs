@@ -109,23 +109,29 @@ namespace EasyTab.Services.Services
             }
 
             // Publish RabbitMQ poruka za registraciju korisnika
-            _ = Task.Run(async () =>
+            try
             {
-                try
+                var registeredUser = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+                if (registeredUser != null)
                 {
-                    var registeredUser = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-                    if (registeredUser != null)
+                    var message = new UserRegisteredMessage
                     {
-                        await _rabbitMQPublisher.PublishUserRegisteredAsync(new UserRegisteredMessage
+                        Email = registeredUser.Email,
+                        FullName = $"{registeredUser.FirstName} {registeredUser.LastName}",
+                        Username = registeredUser.Username
+                    };
+
+                    _ = Task.Run(async () =>
+                    {
+                        try
                         {
-                            Email = registeredUser.Email,
-                            FullName = $"{registeredUser.FirstName} {registeredUser.LastName}",
-                            Username = registeredUser.Username
-                        });
-                    }
+                            await _rabbitMQPublisher.PublishUserRegisteredAsync(message);
+                        }
+                        catch { /* publish greška ne blokira registraciju */ }
+                    });
                 }
-                catch { /* publish greška ne blokira registraciju */ }
-            });
+            }
+            catch { /* greška ne blokira registraciju */ }
 
             return result;
         }

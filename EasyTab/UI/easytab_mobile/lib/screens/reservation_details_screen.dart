@@ -1,6 +1,8 @@
+import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/models/table.dart';
 import 'package:easytab_mobile/models/time_slot.dart';
+import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:flutter/material.dart';
 
@@ -118,15 +120,65 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
       return;
     }
 
+    final userId = AuthProvider.currentUserId;
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Niste prijavljeni. Molimo prijavite se ponovo.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final slot = _slots[_selectedSlotIndex!];
+    final startTimeFormatted =
+        slot.start.length == 5 ? '${slot.start}:00' : slot.start;
+    final endTimeFormatted =
+        slot.end.length == 5 ? '${slot.end}:00' : slot.end;
+
+    final request = {
+      'userId': userId,
+      'tableId': table.id,
+      'numberOfGuests': table.numberOfGuests ?? 2,
+      'reservationDate':
+          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day)
+              .toIso8601String(),
+      'startTime': startTimeFormatted,
+      'endTime': endTimeFormatted,
+    };
+
     setState(() => _isProcessing = true);
 
-    // Simulate payment processing
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      await _reservationProvider.insertReservation(request);
 
-    if (!mounted) return;
-    setState(() => _isProcessing = false);
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
 
-    _showSuccessDialog();
+      _showSuccessDialog();
+    } on ApiClientException catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isProcessing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Greška pri kreiranju rezervacije: $e'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _showSuccessDialog() {
@@ -145,26 +197,43 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
               Container(
                 width: 72,
                 height: 72,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFDCFCE7),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFEF3C7),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.check_rounded,
-                  color: Color(0xFF16A34A),
+                  Icons.hourglass_top_rounded,
+                  color: Color(0xFFD97706),
                   size: 40,
                 ),
               ),
               const SizedBox(height: 20),
               const Text(
-                'Rezervacija potvrđena!',
+                'Rezervacija kreirana!',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF0F172A),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: const Text(
+                  'Status: Na čekanju',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFB45309),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(

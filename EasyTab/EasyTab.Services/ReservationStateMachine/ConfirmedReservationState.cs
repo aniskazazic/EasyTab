@@ -54,34 +54,40 @@ namespace EasyTab.Services.ReservationStateMachine
             entity.CancellationReason = reason;
             await _context.SaveChangesAsync();
 
-            // Publish RabbitMQ poruka za otkazivanje potvrđene rezervacije
-            _ = Task.Run(async () =>
+            // Pripremi podatke za RabbitMQ poruku dok je DbContext još aktivan
+            try
             {
-                try
-                {
-                    var user = await _context.Users.FindAsync(entity.UserId);
-                    var table = await _context.Tables
-                        .Include(t => t.Locale)
-                        .FirstOrDefaultAsync(t => t.Id == entity.TableId);
+                var user = await _context.Users.FindAsync(entity.UserId);
+                var table = await _context.Tables
+                    .Include(t => t.Locale)
+                    .FirstOrDefaultAsync(t => t.Id == entity.TableId);
 
-                    if (user != null && table?.Locale != null)
+                if (user != null && table?.Locale != null)
+                {
+                    var message = new ReservationCancelledMessage
                     {
-                        var publisher = _serviceProvider.GetRequiredService<IRabbitMQPublisher>();
-                        await publisher.PublishReservationCancelledAsync(new ReservationCancelledMessage
+                        ReservationId = entity.Id,
+                        UserId = user.Id,
+                        UserEmail = user.Email,
+                        UserFullName = $"{user.FirstName} {user.LastName}",
+                        LocaleName = table.Locale.Name,
+                        ReservationDate = entity.ReservationDate,
+                        StartTime = entity.StartTime.ToString("HH:mm"),
+                        CancellationReason = reason
+                    };
+
+                    var publisher = _serviceProvider.GetRequiredService<IRabbitMQPublisher>();
+                    _ = Task.Run(async () =>
+                    {
+                        try
                         {
-                            ReservationId = entity.Id,
-                            UserId = user.Id,
-                            UserEmail = user.Email,
-                            UserFullName = $"{user.FirstName} {user.LastName}",
-                            LocaleName = table.Locale.Name,
-                            ReservationDate = entity.ReservationDate,
-                            StartTime = entity.StartTime.ToString("HH:mm"),
-                            CancellationReason = reason
-                        });
-                    }
+                            await publisher.PublishReservationCancelledAsync(message);
+                        }
+                        catch { /* publish greška ne blokira API */ }
+                    });
                 }
-                catch { /* publish greška ne blokira API */ }
-            });
+            }
+            catch { /* greška ne blokira otkazivanje */ }
 
             return _mapper.Map<Reservations>(entity);
         }

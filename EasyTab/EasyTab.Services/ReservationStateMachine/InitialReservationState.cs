@@ -26,35 +26,41 @@ namespace EasyTab.Services.ReservationStateMachine
             _context.Reservations.Add(entity);
             await _context.SaveChangesAsync();
 
-            // Publish RabbitMQ poruka za kreiranje rezervacije
-            _ = Task.Run(async () =>
+            // Pripremi podatke za RabbitMQ poruku dok je DbContext još aktivan
+            try
             {
-                try
-                {
-                    var user = await _context.Users.FindAsync(request.UserId);
-                    var table = await _context.Tables
-                        .Include(t => t.Locale)
-                        .FirstOrDefaultAsync(t => t.Id == request.TableId);
+                var user = await _context.Users.FindAsync(request.UserId);
+                var table = await _context.Tables
+                    .Include(t => t.Locale)
+                    .FirstOrDefaultAsync(t => t.Id == request.TableId);
 
-                    if (user != null && table?.Locale != null)
+                if (user != null && table?.Locale != null)
+                {
+                    var message = new ReservationCreatedMessage
                     {
-                        var publisher = _serviceProvider.GetRequiredService<IRabbitMQPublisher>();
-                        await publisher.PublishReservationCreatedAsync(new ReservationCreatedMessage
+                        ReservationId = entity.Id,
+                        UserId = user.Id,
+                        UserEmail = user.Email,
+                        UserFullName = $"{user.FirstName} {user.LastName}",
+                        LocaleName = table.Locale.Name,
+                        ReservationDate = entity.ReservationDate,
+                        StartTime = entity.StartTime.ToString("HH:mm"),
+                        EndTime = entity.EndTime.ToString("HH:mm"),
+                        NumberOfGuests = table.NumberOfGuests
+                    };
+
+                    var publisher = _serviceProvider.GetRequiredService<IRabbitMQPublisher>();
+                    _ = Task.Run(async () =>
+                    {
+                        try
                         {
-                            ReservationId = entity.Id,
-                            UserId = user.Id,
-                            UserEmail = user.Email,
-                            UserFullName = $"{user.FirstName} {user.LastName}",
-                            LocaleName = table.Locale.Name,
-                            ReservationDate = entity.ReservationDate,
-                            StartTime = entity.StartTime.ToString("HH:mm"),
-                            EndTime = entity.EndTime.ToString("HH:mm"),
-                            NumberOfGuests = table.NumberOfGuests
-                        });
-                    }
+                            await publisher.PublishReservationCreatedAsync(message);
+                        }
+                        catch { /* publish greška ne blokira API */ }
+                    });
                 }
-                catch { /* publish greška ne blokira API */ }
-            });
+            }
+            catch { /* greška ne blokira kreiranje rezervacije */ }
 
             return _mapper.Map<Reservations>(entity);
         }

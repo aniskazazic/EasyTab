@@ -86,8 +86,17 @@ builder.Services.AddScoped<IValidator<LocaleImageUpdateRequest>, LocaleImageUpda
 
 builder.Services.AddMapster();
 
-//kad zelimo ignorisati polja u modelu, npr. null vrijednosti, koristimo TypeAdapterConfig
-//TypeAdapterConfig<User, Users>.NewConfig().IgnoreNullValues(true);
+TypeAdapterConfig<TimeSpan, TimeOnly>.NewConfig()
+    .MapWith(src => TimeOnly.FromTimeSpan(src));
+
+TypeAdapterConfig<TimeOnly, TimeSpan>.NewConfig()
+    .MapWith(src => src.ToTimeSpan());
+
+TypeAdapterConfig<TimeSpan?, TimeOnly?>.NewConfig()
+    .MapWith(src => src.HasValue ? TimeOnly.FromTimeSpan(src.Value) : (TimeOnly?)null);
+
+TypeAdapterConfig<TimeOnly?, TimeSpan?>.NewConfig()
+    .MapWith(src => src.HasValue ? src.Value.ToTimeSpan() : (TimeSpan?)null);
 
 
 builder.Services.AddHttpContextAccessor();
