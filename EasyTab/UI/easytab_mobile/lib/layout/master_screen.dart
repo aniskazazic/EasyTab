@@ -1,8 +1,12 @@
+import 'package:easytab_mobile/providers/auth_provider.dart';
+import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/screens/favourite_screen.dart';
 import 'package:easytab_mobile/screens/home_screen.dart';
 import 'package:easytab_mobile/screens/search_locales_screen.dart';
 import 'package:easytab_mobile/screens/settings_user_screen.dart';
+import 'package:easytab_mobile/screens/user_reservations_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 class MasterScreen extends StatefulWidget {
   const MasterScreen({super.key});
@@ -48,7 +52,7 @@ class _MasterScreenState extends State<MasterScreen> {
       case 2:
         return const FavouritesScreen();
       case 3:
-        return const _ReservationsScreen();
+        return const UserReservationsScreen();
       case 4:
         return const SettingsUserScreen();
       default:
@@ -60,6 +64,13 @@ class _MasterScreenState extends State<MasterScreen> {
     setState(() {
       _currentIndex = index;
     });
+
+    if (index == 3) {
+      final userId = AuthProvider.currentUserId;
+      if (userId != null) {
+        context.read<ReservationProvider>().loadAll(userId);
+      }
+    }
   }
 
   @override
@@ -142,41 +153,6 @@ class _MasterScreenState extends State<MasterScreen> {
           SizedBox(width: 10),
           Icon(Icons.table_restaurant, color: Colors.white, size: 34),
         ],
-      ),
-    );
-  }
-}
-
-class _ReservationsScreen extends StatelessWidget {
-  const _ReservationsScreen();
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen(
-    label: 'Rezervacije',
-    icon: Icons.calendar_today_outlined,
-  );
-}
-
-class _PlaceholderScreen extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  const _PlaceholderScreen({required this.label, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 56, color: Colors.grey.shade300),
-            const SizedBox(height: 14),
-            Text(
-              'Uskoro dostupno',
-              style: TextStyle(fontSize: 15, color: Colors.grey.shade400),
-            ),
-          ],
-        ),
       ),
     );
   }

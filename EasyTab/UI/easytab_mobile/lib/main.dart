@@ -7,6 +7,7 @@ import 'package:easytab_mobile/providers/favourite_provider.dart';
 import 'package:easytab_mobile/providers/locale_provider.dart';
 import 'package:easytab_mobile/providers/localeimage_provider.dart';
 import 'package:easytab_mobile/providers/reaction_provider.dart';
+import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/providers/review_provider.dart';
 import 'package:easytab_mobile/providers/table_provider.dart';
 import 'package:easytab_mobile/providers/user_provider.dart';
@@ -33,6 +34,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => TableProvider()),
         ChangeNotifierProvider(create: (_) => ZoneProvider()),
+        ChangeNotifierProvider(create: (_) => ReservationProvider()),
       ],
       child: const MyApp(),
     ),

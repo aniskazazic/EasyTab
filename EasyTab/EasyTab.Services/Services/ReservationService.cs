@@ -35,7 +35,7 @@ namespace EasyTab.Services.Services
         protected override IQueryable<Reservation> ApplyFilter(IQueryable<Reservation> query, ReservationSearchObject search)
         {
             query = query.Include(r => r.Table)
-                                      .ThenInclude(t => t.Locale);
+                         .ThenInclude(t => t.Locale);
 
             if (search?.UserId.HasValue == true)
                 query = query.Where(x => x.UserId == search.UserId);
@@ -49,24 +49,69 @@ namespace EasyTab.Services.Services
             if (search?.ReservationState != null)
                 query = query.Where(x => x.ReservationState == search.ReservationState);
 
-            // Aktivne rezervacije
+            // Aktivne rezervacije: samo one koje nisu otkazane/završene i čiji termin još nije prošao
             if (search?.IsUpcoming == true)
             {
                 var now = DateTime.Now;
                 query = query.Where(r =>
-                    r.ReservationDate > now.Date ||
-                    (r.ReservationDate == now.Date && r.StartTime > TimeOnly.FromTimeSpan(now.TimeOfDay)));
+                    r.ReservationState != CancelledReservationState.StateName &&
+                    r.ReservationState != CompletedReservationState.StateName &&
+                    (r.ReservationDate.Date > now.Date ||
+                    (r.ReservationDate.Date == now.Date && r.StartTime >= TimeOnly.FromTimeSpan(now.TimeOfDay))));
             }
-            // Prošle rezervacije
+            // Prošle / historija rezervacije: otkazane, završene ili one čiji je termin prošao
             else if (search?.IsUpcoming == false)
             {
                 var now = DateTime.Now;
                 query = query.Where(r =>
-                    r.ReservationDate < now.Date ||
-                    (r.ReservationDate == now.Date && r.StartTime < TimeOnly.FromTimeSpan(now.TimeOfDay)));
+                    r.ReservationState == CancelledReservationState.StateName ||
+                    r.ReservationState == CompletedReservationState.StateName ||
+                    r.ReservationDate.Date < now.Date ||
+                    (r.ReservationDate.Date == now.Date && r.StartTime < TimeOnly.FromTimeSpan(now.TimeOfDay)));
+            }
+
+            // Po defaultu najnovije rezervacije na vrhu
+            if (string.IsNullOrWhiteSpace(search?.SortBy))
+            {
+                query = query.OrderByDescending(x => x.ReservationDate)
+                             .ThenByDescending(x => x.StartTime);
             }
 
             return query;
+        }
+
+        protected override Reservations MapToResponse(Reservation entity)
+        {
+            var dto = base.MapToResponse(entity);
+
+            if (entity.Table != null)
+            {
+                dto.TableName = entity.Table.Name;
+                dto.NumberOfGuests = entity.Table.NumberOfGuests;
+
+                if (entity.Table.Locale != null)
+                {
+                    dto.LocaleId = entity.Table.Locale.Id;
+                    dto.LocaleName = entity.Table.Locale.Name;
+                    dto.LocaleAddress = entity.Table.Locale.Address;
+                    dto.LocaleLogo = entity.Table.Locale.Logo;
+                }
+            }
+
+            return dto;
+        }
+
+        public override async Task<Reservations?> GetByIdAsync(int id)
+        {
+            var entity = await Context.Reservations
+                .Include(r => r.Table)
+                    .ThenInclude(t => t.Locale)
+                .FirstOrDefaultAsync(r => r.Id == id);
+
+            if (entity == null)
+                return null;
+
+            return MapToResponse(entity);
         }
 
         protected override async Task BeforeInsert(Reservation entity, ReservationInsertRequest request)
