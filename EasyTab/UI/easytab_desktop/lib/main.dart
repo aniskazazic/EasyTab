@@ -21,9 +21,12 @@ import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_locale_list_screen.dart';
 import 'package:easytab_desktop/providers/localeimage_provider.dart';
+import 'package:easytab_desktop/providers/reservation_provider.dart';
+import 'package:easytab_desktop/screens/admin_reservations_screen.dart';
 import 'package:easytab_desktop/screens/owner_dashboard_screen.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
+import 'package:easytab_desktop/screens/owner_reservations_screen.dart';
 import 'package:easytab_desktop/screens/owner_reviews_screen.dart';
 import 'package:easytab_desktop/screens/owner_settings_screen.dart';
 import 'package:easytab_desktop/screens/owner_workers_screen.dart';
@@ -49,6 +52,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => LocaleImageProvider()),
         ChangeNotifierProvider(create: (_) => ReviewProvider()),
+        ChangeNotifierProvider(create: (_) => ReservationProvider()),
       ],
       child: const MyLoginApp(),
     ),
@@ -87,12 +91,20 @@ class MyLoginApp extends StatelessWidget {
         '/owner-add-locale': (context) => const OwnerLocaleDetailsScreen(),
         '/add-user': (context) => const AdminAddUserScreen(),
         '/admin-settings': (context) => const AdminSettingsScreen(),
+        '/admin-reservations': (context) => const AdminReservationsScreen(),
         '/reviews': (context) => const AdminReviewsScreen(),
         '/owner-settings': (context) => const OwnerSettingsScreen(),
         '/owner-locale-settings': (context) {
           final locale =
               ModalRoute.of(context)!.settings.arguments as model.Locale?;
           return OwnerLocaleDetailsScreen(locale: locale);
+        },
+        '/owner-reservations': (context) {
+          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          return OwnerReservationsScreen(
+            localeId: args?['localeId'] as int? ?? 0,
+            localeName: args?['localeName'] as String? ?? '',
+          );
         },
         '/owner-reviews': (context) {
           final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;

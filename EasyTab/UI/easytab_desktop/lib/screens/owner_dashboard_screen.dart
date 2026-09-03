@@ -3,6 +3,7 @@ import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
+import 'package:easytab_desktop/screens/owner_reservations_screen.dart';
 import 'package:easytab_desktop/screens/owner_reviews_screen.dart';
 import 'package:easytab_desktop/screens/owner_tables_screen.dart';
 import 'package:easytab_desktop/screens/owner_workers_screen.dart';
@@ -123,6 +124,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         );
         break;
       case 'Rezervacije':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OwnerReservationsScreen(
+              localeId: localeId,
+              localeName: locale.name ?? '',
+              onSectionTap: _onSectionTap,
+              onRefresh: _refresh,
+            ),
+          ),
+        ).then((_) => _loadStats(localeId));
         break;
       case 'Stolovi':
         Navigator.push(

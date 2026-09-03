@@ -84,7 +84,10 @@ class AdminSidebar extends StatelessWidget {
                     context: context,
                     icon: Icons.calendar_today,
                     label: 'Rezervacije',
-                    //onTap: () => Navigator.pushReplacementNamed(context, '/reservations',),
+                    onTap: () => Navigator.pushReplacementNamed(
+                      context,
+                      '/admin-reservations',
+                    ),
                   ),
                   _item(
                     context: context,
