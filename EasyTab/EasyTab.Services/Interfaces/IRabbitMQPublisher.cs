@@ -6,6 +6,7 @@ namespace EasyTab.Services.Interfaces
     {
         Task PublishUserRegisteredAsync(UserRegisteredMessage message);
         Task PublishReservationCreatedAsync(ReservationCreatedMessage message);
+        Task PublishReservationConfirmedAsync(ReservationConfirmedMessage message);
         Task PublishReservationCancelledAsync(ReservationCancelledMessage message);
     }
 }

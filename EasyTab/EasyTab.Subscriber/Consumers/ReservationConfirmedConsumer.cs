@@ -3,22 +3,22 @@ using EasyTab.Subscriber.Services;
 
 namespace EasyTab.Subscriber.Consumers
 {
-    public class ReservationCancelledConsumer
+    public class ReservationConfirmedConsumer
     {
         private readonly EmailService _emailService;
-        private readonly ILogger<ReservationCancelledConsumer> _logger;
+        private readonly ILogger<ReservationConfirmedConsumer> _logger;
 
-        public ReservationCancelledConsumer(EmailService emailService, ILogger<ReservationCancelledConsumer> logger)
+        public ReservationConfirmedConsumer(EmailService emailService, ILogger<ReservationConfirmedConsumer> logger)
         {
             _emailService = emailService;
             _logger = logger;
         }
 
-        public async Task HandleAsync(ReservationCancelledMessage message)
+        public async Task HandleAsync(ReservationConfirmedMessage message)
         {
-            _logger.LogInformation("Processing ReservationCancelledMessage for ReservationId: {Id}", message.ReservationId);
+            _logger.LogInformation("Processing ReservationConfirmedMessage for ReservationId: {Id}", message.ReservationId);
 
-            var subject = "Vaša rezervacija je otkazana — EasyTab";
+            var subject = "Vaša rezervacija je potvrđena — EasyTab";
             var formattedDate = message.ReservationDate.ToString("dd.MM.yyyy");
 
             var body = $@"
@@ -38,10 +38,7 @@ namespace EasyTab.Subscriber.Consumers
         .table-details td {{ padding: 8px 0; font-size: 14px; border-bottom: 1px solid #f1f5f9; }}
         .table-details td.label {{ color: #64748b; width: 40%; }}
         .table-details td.value {{ color: #0f172a; font-weight: 600; }}
-        .status-badge {{ display: inline-block; background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 4px; font-weight: 600; font-size: 13px; }}
-        .reason-box {{ background-color: #fef2f2; border: 1px solid #fee2e2; padding: 12px 16px; border-radius: 4px; margin: 16px 0; font-size: 14px; }}
-        .reason-box .reason-label {{ font-size: 12px; color: #991b1b; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }}
-        .reason-box .reason-text {{ color: #1e293b; }}
+        .status-badge {{ display: inline-block; background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 4px; font-weight: 600; font-size: 13px; }}
         .footer {{ background-color: #f8fafc; padding: 16px 24px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #64748b; }}
     </style>
 </head>
@@ -52,7 +49,7 @@ namespace EasyTab.Subscriber.Consumers
         </div>
         <div class='body'>
             <h2>Zdravo {message.UserFullName},</h2>
-            <p>Vaša rezervacija je <span class='status-badge'>Otkazana</span>.</p>
+            <p>Vaša rezervacija je <span class='status-badge'>Potvrđena</span> od strane lokala.</p>
             
             <table class='table-details'>
                 <tr>
@@ -65,7 +62,11 @@ namespace EasyTab.Subscriber.Consumers
                 </tr>
                 <tr>
                     <td class='label'>Termin:</td>
-                    <td class='value'>{message.StartTime}</td>
+                    <td class='value'>{message.StartTime} - {message.EndTime}</td>
+                </tr>
+                <tr>
+                    <td class='label'>Broj osoba:</td>
+                    <td class='value'>{message.NumberOfGuests}</td>
                 </tr>
                 <tr>
                     <td class='label'>Broj rezervacije:</td>
@@ -73,12 +74,7 @@ namespace EasyTab.Subscriber.Consumers
                 </tr>
             </table>
 
-            <div class='reason-box'>
-                <div class='reason-label'>Razlog otkazivanja:</div>
-                <div class='reason-text'>{message.CancellationReason}</div>
-            </div>
-
-            <p>Ukoliko želite, možete napraviti novu rezervaciju u EasyTab aplikaciji.</p>
+            <p>Ukoliko dođe do promjene planova, molimo vas da blagovremeno otkažete rezervaciju kroz aplikaciju.</p>
             <p style='margin-top: 20px;'>Srdačan pozdrav,<br>EasyTab tim</p>
         </div>
         <div class='footer'>

@@ -48,6 +48,19 @@ namespace EasyTab.Services.Services
             }
         }
 
+        public async Task PublishReservationConfirmedAsync(ReservationConfirmedMessage message)
+        {
+            try
+            {
+                await _bus.PubSub.PublishAsync(message);
+                _logger.LogInformation("Published ReservationConfirmedMessage for ReservationId: {Id}", message.ReservationId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish ReservationConfirmedMessage for ReservationId: {Id}", message.ReservationId);
+            }
+        }
+
         public async Task PublishReservationCancelledAsync(ReservationCancelledMessage message)
         {
             try

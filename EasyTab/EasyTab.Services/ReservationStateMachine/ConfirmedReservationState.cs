@@ -34,6 +34,25 @@ namespace EasyTab.Services.ReservationStateMachine
             entity.CancelledById = null;
             entity.CancelledAt = null;
             entity.CancellationReason = null;
+
+            try
+            {
+                var table = await _context.Tables
+                    .Include(t => t.Locale)
+                    .FirstOrDefaultAsync(t => t.Id == entity.TableId);
+                var localeName = table?.Locale?.Name ?? "Lokal";
+
+                _context.Notifications.Add(new Notification
+                {
+                    UserId = entity.UserId,
+                    Title = "Rezervacija završena",
+                    Message = $"Vaša rezervacija za {localeName} je uspješno završena. Hvala vam na posjeti!",
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            catch { }
+
             await _context.SaveChangesAsync();
 
             return _mapper.Map<Reservations>(entity);
@@ -52,15 +71,26 @@ namespace EasyTab.Services.ReservationStateMachine
             entity.CancelledById = cancelledById;
             entity.CancelledAt = DateTime.UtcNow;
             entity.CancellationReason = reason;
-            await _context.SaveChangesAsync();
 
-            // Pripremi podatke za RabbitMQ poruku dok je DbContext još aktivan
             try
             {
                 var user = await _context.Users.FindAsync(entity.UserId);
                 var table = await _context.Tables
                     .Include(t => t.Locale)
                     .FirstOrDefaultAsync(t => t.Id == entity.TableId);
+
+                var localeName = table?.Locale?.Name ?? "Lokal";
+
+                _context.Notifications.Add(new Notification
+                {
+                    UserId = entity.UserId,
+                    Title = "Rezervacija otkazana",
+                    Message = $"Vaša rezervacija za {localeName} ({entity.ReservationDate:dd.MM.yyyy} u {entity.StartTime:HH:mm}) je otkazana. Razlog: {reason}",
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                await _context.SaveChangesAsync();
 
                 if (user != null && table?.Locale != null)
                 {
@@ -87,7 +117,10 @@ namespace EasyTab.Services.ReservationStateMachine
                     });
                 }
             }
-            catch { /* greška ne blokira otkazivanje */ }
+            catch
+            {
+                await _context.SaveChangesAsync();
+            }
 
             return _mapper.Map<Reservations>(entity);
         }

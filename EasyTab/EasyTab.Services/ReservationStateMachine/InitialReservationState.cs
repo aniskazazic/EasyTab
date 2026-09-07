@@ -36,6 +36,16 @@ namespace EasyTab.Services.ReservationStateMachine
 
                 if (user != null && table?.Locale != null)
                 {
+                    _context.Notifications.Add(new Notification
+                    {
+                        UserId = user.Id,
+                        Title = "Rezervacija na čekanju",
+                        Message = $"Vaša rezervacija za {table.Locale.Name} ({entity.ReservationDate:dd.MM.yyyy} u {entity.StartTime:HH:mm}) je kreirana i čeka potvrdu lokala.",
+                        IsRead = false,
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    await _context.SaveChangesAsync();
+
                     var message = new ReservationCreatedMessage
                     {
                         ReservationId = entity.Id,

@@ -11,6 +11,7 @@ var host = Host.CreateDefaultBuilder(args)
         // Consumers
         services.AddScoped<UserRegisteredConsumer>();
         services.AddScoped<ReservationCreatedConsumer>();
+        services.AddScoped<ReservationConfirmedConsumer>();
         services.AddScoped<ReservationCancelledConsumer>();
 
         // Worker

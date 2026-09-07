@@ -75,6 +75,19 @@ namespace EasyTab.Subscriber
 
             _logger.LogInformation("Subscribed to ReservationCreatedMessage");
 
+            // Subscribe na ReservationConfirmedMessage
+            await _bus.PubSub.SubscribeAsync<ReservationConfirmedMessage>(
+                "easytab-subscriber-reservation-confirmed",
+                async msg =>
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var consumer = scope.ServiceProvider.GetRequiredService<ReservationConfirmedConsumer>();
+                    await consumer.HandleAsync(msg);
+                },
+                stoppingToken);
+
+            _logger.LogInformation("Subscribed to ReservationConfirmedMessage");
+
             // Subscribe na ReservationCancelledMessage
             await _bus.PubSub.SubscribeAsync<ReservationCancelledMessage>(
                 "easytab-subscriber-reservation-cancelled",
