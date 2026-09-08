@@ -3,6 +3,7 @@ import 'package:easytab_desktop/models/reservation.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
+import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -35,8 +36,13 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
 
   List<Reservation> _reservations = [];
   bool _initialized = false;
+
   DateTime? _selectedDate;
-  String? _selectedState;
+  String? _selectedState = 'Sva stanja';
+
+  String _appliedQuery = '';
+  DateTime? _appliedDate;
+  String? _appliedState;
 
   final TextEditingController searchController = TextEditingController();
 
@@ -74,8 +80,8 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
         'IncludeTotalCount': true,
       };
 
-      if (_selectedState != null && _selectedState != 'Sva stanja') {
-        filter['ReservationState'] = _selectedState;
+      if (_appliedState != null && _appliedState != 'Sva stanja') {
+        filter['ReservationState'] = _appliedState;
       }
 
       final result = await _reservationProvider.get(filter: filter);
@@ -100,24 +106,46 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     }
   }
 
+  void _applyFilters() {
+    setState(() {
+      _appliedQuery = searchController.text.trim().toLowerCase();
+      _appliedState = _selectedState;
+      _appliedDate = _selectedDate;
+      _currentPage = 0;
+    });
+    _loadReservations();
+  }
+
+  void _clearFilters() {
+    setState(() {
+      searchController.clear();
+      _selectedState = 'Sva stanja';
+      _selectedDate = null;
+      _appliedQuery = '';
+      _appliedState = null;
+      _appliedDate = null;
+      _currentPage = 0;
+    });
+    _loadReservations();
+  }
+
   List<Reservation> get _filteredReservations {
     var list = _reservations;
-    final query = searchController.text.trim().toLowerCase();
 
-    if (query.isNotEmpty) {
+    if (_appliedQuery.isNotEmpty) {
       list = list.where((r) {
         final table = (r.tableName ?? '').toLowerCase();
         final guests = (r.numberOfGuests?.toString() ?? '');
-        return table.contains(query) || guests.contains(query);
+        return table.contains(_appliedQuery) || guests.contains(_appliedQuery);
       }).toList();
     }
 
-    if (_selectedDate != null) {
+    if (_appliedDate != null) {
       list = list.where((r) {
         if (r.reservationDate == null) return false;
-        return r.reservationDate!.year == _selectedDate!.year &&
-            r.reservationDate!.month == _selectedDate!.month &&
-            r.reservationDate!.day == _selectedDate!.day;
+        return r.reservationDate!.year == _appliedDate!.year &&
+            r.reservationDate!.month == _appliedDate!.month &&
+            r.reservationDate!.day == _appliedDate!.day;
       }).toList();
     }
 
@@ -143,7 +171,9 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF16A34A)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF16A34A),
+            ),
             child: const Text('Potvrdi', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -195,7 +225,9 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1E40AF)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+            ),
             child: const Text('Završi', style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -218,10 +250,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Greška: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Greška: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -264,8 +293,10 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Otkaži rezervaciju',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Otkaži rezervaciju',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -308,90 +339,88 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   Widget build(BuildContext context) {
     return MasterScreen(
       title: 'Rezervacije - ${widget.localeName}',
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 16),
-            _buildSearchAndFilter(),
-            const SizedBox(height: 16),
-            isLoading
-                ? const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(40),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                : _buildTable(),
-            if (!isLoading)
-              PaginationUtils.buildPageControls(
-                currentPage: _currentPage,
-                totalCount: _totalCount,
-                pageSize: _pageSize,
-                onPageChanged: (page) {
-                  setState(() => _currentPage = page);
-                  _loadReservations();
-                },
-                pageButtonSize: 36,
-              ),
-          ],
-        ),
+      sidebar: OwnerSidebar(
+        activeLocaleId: widget.localeId,
+        onSectionTap: widget.onSectionTap,
+        onRefresh: widget.onRefresh,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildSearchAndFilter(),
+          const SizedBox(height: 16),
+          isLoading
+              ? const Expanded(
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              : _buildTable(),
+          if (!isLoading)
+            PaginationUtils.buildPageControls(
+              currentPage: _currentPage,
+              totalCount: _totalCount,
+              pageSize: _pageSize,
+              onPageChanged: (page) {
+                setState(() => _currentPage = page);
+                _loadReservations();
+              },
+              pageButtonSize: 36,
+            ),
+        ],
       ),
     );
   }
 
   Widget _buildSearchAndFilter() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                hintText: 'Pretraži po stolu...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextField(
+            controller: searchController,
+            decoration: InputDecoration(
+              hintText: 'Pretraži po stolu...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
               ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 2,
-            child: DropdownButtonFormField<String>(
-              value: _selectedState ?? 'Sva stanja',
-              decoration: InputDecoration(
-                labelText: 'Stanje',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
               ),
-              items: _states.map((s) {
-                return DropdownMenuItem(value: s, child: Text(s));
-              }).toList(),
-              onChanged: (val) {
-                setState(() {
-                  _selectedState = val;
-                  _currentPage = 0;
-                });
-                _loadReservations();
-              },
             ),
+            onSubmitted: (_) => _applyFilters(),
           ),
-          const SizedBox(width: 12),
-          OutlinedButton.icon(
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<String>(
+            // ignore: deprecated_member_use
+            value: _selectedState,
+            decoration: InputDecoration(
+              labelText: 'Stanje',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+            items: _states.map((s) {
+              return DropdownMenuItem(value: s, child: Text(s));
+            }).toList(),
+            onChanged: (val) {
+              setState(() {
+                _selectedState = val ?? 'Sva stanja';
+              });
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
               shape: RoundedRectangleBorder(
@@ -416,26 +445,35 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
               }
             },
           ),
-          if (_selectedDate != null ||
-              (_selectedState != null && _selectedState != 'Sva stanja') ||
-              searchController.text.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            IconButton(
-              tooltip: 'Poništi filtere',
-              icon: const Icon(Icons.clear, color: Colors.grey),
-              onPressed: () {
-                setState(() {
-                  _selectedDate = null;
-                  _selectedState = null;
-                  searchController.clear();
-                  _currentPage = 0;
-                });
-                _loadReservations();
-              },
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.search),
+            label: const Text('Pretraži'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
-          ],
+            onPressed: _applyFilters,
+          ),
+        ),
+        if (_selectedDate != null ||
+            (_selectedState != null && _selectedState != 'Sva stanja') ||
+            searchController.text.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            tooltip: 'Poništi filtere',
+            icon: const Icon(Icons.clear, color: Colors.grey),
+            onPressed: _clearFilters,
+          ),
         ],
-      ),
+      ],
     );
   }
 
@@ -443,58 +481,54 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     final list = _filteredReservations;
 
     if (list.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(48),
-        alignment: Alignment.center,
-        child: const Column(
-          children: [
-            Icon(Icons.calendar_today_outlined, size: 56, color: Colors.grey),
-            SizedBox(height: 12),
-            Text(
-              'Nema pronađenih rezervacija',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-          ],
-        ),
+      return const Expanded(
+        child: Center(child: Text('Nema rezervacija za prikaz.')),
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Card(
-        elevation: 1,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        clipBehavior: Clip.antiAlias,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(const Color(0xFFF1F5F9)),
-          columns: const [
-            DataColumn(label: Text('ID', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Stol', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Gosti', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Datum', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Termin', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-            DataColumn(label: Text('Akcije', style: TextStyle(fontWeight: FontWeight.bold))),
-          ],
-          rows: list.map((res) {
-            final dateStr = res.reservationDate != null
-                ? DateFormat('dd.MM.yyyy').format(res.reservationDate!)
-                : '-';
-            final timeStr = '${_formatTime(res.startTime)} - ${_formatTime(res.endTime)}';
+    return Expanded(
+      child: SingleChildScrollView(
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: DataTable(
+            headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
+            headingTextStyle: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+            columns: const [
+              DataColumn(label: Text('Stol')),
+              DataColumn(label: Text('Gosti')),
+              DataColumn(label: Text('Datum')),
+              DataColumn(label: Text('Termin')),
+              DataColumn(label: Text('Status')),
+              DataColumn(label: Text('Akcija')),
+            ],
+            rows: list.map((res) {
+              final dateStr = res.reservationDate != null
+                  ? DateFormat('dd.MM.yyyy').format(res.reservationDate!)
+                  : '-';
+              final timeStr =
+                  '${_formatTime(res.startTime)} - ${_formatTime(res.endTime)}';
 
-            return DataRow(
-              cells: [
-                DataCell(Text('#${res.id}')),
-                DataCell(Text(res.tableName ?? '-')),
-                DataCell(Text('${res.numberOfGuests ?? '-'}')),
-                DataCell(Text(dateStr)),
-                DataCell(Text(timeStr)),
-                DataCell(_buildStatusBadge(res.reservationState ?? 'Na čekanju')),
-                DataCell(_buildRowActions(res)),
-              ],
-            );
-          }).toList(),
+              return DataRow(
+                cells: [
+                  DataCell(Text(res.tableName ?? '-')),
+                  DataCell(Text('${res.numberOfGuests ?? '-'}')),
+                  DataCell(Text(dateStr)),
+                  DataCell(Text(timeStr)),
+                  DataCell(
+                    _buildStatusBadge(res.reservationState ?? 'Na čekanju'),
+                  ),
+                  DataCell(_buildRowActions(res)),
+                ],
+              );
+            }).toList(),
+          ),
         ),
       ),
     );
@@ -535,7 +569,8 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
           ),
         ],
       );
-    } else if (state == 'otkazana' && (res.cancellationReason ?? '').isNotEmpty) {
+    } else if (state == 'otkazana' &&
+        (res.cancellationReason ?? '').isNotEmpty) {
       return IconButton(
         icon: const Icon(Icons.info_outline, color: Colors.grey),
         tooltip: 'Razlog: ${res.cancellationReason}',
@@ -601,7 +636,11 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
           const SizedBox(width: 4),
           Text(
             state,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: text),
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              color: text,
+            ),
           ),
         ],
       ),
