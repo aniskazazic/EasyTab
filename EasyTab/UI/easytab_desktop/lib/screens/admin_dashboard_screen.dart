@@ -5,6 +5,8 @@ import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/review_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
+import 'package:easytab_desktop/utils/report_service.dart';
+import 'package:easytab_desktop/widgets/generate_report_button.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -17,6 +19,7 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool isLoading = true;
+  bool isGeneratingReport = false;
 
   int countLocales = 0;
   int countCountries = 0;
@@ -60,7 +63,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         isLoading = false;
       });
     } catch (e) {
-      // Ako greška — prikaži 0 za sve
       setState(() {
         countLocales = 0;
         countCountries = 0;
@@ -72,52 +74,92 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     }
   }
 
+  Future<void> _generateReport() async {
+    if (isGeneratingReport || isLoading) return;
+
+    setState(() => isGeneratingReport = true);
+    try {
+      final path = await ReportService.saveAdminReport(
+        users: countUsers,
+        locales: countLocales,
+        reviews: countReviews,
+        countries: countCountries,
+        cities: countCities,
+        categories: countCategories,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF izvještaj je sačuvan u Downloads: $path')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Greška pri generisanju PDF izvještaja: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isGeneratingReport = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return MasterScreen(
       title: 'Dashboard',
       child: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
+          : Stack(
               children: [
-                GridView.count(
-                  shrinkWrap: true,
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 1.8,
+                Column(
                   children: [
-                    _buildDashboardCard(
-                      icon: Icons.home,
-                      label: 'Korisnici',
-                      count: countUsers.toString(),
-                    ),
-                    _buildDashboardCard(
-                      icon: Icons.home,
-                      label: 'Lokali',
-                      count: countLocales.toString(),
-                    ),
-                    _buildDashboardCard(
-                      icon: Icons.home,
-                      label: 'Recenzije',
-                      count: countReviews.toString(),
-                    ),
-                    _buildDashboardCard(
-                      icon: Icons.public,
-                      label: 'Države',
-                      count: countCountries.toString(),
-                    ),
-                    _buildDashboardCard(
-                      icon: Icons.location_city,
-                      label: 'Gradovi',
-                      count: countCities.toString(),
-                    ),
-                    _buildDashboardCard(
-                      icon: Icons.category,
-                      label: 'Kategorije',
-                      count: countCategories.toString(),
+                    GridView.count(
+                      shrinkWrap: true,
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 1.8,
+                      children: [
+                        _buildDashboardCard(
+                          icon: Icons.home,
+                          label: 'Korisnici',
+                          count: countUsers.toString(),
+                        ),
+                        _buildDashboardCard(
+                          icon: Icons.home,
+                          label: 'Lokali',
+                          count: countLocales.toString(),
+                        ),
+                        _buildDashboardCard(
+                          icon: Icons.home,
+                          label: 'Recenzije',
+                          count: countReviews.toString(),
+                        ),
+                        _buildDashboardCard(
+                          icon: Icons.public,
+                          label: 'Države',
+                          count: countCountries.toString(),
+                        ),
+                        _buildDashboardCard(
+                          icon: Icons.location_city,
+                          label: 'Gradovi',
+                          count: countCities.toString(),
+                        ),
+                        _buildDashboardCard(
+                          icon: Icons.category,
+                          label: 'Kategorije',
+                          count: countCategories.toString(),
+                        ),
+                      ],
                     ),
                   ],
+                ),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: GenerateReportButton(
+                    isLoading: isGeneratingReport,
+                    onPressed: _generateReport,
+                  ),
                 ),
               ],
             ),

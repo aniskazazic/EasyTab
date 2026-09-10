@@ -7,6 +7,8 @@ import 'package:easytab_desktop/screens/owner_reservations_screen.dart';
 import 'package:easytab_desktop/screens/owner_reviews_screen.dart';
 import 'package:easytab_desktop/screens/owner_tables_screen.dart';
 import 'package:easytab_desktop/screens/owner_workers_screen.dart';
+import 'package:easytab_desktop/utils/report_service.dart';
+import 'package:easytab_desktop/widgets/generate_report_button.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +32,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   int todayGuests = 0;
   List<Map<String, dynamic>> tableDistribution = [];
   bool isLoading = false;
+  bool isGeneratingReport = false;
   String? statsError;
   final ownerId =
       int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
@@ -178,6 +181,35 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     }
   }
 
+  Future<void> _generateReport() async {
+    if (isGeneratingReport || isLoading) return;
+
+    setState(() => isGeneratingReport = true);
+    try {
+      final path = await ReportService.saveOwnerReport(
+        localeName: activeLocale?.name ?? '',
+        todayReservations: todayReservations,
+        activeTables: activeTables,
+        totalTables: totalTables,
+        todayGuests: todayGuests,
+        tableDistribution: tableDistribution,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF izvještaj je sačuvan u Downloads: $path')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Greška pri generisanju PDF izvještaja: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isGeneratingReport = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -206,7 +238,18 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   Expanded(
                     child: isLoading
                         ? const Center(child: CircularProgressIndicator())
-                        : _buildContent(),
+                        : Stack(
+                            children: [
+                              _buildContent(),
+                              Align(
+                                alignment: Alignment.bottomRight,
+                                child: GenerateReportButton(
+                                  isLoading: isGeneratingReport,
+                                  onPressed: _generateReport,
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ],
               ),
@@ -219,10 +262,10 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Widget _buildContent() {
     return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 72),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Stat kartice
           Row(
             children: [
               Expanded(
@@ -257,7 +300,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           ),
           const SizedBox(height: 32),
 
-          // Pie chart ili poruka
           if (tableDistribution.isNotEmpty)
             _buildPieChart()
           else
