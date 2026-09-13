@@ -20,6 +20,16 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
+var envFile = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+if (!File.Exists(envFile))
+{
+    envFile = Path.Combine(Directory.GetCurrentDirectory(), "..", ".env");
+}
+if (File.Exists(envFile))
+{
+    DotNetEnv.Env.Load(envFile);
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
