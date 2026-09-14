@@ -6,6 +6,8 @@ part 'reservation.g.dart';
 class Reservation {
   final int? id;
   final int? userId;
+  final String? firstName;
+  final String? lastName;
   final int? tableId;
   final String? tableName;
   final int? numberOfGuests;
@@ -27,6 +29,8 @@ class Reservation {
   Reservation({
     this.id,
     this.userId,
+    this.firstName,
+    this.lastName,
     this.tableId,
     this.tableName,
     this.numberOfGuests,
@@ -45,6 +49,8 @@ class Reservation {
     this.localeAddress,
     this.localeLogo,
   });
+
+  String get customerName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
 
   factory Reservation.fromJson(Map<String, dynamic> json) =>
       _$ReservationFromJson(json);

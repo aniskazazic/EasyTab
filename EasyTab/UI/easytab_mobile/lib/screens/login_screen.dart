@@ -1,8 +1,7 @@
 import 'package:easytab_mobile/layout/master_screen.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
-import 'package:easytab_mobile/providers/user_provider.dart';
-import 'package:easytab_mobile/screens/home_screen.dart';
 import 'package:easytab_mobile/screens/register_screen.dart';
+import 'package:easytab_mobile/layout/worker_master_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -42,13 +41,22 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await authProvider.login(username, password);
 
-      var role = AuthProvider.accessTokenDecoded?['role'];
+      var role =
+          AuthProvider.accessTokenDecoded?['role'] ??
+          AuthProvider.accessTokenDecoded?['Role'];
 
       if (role == 'Admin' || role == 'Vlasnik') {
         _showError(
           'Ova aplikacija je namijenjena korisnicima. Koristite desktop aplikaciju.',
         );
         AuthProvider.clear();
+        return;
+      }
+      if (AuthProvider.isWorker || role == 'Radnik') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const WorkerMasterScreen()),
+        );
         return;
       }
       if (role == 'Korisnik') {
@@ -88,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Background Gradient and decorative circles
+          // Brand-colored background and decorative circles
           _buildBackground(size),
 
           // Scrollable Content
@@ -109,17 +117,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Container(
       height: size.height * 0.42,
       width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Color(0xFF1E3A8A), // Darker blue
-            Color(0xFF1E40AF), // Brand blue
-            Color(0xFF3B82F6), // Accent blue
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFF1E40AF)),
       child: Stack(
         children: [
           Positioned(
@@ -291,25 +289,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           const SizedBox(height: 10),
 
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () {},
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Zaboravili ste lozinku?',
-                style: TextStyle(
-                  color: Color(0xFF1E40AF),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
           const SizedBox(height: 24),
 
           SizedBox(
@@ -318,11 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(14),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF1E40AF), Color(0xFF3B82F6)],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
+                color: const Color(0xFF1E40AF),
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF1E40AF).withOpacity(0.3),

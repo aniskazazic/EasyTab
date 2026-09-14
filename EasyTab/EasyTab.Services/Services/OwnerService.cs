@@ -119,10 +119,14 @@ namespace EasyTab.Services.Services
 
             if (isOwner)
                 query = query.Where(x => x.ReservationDate.Date == selectedDate &&
-                                         x.Table.Locale.OwnerId == userId);
+                                         x.Table.Locale.OwnerId == userId &&
+                                         x.ReservationState != "Otkazana" &&
+                                         x.ReservationState != "Završena");
             else if (worker != null)
                 query = query.Where(x => x.ReservationDate.Date == selectedDate &&
-                                         x.Table.LocaleId == worker.LocaleId);
+                                         x.Table.LocaleId == worker.LocaleId &&
+                                         x.ReservationState != "Otkazana" &&
+                                         x.ReservationState != "Završena");
 
             if (!string.IsNullOrWhiteSpace(q))
                 query = query.Where(s =>
@@ -142,7 +146,8 @@ namespace EasyTab.Services.Services
                     s.User.LastName,
                     ReservationDate = s.ReservationDate,
                     StartTime = s.StartTime,
-                    Guests = s.Table.NumberOfGuests,
+                    EndTime = s.EndTime,
+                    NumberOfGuests = s.Table.NumberOfGuests,
                     TableName = s.Table.Name,
                     IsCancelled = s.ReservationState == "Otkazana"
                 })

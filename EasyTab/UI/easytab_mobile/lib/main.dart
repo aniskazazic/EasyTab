@@ -1,4 +1,5 @@
 import 'package:easytab_mobile/layout/master_screen.dart';
+import 'package:easytab_mobile/layout/worker_master_screen.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/category_provider.dart';
 import 'package:easytab_mobile/providers/city_provider.dart';
@@ -7,6 +8,7 @@ import 'package:easytab_mobile/providers/favourite_provider.dart';
 import 'package:easytab_mobile/providers/locale_provider.dart';
 import 'package:easytab_mobile/providers/localeimage_provider.dart';
 import 'package:easytab_mobile/providers/notification_provider.dart';
+import 'package:easytab_mobile/providers/owner_provider.dart';
 import 'package:easytab_mobile/providers/reaction_provider.dart';
 import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/providers/review_provider.dart';
@@ -17,7 +19,8 @@ import 'package:easytab_mobile/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-final GlobalKey<NavigatorState> globalNavigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> globalNavigatorKey =
+    GlobalKey<NavigatorState>();
 
 void main() {
   runApp(
@@ -37,6 +40,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => ZoneProvider()),
         ChangeNotifierProvider(create: (_) => ReservationProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => OwnerProvider()),
       ],
       child: const MyApp(),
     ),
@@ -59,9 +63,10 @@ class MyApp extends StatelessWidget {
       // Use Consumer to dynamically respond to auth state changes
       home: Consumer<AuthProvider>(
         builder: (context, authProvider, _) {
-          return AuthProvider.isAuthenticated
-              ? const MasterScreen()
-              : const LoginScreen();
+          if (!AuthProvider.isAuthenticated) return const LoginScreen();
+          return AuthProvider.isWorker
+              ? const WorkerMasterScreen()
+              : const MasterScreen();
         },
       ),
     );

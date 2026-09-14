@@ -1,4 +1,5 @@
 using EasyTab.API.Filters;
+using EasyTab.API.Services.AccessManager;
 using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +20,15 @@ namespace EasyTab.API.Controllers
 
         private int GetCurrentUserId()
         {
-            return int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var userId = User.FindFirstValue(ClaimNames.Id)
+                ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            if (!int.TryParse(userId, out var parsedUserId))
+            {
+                throw new UnauthorizedAccessException("Korisnički identitet nije pronađen u tokenu.");
+            }
+
+            return parsedUserId;
         }
 
         [Authorization("Vlasnik")]
