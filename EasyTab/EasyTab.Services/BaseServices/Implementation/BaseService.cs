@@ -44,6 +44,10 @@ namespace EasyTab.Services.BaseServices.Implementation
                 //TODO: parametrize sortBy to prevent SQL injection
                 query = query.AsQueryable().OrderBy(search.SortBy);
             }
+            else
+            {
+                query = query.AsQueryable().OrderBy("Id");
+            }
 
             if (search.Page.HasValue)
             {
@@ -110,6 +114,10 @@ namespace EasyTab.Services.BaseServices.Implementation
             {
                 //TODO: parametrize sortBy to prevent SQL injection
                 query = query.AsQueryable().OrderBy(search.SortBy);
+            }
+            else
+            {
+                query = query.AsQueryable().OrderBy("Id");
             }
 
             if (search.Page.HasValue)

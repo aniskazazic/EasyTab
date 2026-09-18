@@ -39,6 +39,7 @@ namespace EasyTab.Services.Services
             var total = await query.CountAsync();
 
             var result = await query
+                .OrderBy(c => c.Id)
                 .Skip(page * pageSize)
                 .Take(pageSize)
                 .Select(c => new

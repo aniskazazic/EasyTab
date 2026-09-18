@@ -8,6 +8,8 @@ class Reservation {
   final int? userId;
   final String? firstName;
   final String? lastName;
+  final String? email;
+  final String? phoneNumber;
   final int? tableId;
   final String? tableName;
   final int? numberOfGuests;
@@ -31,6 +33,8 @@ class Reservation {
     this.userId,
     this.firstName,
     this.lastName,
+    this.email,
+    this.phoneNumber,
     this.tableId,
     this.tableName,
     this.numberOfGuests,

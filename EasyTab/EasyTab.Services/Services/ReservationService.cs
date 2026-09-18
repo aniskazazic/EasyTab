@@ -35,7 +35,8 @@ namespace EasyTab.Services.Services
         protected override IQueryable<Reservation> ApplyFilter(IQueryable<Reservation> query, ReservationSearchObject search)
         {
             query = query.Include(r => r.Table)
-                         .ThenInclude(t => t.Locale);
+                         .ThenInclude(t => t.Locale)
+                         .Include(r => r.User);
 
             if (search?.UserId.HasValue == true)
                 query = query.Where(x => x.UserId == search.UserId);
@@ -84,6 +85,14 @@ namespace EasyTab.Services.Services
         {
             var dto = base.MapToResponse(entity);
 
+            if (entity.User != null)
+            {
+                dto.FirstName = entity.User.FirstName;
+                dto.LastName = entity.User.LastName;
+                dto.Email = entity.User.Email;
+                dto.PhoneNumber = entity.User.PhoneNumber;
+            }
+
             if (entity.Table != null)
             {
                 dto.TableName = entity.Table.Name;
@@ -106,6 +115,7 @@ namespace EasyTab.Services.Services
             var entity = await Context.Reservations
                 .Include(r => r.Table)
                     .ThenInclude(t => t.Locale)
+                .Include(r => r.User)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (entity == null)

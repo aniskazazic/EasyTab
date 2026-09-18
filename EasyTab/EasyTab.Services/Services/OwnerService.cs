@@ -137,6 +137,9 @@ namespace EasyTab.Services.Services
             var total = await query.CountAsync();
 
             var result = await query
+                .OrderByDescending(s => s.ReservationDate)
+                .ThenByDescending(s => s.StartTime)
+                .ThenBy(s => s.Id)
                 .Skip(page * pageSize)
                 .Take(pageSize)
                 .Select(s => new

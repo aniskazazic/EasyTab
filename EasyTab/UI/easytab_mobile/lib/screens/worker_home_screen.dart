@@ -1,6 +1,7 @@
 import 'package:easytab_mobile/models/reservation.dart';
 import 'package:easytab_mobile/providers/owner_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
+import 'package:easytab_mobile/screens/worker_reservation_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -250,13 +251,76 @@ class _ReservationCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(Icons.group_outlined, size: 20),
-              const SizedBox(width: 10),
-              Text('${reservation.numberOfGuests ?? 0} osoba'),
-              const Spacer(),
-              const Icon(Icons.table_restaurant_outlined, size: 20),
-              const SizedBox(width: 7),
-              Text(reservation.tableName ?? 'Stol'),
+              Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.group_outlined, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${reservation.numberOfGuests ?? 0} osoba',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.table_restaurant_outlined, size: 20),
+                          const SizedBox(width: 7),
+                          Expanded(
+                            child: Text(
+                              reservation.tableName ?? 'Stol',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => WorkerReservationDetailsScreen(
+                        reservation: reservation,
+                      ),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Detalji',
+                        style: TextStyle(
+                          color: Color(0xFF1E40AF),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: Color(0xFF1E40AF),
+                        size: 21,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
         ],
