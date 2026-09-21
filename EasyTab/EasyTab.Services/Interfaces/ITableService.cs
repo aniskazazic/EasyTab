@@ -12,6 +12,6 @@ namespace EasyTab.Services.Interfaces
 {
     public interface ITableService : ICRUDService<Tables, TableSearchObject, TableInsertRequest, TableUpdateRequest>
     {
-        void SaveLayout(TableLayoutRequest request);
+        Task SaveLayoutAsync(TableLayoutRequest request);
     }
 }

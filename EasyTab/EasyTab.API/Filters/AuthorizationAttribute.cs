@@ -20,6 +20,15 @@ namespace EasyTab.API.Filters
             }
             public void OnAuthorization(AuthorizationFilterContext context)
             {
+                if (context.HttpContext.User?.Identity?.IsAuthenticated != true)
+                {
+                    context.Result = new ChallengeResult();
+                    return;
+                }
+
+                if (_roles.Length == 0)
+                    return;
+
                 var userRole = context.HttpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimNames.Role || c.Type == "Role")?.Value;
 
                 if (userRole == null || !_roles.Any(r => r == userRole))

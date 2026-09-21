@@ -24,11 +24,13 @@ namespace EasyTab.Services.Services
 
         private readonly IWebHostEnvironment _wh;
         private readonly ILogger<LocaleService> _logger;
+        private readonly ILocaleAccessService _localeAccessService;
 
-        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
             _logger = logger;
+            _localeAccessService = localeAccessService;
         }
 
         public override async Task<Locales> CreateAsync(LocaleInsertRequest request)
@@ -67,6 +69,8 @@ namespace EasyTab.Services.Services
             {
                 throw new KeyNotFoundException($"Lokala sa ID {id} ne postoji.");
             }
+
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(id);
 
             await BeforeUpdate(entity, request);
             // Čuva sve izmene
@@ -110,6 +114,7 @@ namespace EasyTab.Services.Services
 
         public override async Task<bool> DeleteAsync(int id)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(id);
             _logger.LogWarning("Deleting locale. LocaleId: {LocaleId}", id);
             return await base.DeleteAsync(id);
         }

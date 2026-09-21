@@ -1,14 +1,14 @@
 ﻿using EasyTab.Model;
 using EasyTab.Model.SearchObject;
+using EasyTab.API.Filters;
 using EasyTab.Services.BaseServices.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EasyTab.API.Controllers.BaseControllers
 {
     [ApiController]
     [Route("[controller]")]
-    //[Authorize]
+    [Authorization]
     public class BaseController<TModel, TSearch> : ControllerBase where TModel : class where TSearch : BaseSearchObject, new()
     {
         protected readonly IService<TModel, TSearch> _service;

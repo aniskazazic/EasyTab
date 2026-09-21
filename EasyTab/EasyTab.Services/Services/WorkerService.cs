@@ -24,11 +24,13 @@ namespace EasyTab.Services.Services
     {
         private readonly ICryptoService _cryptoService;
         private readonly ILogger<WorkerService> _logger;
+        private readonly ILocaleAccessService _localeAccessService;
 
-        public WorkerService(_220030Context context, IMapper mapper, ILogger<WorkerService> logger, ICryptoService cryptoService, IValidator<WorkerInsertRequest> insertValidator, IValidator<WorkerUpdateRequest> updateValidator) : base(context, mapper,insertValidator,updateValidator)
+        public WorkerService(_220030Context context, IMapper mapper, ILogger<WorkerService> logger, ICryptoService cryptoService, IValidator<WorkerInsertRequest> insertValidator, IValidator<WorkerUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper,insertValidator,updateValidator)
         {
             _cryptoService = cryptoService;
             _logger = logger;
+            _localeAccessService = localeAccessService;
         }
 
         protected override IQueryable<Worker> ApplyFilter(IQueryable<Worker> query, WorkerSearchObject search)
@@ -72,6 +74,7 @@ namespace EasyTab.Services.Services
 
         public override async Task<Workers> CreateAsync(WorkerInsertRequest request)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
 
             var existingUser = Context.Users
                 .FirstOrDefault(x => x.Email == request.Email || x.Username == request.Username);
@@ -166,6 +169,8 @@ namespace EasyTab.Services.Services
 
             if (worker == null) return null;
 
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(worker.LocaleId);
+
             var user = worker.User;
 
             if (!string.IsNullOrEmpty(request.FirstName))
@@ -224,6 +229,8 @@ namespace EasyTab.Services.Services
 
             if (worker == null)
                 throw new UserException("Radnik nije pronađen");
+
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(worker.LocaleId);
 
             // 1. Soft delete Worker
             worker.IsDeleted = true;

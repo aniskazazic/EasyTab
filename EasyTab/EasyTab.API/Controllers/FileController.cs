@@ -1,10 +1,12 @@
 ﻿using EasyTab.Services.Interfaces;
+using EasyTab.API.Filters;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [Authorization]
     public class FileController : ControllerBase
     {
         private readonly IFileService _fileService;

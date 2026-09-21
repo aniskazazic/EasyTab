@@ -1,4 +1,5 @@
 ﻿using EasyTab.API.Controllers.BaseControllers;
+using EasyTab.API.Filters;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
@@ -33,6 +34,7 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPut("confirm/{id}")]
+        [Authorization("Admin", "Vlasnik", "Radnik")]
         public async Task<IActionResult> ConfirmReservation(int id, [FromQuery] int approvedById)
         {
             var reservation = await _service.ConfirmAsync(id, approvedById);
@@ -40,6 +42,7 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPut("complete/{id}")]
+        [Authorization("Admin", "Vlasnik", "Radnik")]
         public async Task<IActionResult> CompleteReservation(int id)
         {
             var reservation = await _service.CompleteAsync(id);
@@ -47,6 +50,7 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpGet("allowed-actions/{id}")]
+        [Authorization("Admin", "Vlasnik", "Radnik")]
         public async Task<IActionResult> GetAllowedActions(int id)
         {
             var actions = await _service.GetAllowedActionsAsync(id);

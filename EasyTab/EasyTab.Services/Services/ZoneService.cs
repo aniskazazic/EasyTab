@@ -18,27 +18,36 @@ namespace EasyTab.Services.Services
     public class ZoneService : BaseCRUDService<Zones, ZoneSearchObject, Zone, ZoneInsertRequest, ZoneUpdateRequest>, IZoneService
     {
         private readonly ILogger<ZoneService> _logger;
+        private readonly ILocaleAccessService _localeAccessService;
 
-        public ZoneService(_220030Context context, IMapper mapper, ILogger<ZoneService> logger, IValidator<ZoneInsertRequest> insertValidator, IValidator<ZoneUpdateRequest> updateValidator) 
+        public ZoneService(_220030Context context, IMapper mapper, ILogger<ZoneService> logger, IValidator<ZoneInsertRequest> insertValidator, IValidator<ZoneUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) 
             : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
+            _localeAccessService = localeAccessService;
         }
 
         public override async Task<Zones> CreateAsync(ZoneInsertRequest request)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
             _logger.LogInformation("Creating zone. ZoneName: {ZoneName}", request.Name);
             return await base.CreateAsync(request);
         }
 
         public override async Task<Zones?> UpdateAsync(int id, ZoneUpdateRequest request)
         {
+            var zone = await Context.Zones.FindAsync(id);
+            if (zone != null)
+                await _localeAccessService.EnsureCanManageLocaleAsync(zone.LocaleId);
             _logger.LogInformation("Updating zone. ZoneId: {ZoneId}, ZoneName: {ZoneName}", id, request.Name);
             return await base.UpdateAsync(id, request);
         }
 
         public override async Task<bool> DeleteAsync(int id)
         {
+            var zone = await Context.Zones.FindAsync(id);
+            if (zone != null)
+                await _localeAccessService.EnsureCanManageLocaleAsync(zone.LocaleId);
             _logger.LogWarning("Deleting zone. ZoneId: {ZoneId}", id);
             return await base.DeleteAsync(id);
         }
@@ -51,8 +60,9 @@ namespace EasyTab.Services.Services
             return query;
         }
 
-        public void SaveLayout(ZoneLayoutRequest request)
+        public async Task SaveLayoutAsync(ZoneLayoutRequest request)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
 
             var existingZones = Context.Zones
                  .Where(x => x.LocaleId == request.LocaleId)
@@ -96,7 +106,7 @@ namespace EasyTab.Services.Services
                 }
             }
 
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
         }
 
         protected override Zones MapToResponse(Zone entity)

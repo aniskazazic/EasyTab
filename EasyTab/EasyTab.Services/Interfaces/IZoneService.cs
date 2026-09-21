@@ -12,6 +12,6 @@ namespace EasyTab.Services.Interfaces
 {
     public interface IZoneService : ICRUDService<Zones, ZoneSearchObject, ZoneInsertRequest, ZoneUpdateRequest>
     {
-        void SaveLayout(ZoneLayoutRequest request);
+        Task SaveLayoutAsync(ZoneLayoutRequest request);
     }
 }

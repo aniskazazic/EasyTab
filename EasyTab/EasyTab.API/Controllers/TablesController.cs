@@ -1,4 +1,5 @@
 ﻿using EasyTab.API.Controllers.BaseControllers;
+using EasyTab.API.Filters;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
@@ -10,6 +11,7 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [Authorization("Admin", "Vlasnik")]
     public class TablesController : BaseCRUDController<Tables, TableSearchObject, TableInsertRequest, TableUpdateRequest>
     {
         public ITableService _service;
@@ -19,9 +21,10 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPost("save-layout")]
-        public IActionResult SaveLayout([FromBody] TableLayoutRequest request)
+        [Authorization("Admin", "Vlasnik")]
+        public async Task<IActionResult> SaveLayout([FromBody] TableLayoutRequest request)
         {
-            _service.SaveLayout(request);
+            await _service.SaveLayoutAsync(request);
             return Ok(new { Message = "Tables saved" });
         }
     }

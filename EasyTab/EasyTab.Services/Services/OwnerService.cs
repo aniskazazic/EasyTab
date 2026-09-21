@@ -15,15 +15,18 @@ namespace EasyTab.Services.Services
     {
         private readonly _220030Context _db;
         private readonly ILogger<OwnerService> _logger;
+        private readonly ILocaleAccessService _localeAccessService;
 
-        public OwnerService(_220030Context db, ILogger<OwnerService> logger)
+        public OwnerService(_220030Context db, ILogger<OwnerService> logger, ILocaleAccessService localeAccessService)
         {
             _db = db;
             _logger = logger;
+            _localeAccessService = localeAccessService;
         }
 
         public async Task<int> GetTodaysReservations(int localeId)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
             var today = DateTime.Today;
             var count = await _db.Reservations
                 .Where(x => x.ReservationDate.Date == today &&
@@ -35,6 +38,7 @@ namespace EasyTab.Services.Services
 
         public async Task<int> GetTodaysGuests(int localeId)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
             var today = DateTime.Today;
             var guests = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
@@ -46,6 +50,7 @@ namespace EasyTab.Services.Services
 
         public async Task<int> GetActiveTables(int localeId)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
             var today = DateTime.Today;
             var count = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
@@ -59,6 +64,7 @@ namespace EasyTab.Services.Services
 
         public async Task<int> GetTotalTables(int localeId)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
             var count = await _db.Tables
                 .Where(t => t.LocaleId == localeId)
                 .CountAsync();
@@ -67,6 +73,7 @@ namespace EasyTab.Services.Services
 
         public async Task<object> GetMyLocale(int localeId)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(localeId);
             var locale = await _db.Locales
                 .Include(l => l.City)
                 .Include(l => l.Category)
@@ -83,6 +90,7 @@ namespace EasyTab.Services.Services
 
         public async Task<object> GetTableDistribution(int localeId)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
             var total = await _db.Tables
                 .Where(t => t.LocaleId == localeId)
                 .CountAsync();

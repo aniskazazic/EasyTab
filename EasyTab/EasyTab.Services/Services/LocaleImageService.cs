@@ -18,8 +18,11 @@ namespace EasyTab.Services.Services
 {
     public class LocaleImageService : BaseCRUDService<LocaleImages, LocaleImageSearchObject, LocaleImage, LocaleImageInsertRequest, LocaleImageUpdateRequest>, ILocaleImageService
     {
-        public LocaleImageService(_220030Context context, IMapper mapper, IValidator<LocaleImageInsertRequest> insertValidator, IValidator<LocaleImageUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        private readonly ILocaleAccessService _localeAccessService;
+
+        public LocaleImageService(_220030Context context, IMapper mapper, IValidator<LocaleImageInsertRequest> insertValidator, IValidator<LocaleImageUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper, insertValidator, updateValidator)
         {
+            _localeAccessService = localeAccessService;
         }
 
         protected override IQueryable<LocaleImage> ApplyFilter(IQueryable<LocaleImage> query, LocaleImageSearchObject search)
@@ -46,6 +49,7 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeInsert(LocaleImage entity, LocaleImageInsertRequest request)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             // Provjera da li lokal postoji
             var localeExists = await Context.Locales.AnyAsync(x => x.Id == request.LocaleId);
             if (!localeExists)
@@ -58,6 +62,8 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeUpdate(LocaleImage entity, LocaleImageUpdateRequest request)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(entity.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             // Provjera da li lokal postoji
             var localeExists = await Context.Locales.AnyAsync(x => x.Id == request.LocaleId);
             if (!localeExists)
@@ -66,6 +72,15 @@ namespace EasyTab.Services.Services
             }
 
             await Task.CompletedTask;
+        }
+
+        public override async Task<bool> DeleteAsync(int id)
+        {
+            var image = await Context.LocaleImages.FindAsync(id);
+            if (image != null)
+                await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(image.LocaleId);
+
+            return await base.DeleteAsync(id);
         }
 
         protected override LocaleImages MapToResponse(LocaleImage entity)

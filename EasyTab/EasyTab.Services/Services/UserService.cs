@@ -11,7 +11,9 @@ using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Security.Claims;
 
 namespace EasyTab.Services.Services
 {
@@ -20,12 +22,14 @@ namespace EasyTab.Services.Services
         private readonly ILogger<IUserService> _logger;
         private readonly ICryptoService _cryptoService;
         private readonly IRabbitMQPublisher _rabbitMQPublisher;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IValidator<UserInsertRequest> insertValidator, IValidator<UserUpdateRequest> updateValidator, ICryptoService cryptoService, IRabbitMQPublisher rabbitMQPublisher) : base(context, mapper,insertValidator,updateValidator)
+        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IValidator<UserInsertRequest> insertValidator, IValidator<UserUpdateRequest> updateValidator, ICryptoService cryptoService, IRabbitMQPublisher rabbitMQPublisher, IHttpContextAccessor httpContextAccessor) : base(context, mapper,insertValidator,updateValidator)
         {
             _logger = logger;
             _cryptoService = cryptoService;
             _rabbitMQPublisher = rabbitMQPublisher;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         protected override IQueryable<User> ApplyFilter(IQueryable<User> query, UserSearchObject? searchObject)
@@ -134,6 +138,22 @@ namespace EasyTab.Services.Services
             catch { /* greška ne blokira registraciju */ }
 
             return result;
+        }
+
+        public Task<Users> RegisterAsync(UserRegisterRequest request)
+        {
+            return CreateAsync(new UserInsertRequest
+            {
+                FirstName = request.FirstName,
+                LastName = request.LastName,
+                Email = request.Email,
+                Username = request.Username,
+                Password = request.Password,
+                PasswordConfirmation = request.PasswordConfirmation,
+                PhoneNumber = request.PhoneNumber,
+                BirthDate = request.BirthDate,
+                ProfilePicture = request.ProfilePicture
+            });
         }
 
         protected override async Task BeforeInsert(User entity, UserInsertRequest request)
@@ -359,6 +379,18 @@ namespace EasyTab.Services.Services
 
         public async Task ChangePasswordAsync(UserPasswordChangeRequest request)
         {
+            var currentUser = _httpContextAccessor.HttpContext?.User;
+            var isAdmin = currentUser?.Claims.Any(claim =>
+                (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == "Admin") == true;
+            var currentUserId = currentUser?.FindFirst("Id")?.Value
+                ?? currentUser?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!isAdmin || !int.TryParse(currentUserId, out var authenticatedUserId) || authenticatedUserId != request.Id)
+            {
+                if (!isAdmin)
+                    throw new UnauthorizedAccessException("Nemate dozvolu za promjenu lozinke drugog korisnika.");
+            }
+
             _logger.LogInformation("Promjena lozinke za korisnika: {UserId}", request.Id);
             var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == request.Id);
 

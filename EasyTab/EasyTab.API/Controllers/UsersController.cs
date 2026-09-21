@@ -27,7 +27,7 @@ namespace EasyTab.API.Controllers
             return base.Get(search);
         }
 
-        [AllowAnonymous]
+        [Authorization("Admin")]
         public override Task<Users> Create([FromBody] UserInsertRequest request)
         {
             return base.Create(request);

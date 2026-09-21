@@ -19,27 +19,36 @@ namespace EasyTab.Services.Services
     public class TableService : BaseCRUDService<Tables, TableSearchObject, Table, TableInsertRequest, TableUpdateRequest>, ITableService
     {
         private readonly ILogger<TableService> _logger;
+        private readonly ILocaleAccessService _localeAccessService;
 
-        public TableService(_220030Context context, IMapper mapper, ILogger<TableService> logger, IValidator<TableInsertRequest> insertValidator, IValidator<TableUpdateRequest> updateValidator) 
+        public TableService(_220030Context context, IMapper mapper, ILogger<TableService> logger, IValidator<TableInsertRequest> insertValidator, IValidator<TableUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) 
             : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
+            _localeAccessService = localeAccessService;
         }
 
         public override async Task<Tables> CreateAsync(TableInsertRequest request)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
             _logger.LogInformation("Creating table. TableName: {TableName}", request.Name);
             return await base.CreateAsync(request);
         }
 
         public override async Task<Tables?> UpdateAsync(int id, TableUpdateRequest request)
         {
+            var table = await Context.Tables.FindAsync(id);
+            if (table != null)
+                await _localeAccessService.EnsureCanManageLocaleAsync(table.LocaleId);
             _logger.LogInformation("Updating table. TableId: {TableId}, TableName: {TableName}", id, request.Name);
             return await base.UpdateAsync(id, request);
         }
 
         public override async Task<bool> DeleteAsync(int id)
         {
+            var table = await Context.Tables.FindAsync(id);
+            if (table != null)
+                await _localeAccessService.EnsureCanManageLocaleAsync(table.LocaleId);
             _logger.LogWarning("Deleting table. TableId: {TableId}", id);
             return await base.DeleteAsync(id);
         }
@@ -65,8 +74,9 @@ namespace EasyTab.Services.Services
             };
         }
 
-        public void SaveLayout(TableLayoutRequest request)
+        public async Task SaveLayoutAsync(TableLayoutRequest request)
         {
+            await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
             _logger.LogInformation("Saving table layout. LocaleId: {LocaleId}", request.LocaleId);
 
             var existingTables = Context.Tables
@@ -109,7 +119,7 @@ namespace EasyTab.Services.Services
                 }
             }
 
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
         }
     }
 }

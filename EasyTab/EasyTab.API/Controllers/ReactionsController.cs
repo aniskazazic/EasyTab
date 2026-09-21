@@ -20,7 +20,6 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPost]
-        [AllowAnonymous]
         public IActionResult React(ReactionInsertRequest request)
         {
             var result = _service.React(request.ReviewId, request.UserId,   request.IsLike);
@@ -28,7 +27,6 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpDelete]
-        [AllowAnonymous]
         public IActionResult RemoveReaction([FromQuery] int reviewId, [FromQuery] int userId)
         {
             _service.RemoveReaction(reviewId, userId);

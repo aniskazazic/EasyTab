@@ -40,6 +40,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICityService, CityService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ILocaleService, LocaleService>();
+builder.Services.AddScoped<ILocaleAccessService, LocaleAccessService>();
 builder.Services.AddScoped<IZoneService, ZoneService>();
 builder.Services.AddScoped<ITableService, TableService>();
 builder.Services.AddScoped<IWorkerService, WorkerService>();
@@ -139,6 +140,7 @@ builder.Services.AddAuthentication(options => // dodavanje authentfikacije i aut
         ValidIssuer = builder.Configuration["JwtToken:Issuer"],
         ValidAudience = builder.Configuration["JwtToken:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtToken:SecretKey"] ?? string.Empty)),
+        RoleClaimType = ClaimNames.Role,
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,

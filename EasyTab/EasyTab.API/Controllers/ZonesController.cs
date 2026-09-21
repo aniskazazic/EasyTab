@@ -1,4 +1,5 @@
 ﻿using EasyTab.API.Controllers.BaseControllers;
+using EasyTab.API.Filters;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
@@ -9,6 +10,7 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [Authorization("Admin", "Vlasnik")]
     public class ZonesController : BaseCRUDController<Zones, ZoneSearchObject, ZoneInsertRequest, ZoneUpdateRequest>
     {
         public IZoneService _service;
@@ -17,10 +19,12 @@ namespace EasyTab.API.Controllers
             _service = service; 
         }
 
+
         [HttpPost("save-layout")]
-        public IActionResult SaveLayout([FromBody] ZoneLayoutRequest request)
+        [Authorization("Admin", "Vlasnik", "Radnik")]
+        public async Task<IActionResult> SaveLayout([FromBody] ZoneLayoutRequest request)
         {
-            _service.SaveLayout(request);
+            await _service.SaveLayoutAsync(request);
             return Ok(new { Message = "Zones saved" });
         }
 

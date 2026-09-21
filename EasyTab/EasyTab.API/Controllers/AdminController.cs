@@ -1,7 +1,6 @@
 ﻿using EasyTab.API.Filters;
 using EasyTab.Model.Requests;
 using EasyTab.Services.Interfaces;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EasyTab.API.Controllers

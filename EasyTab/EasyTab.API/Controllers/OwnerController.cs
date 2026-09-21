@@ -1,7 +1,6 @@
-using EasyTab.API.Filters;
 using EasyTab.API.Services.AccessManager;
 using EasyTab.Services.Interfaces;
-using Microsoft.AspNetCore.Authorization;
+using EasyTab.API.Filters;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -9,6 +8,7 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [Authorization]
     public class OwnerController : ControllerBase
     {
         private readonly IOwnerService _ownerService;
@@ -86,12 +86,14 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpGet("check-owner/{localeId}")]
+        [Authorization]
         public async Task<IActionResult> CheckIfOwner(int localeId)
         {
             return Ok(await _ownerService.CheckIfOwner(localeId, GetCurrentUserId()));
         }
 
         [HttpGet("check-owner-or-worker/{localeId}")]
+        [Authorization]
         public async Task<IActionResult> CheckIfOwnerOrWorker(int localeId)
         {
             return Ok(await _ownerService.CheckIfOwnerOrWorker(localeId, GetCurrentUserId()));

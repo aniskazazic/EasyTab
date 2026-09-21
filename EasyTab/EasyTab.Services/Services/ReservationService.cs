@@ -24,12 +24,14 @@ namespace EasyTab.Services.Services
         private readonly IWebHostEnvironment _wh;
         private readonly ILogger<ReservationService> _logger;
         private readonly IServiceProvider _serviceProvider;
+        private readonly ILocaleAccessService _localeAccessService;
 
-        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<ReservationService> logger, IServiceProvider serviceProvider, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<ReservationService> logger, IServiceProvider serviceProvider, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _localeAccessService = localeAccessService;
         }
 
         protected override IQueryable<Reservation> ApplyFilter(IQueryable<Reservation> query, ReservationSearchObject search)
@@ -318,11 +320,15 @@ namespace EasyTab.Services.Services
 
         public async Task<Reservations> ConfirmAsync(int id, int approvedById)
         {
-            var reservation = await Context.Reservations.FindAsync(id);
+            var reservation = await Context.Reservations
+                .Include(x => x.Table)
+                .FirstOrDefaultAsync(x => x.Id == id);
             if (reservation == null)
             {
                 throw new UserException("Rezervacija nije pronađena!");
             }
+
+            await _localeAccessService.EnsureCanManageLocaleAsync(reservation.Table.LocaleId);
 
             var state = GetStateMachine(reservation.ReservationState);
             return await state.ConfirmAsync(id, approvedById);
@@ -330,11 +336,15 @@ namespace EasyTab.Services.Services
 
         public async Task<Reservations> CompleteAsync(int id)
         {
-            var reservation = await Context.Reservations.FindAsync(id);
+            var reservation = await Context.Reservations
+                .Include(x => x.Table)
+                .FirstOrDefaultAsync(x => x.Id == id);
             if (reservation == null)
             {
                 throw new UserException("Rezervacija nije pronađena!");
             }
+
+            await _localeAccessService.EnsureCanManageLocaleAsync(reservation.Table.LocaleId);
 
             var state = GetStateMachine(reservation.ReservationState);
             return await state.CompleteAsync(id);
