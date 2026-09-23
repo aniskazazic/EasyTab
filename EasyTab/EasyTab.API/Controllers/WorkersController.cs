@@ -10,10 +10,19 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [Authorization("Admin", "Vlasnik")]
+    [Authorization]
     public class WorkersController : BaseCRUDController<Workers, WorkerSearchObject, WorkerInsertRequest, WorkerUpdateRequest>
     {
         public WorkersController(IWorkerService service) : base(service) {  }
+
+        [Authorization("Admin", "Vlasnik")]
+        public override Task<Workers> Create([FromBody] WorkerInsertRequest request) => base.Create(request);
+
+        [Authorization("Admin", "Vlasnik")]
+        public override Task<Workers?> Update(int id, [FromBody] WorkerUpdateRequest request) => base.Update(id, request);
+
+        [Authorization("Admin", "Vlasnik")]
+        public override Task<bool> Delete(int id) => base.Delete(id);
 
     }
 }

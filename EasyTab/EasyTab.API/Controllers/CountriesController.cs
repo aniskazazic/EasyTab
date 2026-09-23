@@ -11,9 +11,18 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [Authorization("Admin")]
+    [Authorization]
     public class CountriesController : BaseCRUDController<Countries, CountrySearchObject, CountryUpsertRequest, CountryUpsertRequest>
     {
         public CountriesController(ICountryService service) : base(service) { }
+
+        [Authorization("Admin")]
+        public override Task<Countries> Create([FromBody] CountryUpsertRequest request) => base.Create(request);
+
+        [Authorization("Admin")]
+        public override Task<Countries?> Update(int id, [FromBody] CountryUpsertRequest request) => base.Update(id, request);
+
+        [Authorization("Admin")]
+        public override Task<bool> Delete(int id) => base.Delete(id);
     }
 }

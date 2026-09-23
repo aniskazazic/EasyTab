@@ -11,7 +11,7 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [Authorization("Admin", "Vlasnik")]
+    [Authorization]
     public class TablesController : BaseCRUDController<Tables, TableSearchObject, TableInsertRequest, TableUpdateRequest>
     {
         public ITableService _service;
@@ -19,6 +19,15 @@ namespace EasyTab.API.Controllers
         {
             _service = service;
         }
+
+        [Authorization("Admin", "Vlasnik", "Radnik")]
+        public override Task<Tables> Create([FromBody] TableInsertRequest request) => base.Create(request);
+
+        [Authorization("Admin", "Vlasnik", "Radnik")]
+        public override Task<Tables?> Update(int id, [FromBody] TableUpdateRequest request) => base.Update(id, request);
+
+        [Authorization("Admin", "Vlasnik", "Radnik")]
+        public override Task<bool> Delete(int id) => base.Delete(id);
 
         [HttpPost("save-layout")]
         [Authorization("Admin", "Vlasnik")]

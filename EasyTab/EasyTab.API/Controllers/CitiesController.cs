@@ -10,9 +10,18 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [Authorization("Admin")]
+    [Authorization]
     public class CitiesController : BaseCRUDController<Cities, CitySearchObject, CityInsertRequest, CityUpdateRequest>
     {
         public CitiesController(ICityService service) : base(service) { }
+
+        [Authorization("Admin")]
+        public override Task<Cities> Create([FromBody] CityInsertRequest request) => base.Create(request);
+
+        [Authorization("Admin")]
+        public override Task<Cities?> Update(int id, [FromBody] CityUpdateRequest request) => base.Update(id, request);
+
+        [Authorization("Admin")]
+        public override Task<bool> Delete(int id) => base.Delete(id);
     }
 }

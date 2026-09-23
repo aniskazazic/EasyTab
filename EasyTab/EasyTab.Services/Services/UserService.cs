@@ -385,10 +385,14 @@ namespace EasyTab.Services.Services
             var currentUserId = currentUser?.FindFirst("Id")?.Value
                 ?? currentUser?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            if (!isAdmin || !int.TryParse(currentUserId, out var authenticatedUserId) || authenticatedUserId != request.Id)
+            if (!int.TryParse(currentUserId, out var authenticatedUserId))
             {
-                if (!isAdmin)
-                    throw new UnauthorizedAccessException("Nemate dozvolu za promjenu lozinke drugog korisnika.");
+                throw new UnauthorizedAccessException("Korisnički identitet nije pronađen u tokenu.");
+            }
+
+            if (!isAdmin && authenticatedUserId != request.Id)
+            {
+                throw new UnauthorizedAccessException("Nemate dozvolu za promjenu lozinke drugog korisnika.");
             }
 
             _logger.LogInformation("Promjena lozinke za korisnika: {UserId}", request.Id);

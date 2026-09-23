@@ -19,6 +19,15 @@ namespace EasyTab.API.Controllers
             _service = service;
         }
 
+        [Authorization]
+        public override Task<Reservations> Create([FromBody] ReservationInsertRequest request) => base.Create(request);
+
+        [Authorization("Admin", "Vlasnik", "Radnik")]
+        public override Task<Reservations?> Update(int id, [FromBody] ReservationUpdateRequest request) => base.Update(id, request);
+
+        [Authorization("Admin", "Vlasnik", "Radnik")]
+        public override Task<bool> Delete(int id) => base.Delete(id);
+
         [HttpGet("available-slots")]
         public IActionResult GetAvailableSlots([FromQuery] int tableId, [FromQuery] DateTime date)
         {

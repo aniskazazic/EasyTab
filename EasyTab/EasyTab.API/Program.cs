@@ -9,6 +9,7 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using EasyTab.Services.QueryOptimization;
 using EasyTab.Services.ReservationStateMachine;
+using EasyTab.Services.SeedData;
 using EasyTab.Services.Services;
 using EasyTab.Services.Validators;
 using FluentValidation;
@@ -41,6 +42,7 @@ builder.Services.AddScoped<ICityService, CityService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ILocaleService, LocaleService>();
 builder.Services.AddScoped<ILocaleAccessService, LocaleAccessService>();
+builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<IZoneService, ZoneService>();
 builder.Services.AddScoped<ITableService, TableService>();
 builder.Services.AddScoped<IWorkerService, WorkerService>();
@@ -223,6 +225,7 @@ app.MapHub<NotificationHub>("/notificationHub");
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<_220030Context>();
+    var dbSeeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
     
     try
     {
@@ -231,11 +234,13 @@ using (var scope = app.Services.CreateScope())
         {
             // Baza postoji – samo primijeni migracije (ako ih ima)
             dbContext.Database.Migrate();
+            await dbSeeder.SeedAsync();
         }
         else
         {
             // Baza ne postoji – kreiraj je i primijeni migracije
             dbContext.Database.Migrate();
+            await dbSeeder.SeedAsync();
         }
     }
     catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 1801)
