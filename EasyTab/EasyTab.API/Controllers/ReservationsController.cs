@@ -38,15 +38,15 @@ namespace EasyTab.API.Controllers
         [HttpPut("cancel/{id}")]
         public async Task<IActionResult> CancelReservation(int id, [FromBody] CancelReservationRequest request)
         {
-            await _service.CancelReservationAsync(id, request.Reason, request.CancelledById);
+            await _service.CancelReservationAsync(id, request.Reason);
             return Ok(new { Message = "Rezervacija otkazana!" });
         }
 
         [HttpPut("confirm/{id}")]
         [Authorization("Admin", "Vlasnik", "Radnik")]
-        public async Task<IActionResult> ConfirmReservation(int id, [FromQuery] int approvedById)
+        public async Task<IActionResult> ConfirmReservation(int id)
         {
-            var reservation = await _service.ConfirmAsync(id, approvedById);
+            var reservation = await _service.ConfirmAsync(id);
             return Ok(reservation);
         }
 

@@ -4,9 +4,9 @@ namespace EasyTab.Services.Interfaces
 {
     public interface INotificationService
     {
-        Task<List<Notifications>> GetByUserIdAsync(int userId);
+        Task<List<Notifications>> GetByUserIdAsync();
         Task MarkAsReadAsync(int notificationId);
-        Task MarkAllAsReadAsync(int userId);
+        Task MarkAllAsReadAsync();
         Task<Notifications> CreateAsync(int userId, string title, string message);
     }
 }

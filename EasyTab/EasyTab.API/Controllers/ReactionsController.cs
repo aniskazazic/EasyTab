@@ -22,14 +22,14 @@ namespace EasyTab.API.Controllers
         [HttpPost]
         public IActionResult React(ReactionInsertRequest request)
         {
-            var result = _service.React(request.ReviewId, request.UserId,   request.IsLike);
+            var result = _service.React(request.ReviewId, request.IsLike);
             return Ok(result);
         }
 
         [HttpDelete]
-        public IActionResult RemoveReaction([FromQuery] int reviewId, [FromQuery] int userId)
+        public IActionResult RemoveReaction([FromQuery] int reviewId)
         {
-            _service.RemoveReaction(reviewId, userId);
+            _service.RemoveReaction(reviewId);
             return Ok(new { Message = "Reakcija uklonjena!" });
         }
 

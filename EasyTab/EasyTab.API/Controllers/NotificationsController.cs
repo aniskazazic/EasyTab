@@ -20,9 +20,9 @@ namespace EasyTab.API.Controllers
         /// Dohvata sve notifikacije za određenog korisnika
         /// </summary>
         [HttpGet]
-        public async Task<IActionResult> GetByUserId([FromQuery] int userId)
+        public async Task<IActionResult> GetByUserId()
         {
-            var notifications = await _notificationService.GetByUserIdAsync(userId);
+            var notifications = await _notificationService.GetByUserIdAsync();
             return Ok(notifications);
         }
 
@@ -40,9 +40,9 @@ namespace EasyTab.API.Controllers
         /// Označava sve notifikacije korisnika kao pročitane
         /// </summary>
         [HttpPut("read-all")]
-        public async Task<IActionResult> MarkAllAsRead([FromQuery] int userId)
+        public async Task<IActionResult> MarkAllAsRead()
         {
-            await _notificationService.MarkAllAsReadAsync(userId);
+            await _notificationService.MarkAllAsReadAsync();
             return Ok(new { Message = "Sve notifikacije označene kao pročitane." });
         }
     }

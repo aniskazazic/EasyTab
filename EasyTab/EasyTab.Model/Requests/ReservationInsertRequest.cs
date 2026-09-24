@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
 namespace EasyTab.Model.Requests
 {
     public class ReservationInsertRequest
     {
+        [JsonIgnore]
         public int UserId { get; set; }
         public int TableId { get; set; }
         public int NumberOfGuests { get; set; }

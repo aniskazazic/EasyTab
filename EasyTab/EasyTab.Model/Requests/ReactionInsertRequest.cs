@@ -9,7 +9,6 @@ namespace EasyTab.Model.Requests
     public class ReactionInsertRequest
     {
         public int ReviewId { get; set; }
-        public int UserId { get; set; }
         public bool IsLike { get; set; }
     }
 }

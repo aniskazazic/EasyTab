@@ -25,13 +25,15 @@ namespace EasyTab.Services.Services
         private readonly ILogger<ReservationService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILocaleAccessService _localeAccessService;
+        private readonly ICurrentUserService _currentUser;
 
-        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<ReservationService> logger, IServiceProvider serviceProvider, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper, insertValidator, updateValidator)
+        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<ReservationService> logger, IServiceProvider serviceProvider, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser) : base(context, mapper, insertValidator, updateValidator)
         {
             _wh = wh;
             _logger = logger;
             _serviceProvider = serviceProvider;
             _localeAccessService = localeAccessService;
+            _currentUser = currentUser;
         }
 
         protected override IQueryable<Reservation> ApplyFilter(IQueryable<Reservation> query, ReservationSearchObject search)
@@ -40,8 +42,24 @@ namespace EasyTab.Services.Services
                          .ThenInclude(t => t.Locale)
                          .Include(r => r.User);
 
-            if (search?.UserId.HasValue == true)
-                query = query.Where(x => x.UserId == search.UserId);
+            if (_currentUser.IsAdmin)
+            {
+                if (search?.UserId.HasValue == true)
+                    query = query.Where(x => x.UserId == search.UserId.Value);
+            }
+            else if (_currentUser.Role == "Vlasnik")
+            {
+                query = query.Where(x => x.Table.Locale.OwnerId == _currentUser.UserId);
+            }
+            else if (_currentUser.Role == "Radnik")
+            {
+                query = query.Where(x => x.Table.Locale.Workers.Any(worker =>
+                    worker.UserId == _currentUser.UserId && !worker.IsDeleted));
+            }
+            else
+            {
+                query = query.Where(x => x.UserId == _currentUser.UserId);
+            }
 
             if (search?.TableId.HasValue == true)
                 query = query.Where(x => x.TableId == search.TableId);
@@ -117,13 +135,32 @@ namespace EasyTab.Services.Services
             var entity = await Context.Reservations
                 .Include(r => r.Table)
                     .ThenInclude(t => t.Locale)
+                        .ThenInclude(l => l.Workers)
                 .Include(r => r.User)
                 .FirstOrDefaultAsync(r => r.Id == id);
 
             if (entity == null)
                 return null;
 
+            if (!CanAccessReservation(entity))
+                return null;
+
             return MapToResponse(entity);
+        }
+
+        private bool CanAccessReservation(Reservation reservation)
+        {
+            if (_currentUser.IsAdmin)
+                return true;
+
+            if (_currentUser.Role == "Vlasnik")
+                return reservation.Table.Locale.OwnerId == _currentUser.UserId;
+
+            if (_currentUser.Role == "Radnik")
+                return reservation.Table.Locale.Workers.Any(worker =>
+                    worker.UserId == _currentUser.UserId && !worker.IsDeleted);
+
+            return reservation.UserId == _currentUser.UserId;
         }
 
         protected override async Task BeforeInsert(Reservation entity, ReservationInsertRequest request)
@@ -251,15 +288,14 @@ namespace EasyTab.Services.Services
             return slots;
         }
 
-        public void CancelReservation(int id, string reason, int cancelledById)
-        {
-            CancelReservationAsync(id, reason, cancelledById).GetAwaiter().GetResult();
-        }
-
-        public async Task CancelReservationAsync(int id, string reason, int cancelledById)
+        public async Task CancelReservationAsync(int id, string reason)
         {
             _logger.LogWarning("Cancelling reservation. ReservationId: {ReservationId}", id);
-            var reservation = await Context.Reservations.FindAsync(id);
+            var reservation = await Context.Reservations
+                .Include(x => x.Table)
+                    .ThenInclude(x => x.Locale)
+                        .ThenInclude(x => x.Workers)
+                .FirstOrDefaultAsync(x => x.Id == id);
             if (reservation == null)
             {
                 _logger.LogWarning("Cannot cancel reservation because it was not found. ReservationId: {ReservationId}", id);
@@ -271,8 +307,17 @@ namespace EasyTab.Services.Services
                 throw new UserException("Razlog otkazivanja je obavezan.");
             }
 
+            if (_currentUser.Role == "Vlasnik" || _currentUser.Role == "Radnik" || _currentUser.IsAdmin)
+            {
+                await _localeAccessService.EnsureCanManageLocaleAsync(reservation.Table.LocaleId);
+            }
+            else if (reservation.UserId != _currentUser.UserId)
+            {
+                throw new UserException("Možete otkazati samo vlastitu rezervaciju.");
+            }
+
             var state = GetStateMachine(reservation.ReservationState);
-            await state.CancelAsync(id, reason, cancelledById);
+            await state.CancelAsync(id, reason, _currentUser.UserId);
             _logger.LogWarning("Reservation cancelled successfully. ReservationId: {ReservationId}", id);
         }
 
@@ -290,6 +335,7 @@ namespace EasyTab.Services.Services
 
         public override async Task<Reservations> CreateAsync(ReservationInsertRequest request)
         {
+            request.UserId = _currentUser.UserId;
             var initialState = GetStateMachine(nameof(InitialReservationState));
             return await initialState.CreateAsync(request);
         }
@@ -318,7 +364,7 @@ namespace EasyTab.Services.Services
             return await state.CompleteAsync(id);
         }
 
-        public async Task<Reservations> ConfirmAsync(int id, int approvedById)
+        public async Task<Reservations> ConfirmAsync(int id)
         {
             var reservation = await Context.Reservations
                 .Include(x => x.Table)
@@ -331,7 +377,7 @@ namespace EasyTab.Services.Services
             await _localeAccessService.EnsureCanManageLocaleAsync(reservation.Table.LocaleId);
 
             var state = GetStateMachine(reservation.ReservationState);
-            return await state.ConfirmAsync(id, approvedById);
+            return await state.ConfirmAsync(id, _currentUser.UserId);
         }
 
         public async Task<Reservations> CompleteAsync(int id)
@@ -350,16 +396,23 @@ namespace EasyTab.Services.Services
             return await state.CompleteAsync(id);
         }
 
-        public Task<List<string>> GetAllowedActionsAsync(int id)
+        public async Task<List<string>> GetAllowedActionsAsync(int id)
         {
-            var reservation = Context.Reservations.Find(id);
+            var reservation = await Context.Reservations
+                .Include(x => x.Table)
+                    .ThenInclude(x => x.Locale)
+                        .ThenInclude(x => x.Workers)
+                .FirstOrDefaultAsync(x => x.Id == id);
             if (reservation == null)
             {
                 throw new UserException("Rezervacija nije pronađena!");
             }
 
+            if (!CanAccessReservation(reservation))
+                throw new UserException("Nemate dozvolu za pregled ove rezervacije.");
+
             var state = GetStateMachine(reservation.ReservationState);
-            return Task.FromResult(state.GetAllowedActions());
+            return state.GetAllowedActions();
         }
 
         private BaseReservationState GetStateMachine(string stateName)

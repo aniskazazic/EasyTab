@@ -15,10 +15,12 @@ namespace EasyTab.Services.Services
     public class FavouriteService : BaseCRUDService<Favourites, FavouriteSearchObject, Favourite, FavouriteInsertRequest, FavouriteUpdateRequest>, IFavouriteService
     {
         private readonly ILogger<FavouriteService> _logger;
+        private readonly ICurrentUserService _currentUser;
 
-        public FavouriteService(_220030Context context, IMapper mapper, ILogger<FavouriteService> logger, IValidator<FavouriteInsertRequest> insertValidator, IValidator<FavouriteUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        public FavouriteService(_220030Context context, IMapper mapper, ILogger<FavouriteService> logger, IValidator<FavouriteInsertRequest> insertValidator, IValidator<FavouriteUpdateRequest> updateValidator, ICurrentUserService currentUser) : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
+            _currentUser = currentUser;
         }
 
         protected override IQueryable<Favourite> ApplyFilter(IQueryable<Favourite> query, FavouriteSearchObject search)
@@ -26,8 +28,10 @@ namespace EasyTab.Services.Services
             query = query.Include(x => x.Locale)
                         .Include(x => x.User);
 
-            if (search?.UserId.HasValue == true)
-                query = query.Where(x => x.UserId == search.UserId);
+            var filterUserId = _currentUser.IsAdmin && search?.UserId.HasValue == true
+                ? search.UserId.Value
+                : _currentUser.UserId;
+            query = query.Where(x => x.UserId == filterUserId);
 
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.LocaleId == search.LocaleId);
@@ -35,8 +39,31 @@ namespace EasyTab.Services.Services
             return query;
         }
 
-        public Favourites AddToFavourites(int userId, int localeId)
+        public override async Task<Favourites?> GetByIdAsync(int id)
         {
+            var entity = await Context.Favourites
+                .Include(x => x.Locale)
+                    .ThenInclude(x => x.Category)
+                .Include(x => x.Locale)
+                    .ThenInclude(x => x.City)
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            if (entity == null || (!_currentUser.IsAdmin && entity.UserId != _currentUser.UserId))
+                return null;
+
+            var result = Mapper.Map<Favourites>(entity);
+            result.LocaleId = entity.LocaleId;
+            result.LocaleLogo = entity.Locale?.Logo;
+            result.LocaleName = entity.Locale?.Name;
+            result.LocaleAddress = entity.Locale?.Address;
+            result.LocaleCategoryName = entity.Locale?.Category?.Name;
+            result.LocaleCityName = entity.Locale?.City?.Name;
+            return result;
+        }
+
+        public Favourites AddToFavourites(int localeId)
+        {
+            var userId = _currentUser.UserId;
             var existing = Context.Favourites
                             .FirstOrDefault(f => f.UserId == userId && f.LocaleId == localeId);
 
@@ -107,8 +134,9 @@ namespace EasyTab.Services.Services
             return newResponse;
         }
 
-        public List<Favourites> GetByUser(int userId)
+        public List<Favourites> GetByUser()
         {
+            var userId = _currentUser.UserId;
             _logger.LogDebug("Fetching favourites. UserId: {UserId}", userId);
             var favourites = Context.Favourites
                            .Include(f => f.Locale)
@@ -135,15 +163,17 @@ namespace EasyTab.Services.Services
             return result;
         }
 
-        public bool IsFavourited(int userId, int localeId)
+        public bool IsFavourited(int localeId)
         {
+            var userId = _currentUser.UserId;
             var isFavourited = Context.Favourites
                .Any(f => f.UserId == userId && f.LocaleId == localeId && f.IsActive);
             return isFavourited;
         }
 
-        public void RemoveFromFavourites(int userId, int localeId)
+        public void RemoveFromFavourites(int localeId)
         {
+            var userId = _currentUser.UserId;
             var fav = Context.Favourites
                       .FirstOrDefault(f => f.UserId == userId && f.LocaleId == localeId && f.IsActive);
 

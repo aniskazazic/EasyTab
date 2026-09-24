@@ -8,6 +8,7 @@ using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Mvc.ApplicationModels;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
@@ -21,10 +22,12 @@ namespace EasyTab.Services.Services
     public class ReactionService : BaseCRUDService<Reactions, ReactionSearchObject, Reaction, ReactionInsertRequest, ReactionUpdateRequest>, IReactionService
     {
         private readonly ILogger<ReactionService> _logger;
+        private readonly ICurrentUserService _currentUser;
 
-        public ReactionService(_220030Context context, IMapper mapper, ILogger<ReactionService> logger, IValidator<ReactionInsertRequest> insertValidator, IValidator<ReactionUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator)
+        public ReactionService(_220030Context context, IMapper mapper, ILogger<ReactionService> logger, IValidator<ReactionInsertRequest> insertValidator, IValidator<ReactionUpdateRequest> updateValidator, ICurrentUserService currentUser) : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
+            _currentUser = currentUser;
         }
 
         protected override IQueryable<Reaction> ApplyFilter(IQueryable<Reaction> query, ReactionSearchObject search)
@@ -32,14 +35,26 @@ namespace EasyTab.Services.Services
             if (search?.ReviewId.HasValue == true)
                 query = query.Where(x => x.ReviewId == search.ReviewId);
 
-            if (search?.UserId.HasValue == true)
-                query = query.Where(x => x.UserId == search.UserId);
+            var filterUserId = _currentUser.IsAdmin && search?.UserId.HasValue == true
+                ? search.UserId.Value
+                : _currentUser.UserId;
+            query = query.Where(x => x.UserId == filterUserId);
 
             return query;
         }
 
-        public Reactions React(int reviewId, int userId, bool isLike)
+        public override async Task<Reactions?> GetByIdAsync(int id)
         {
+            var entity = await Context.Reactions.FirstOrDefaultAsync(x => x.Id == id);
+            if (entity == null || (!_currentUser.IsAdmin && entity.UserId != _currentUser.UserId))
+                return null;
+
+            return Mapper.Map<Reactions>(entity);
+        }
+
+        public Reactions React(int reviewId, bool isLike)
+        {
+            var userId = _currentUser.UserId;
 
             var existing = Context.Reactions
                             .FirstOrDefault(r => r.ReviewId == reviewId && r.UserId == userId);
@@ -73,8 +88,9 @@ namespace EasyTab.Services.Services
             return Mapper.Map<Reactions>(newReaction);
         }
 
-        public void RemoveReaction(int reviewId, int userId)
+        public void RemoveReaction(int reviewId)
         {
+            var userId = _currentUser.UserId;
 
             var reaction = Context.Reactions
                 .FirstOrDefault(r => r.ReviewId == reviewId && r.UserId == userId);

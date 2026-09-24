@@ -10,15 +10,18 @@ namespace EasyTab.Services.Services
     {
         private readonly _220030Context _context;
         private readonly IMapper _mapper;
+        private readonly ICurrentUserService _currentUser;
 
-        public NotificationService(_220030Context context, IMapper mapper)
+        public NotificationService(_220030Context context, IMapper mapper, ICurrentUserService currentUser)
         {
             _context = context;
             _mapper = mapper;
+            _currentUser = currentUser;
         }
 
-        public async Task<List<Notifications>> GetByUserIdAsync(int userId)
+        public async Task<List<Notifications>> GetByUserIdAsync()
         {
+            var userId = _currentUser.UserId;
             var notifications = await _context.Notifications
                 .Where(n => n.UserId == userId)
                 .OrderByDescending(n => n.CreatedAt)
@@ -29,7 +32,8 @@ namespace EasyTab.Services.Services
 
         public async Task MarkAsReadAsync(int notificationId)
         {
-            var notification = await _context.Notifications.FindAsync(notificationId);
+            var notification = await _context.Notifications
+                .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == _currentUser.UserId);
             if (notification != null)
             {
                 notification.IsRead = true;
@@ -37,8 +41,9 @@ namespace EasyTab.Services.Services
             }
         }
 
-        public async Task MarkAllAsReadAsync(int userId)
+        public async Task MarkAllAsReadAsync()
         {
+            var userId = _currentUser.UserId;
             var notifications = await _context.Notifications
                 .Where(n => n.UserId == userId && !n.IsRead)
                 .ToListAsync();
