@@ -19,13 +19,13 @@ namespace EasyTab.API.Controllers
             _service = service; 
         }
 
-        [Authorization("Admin", "Vlasnik", "Radnik")]
+        [Authorization("Admin", "Vlasnik")]
         public override Task<Zones> Create([FromBody] ZoneInsertRequest request) => base.Create(request);
 
-        [Authorization("Admin", "Vlasnik", "Radnik")]
+        [Authorization("Admin", "Vlasnik")]
         public override Task<Zones?> Update(int id, [FromBody] ZoneUpdateRequest request) => base.Update(id, request);
 
-        [Authorization("Admin", "Vlasnik", "Radnik")]
+        [Authorization("Admin", "Vlasnik")]
         public override Task<bool> Delete(int id) => base.Delete(id);
 
 

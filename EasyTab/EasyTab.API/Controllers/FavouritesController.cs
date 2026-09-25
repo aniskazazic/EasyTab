@@ -39,7 +39,7 @@ namespace EasyTab.API.Controllers
             return Ok(result);
         }
 
-        [HttpGet("by-user/{userId}")]
+        [HttpGet("by-user/")]
         public IActionResult GetByUser()
         {
             var result = _service.GetByUser();
