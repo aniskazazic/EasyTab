@@ -1,4 +1,4 @@
-﻿using EasyTab.Model.Access;
+using EasyTab.Model.Access;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
@@ -20,5 +20,9 @@ namespace EasyTab.Services.Interfaces
         Task<Users> RegisterAsync(UserRegisterRequest request);
 
         Task ChangePasswordAsync(UserPasswordChangeRequest request);
+
+        Task ForgotPasswordAsync(ForgotPasswordRequest request);
+
+        Task ResetPasswordAsync(ResetPasswordRequest request);
     }
 }

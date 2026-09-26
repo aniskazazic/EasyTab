@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using System.Security.Claims;
+using System.Security.Cryptography;
 
 namespace EasyTab.Services.Services
 {
@@ -23,13 +24,28 @@ namespace EasyTab.Services.Services
         private readonly ICryptoService _cryptoService;
         private readonly IRabbitMQPublisher _rabbitMQPublisher;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IValidator<ForgotPasswordRequest> _forgotPasswordValidator;
+        private readonly IValidator<ResetPasswordRequest> _resetPasswordValidator;
 
-        public UserService(_220030Context context, IMapper mapper, ILogger<IUserService> logger, IValidator<UserInsertRequest> insertValidator, IValidator<UserUpdateRequest> updateValidator, ICryptoService cryptoService, IRabbitMQPublisher rabbitMQPublisher, IHttpContextAccessor httpContextAccessor) : base(context, mapper,insertValidator,updateValidator)
+        public UserService(
+            _220030Context context,
+            IMapper mapper,
+            ILogger<IUserService> logger,
+            IValidator<UserInsertRequest> insertValidator,
+            IValidator<UserUpdateRequest> updateValidator,
+            ICryptoService cryptoService,
+            IRabbitMQPublisher rabbitMQPublisher,
+            IHttpContextAccessor httpContextAccessor,
+            IValidator<ForgotPasswordRequest> forgotPasswordValidator,
+            IValidator<ResetPasswordRequest> resetPasswordValidator)
+            : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
             _cryptoService = cryptoService;
             _rabbitMQPublisher = rabbitMQPublisher;
             _httpContextAccessor = httpContextAccessor;
+            _forgotPasswordValidator = forgotPasswordValidator;
+            _resetPasswordValidator = resetPasswordValidator;
         }
 
         protected override IQueryable<User> ApplyFilter(IQueryable<User> query, UserSearchObject? searchObject)
@@ -421,6 +437,122 @@ namespace EasyTab.Services.Services
 
             _logger.LogInformation("Lozinka je uspješno promijenjena za korisnika s ID: {UserId}", request.Id);
 
+        }
+
+        public async Task ForgotPasswordAsync(ForgotPasswordRequest request)
+        {
+            await _forgotPasswordValidator.ValidateAndThrowAsync(request);
+
+            var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail && !u.IsDeleted);
+
+            if (user == null)
+            {
+                // Zaštita od timing attacka (enumeracija naloga): simulacija hash kalkulacije
+                var dummySalt = _cryptoService.GenerateSalt();
+                _ = _cryptoService.GenerateHash("dummy_value", dummySalt);
+                _logger.LogInformation("ForgotPassword zatražen za nepostojeći ili neaktivan email.");
+                return;
+            }
+
+            // 1. Obriši sve postojeće reset tokene za ovog korisnika prije kreiranja novog
+            var existingTokens = await _context.PasswordResetTokens
+                .Where(t => t.UserId == user.Id)
+                .ToListAsync();
+
+            if (existingTokens.Count > 0)
+            {
+                _context.PasswordResetTokens.RemoveRange(existingTokens);
+            }
+
+            // 2. Generiši 6-cifreni kod pomoću RandomNumberGenerator (CSPRNG)
+            var code = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+
+            // 3. Kod se NE smije čuvati u plain textu - hashujemo ga
+            var salt = _cryptoService.GenerateSalt();
+            var hash = _cryptoService.GenerateHash(code, salt);
+
+            var resetToken = new PasswordResetToken
+            {
+                UserId = user.Id,
+                CodeHash = hash,
+                CodeSalt = salt,
+                ExpiryTime = DateTime.UtcNow.AddMinutes(15),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.PasswordResetTokens.Add(resetToken);
+            await _context.SaveChangesAsync();
+
+            // 4. Asinhrono slanje poruke kroz RabbitMQ u EasyTab.Subscriber
+            var message = new PasswordResetMessage
+            {
+                Email = user.Email,
+                FullName = $"{user.FirstName} {user.LastName}",
+                Code = code
+            };
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _rabbitMQPublisher.PublishPasswordResetAsync(message);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Greška prilikom slanja PasswordResetMessage na RabbitMQ za {Email}", user.Email);
+                }
+            });
+
+            _logger.LogInformation("Password reset kod uspješno generisan i poslan za korisnika sa ID: {UserId}", user.Id);
+        }
+
+        public async Task ResetPasswordAsync(ResetPasswordRequest request)
+        {
+            await _resetPasswordValidator.ValidateAndThrowAsync(request);
+
+            var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email.ToLower() == normalizedEmail && !u.IsDeleted);
+
+            if (user == null)
+            {
+                // Generička poruka radi zaštite od enumeracije naloga
+                throw new UserException("Neispravan ili istekao kod za poništavanje lozinke.");
+            }
+
+            // Pronađi najnoviji neistekli token za ovog korisnika
+            var resetToken = await _context.PasswordResetTokens
+                .Where(t => t.UserId == user.Id && t.ExpiryTime > DateTime.UtcNow)
+                .OrderByDescending(t => t.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (resetToken == null || !_cryptoService.Verify(resetToken.CodeHash, resetToken.CodeSalt, request.Code))
+            {
+                throw new UserException("Neispravan ili istekao kod za poništavanje lozinke.");
+            }
+
+            // Postavi novu lozinku
+            user.PasswordSalt = _cryptoService.GenerateSalt();
+            user.PasswordHash = _cryptoService.GenerateHash(request.NewPassword, user.PasswordSalt);
+            _context.Users.Update(user);
+
+            // Obriši sve reset tokene za ovog korisnika
+            var allResetTokens = await _context.PasswordResetTokens
+                .Where(t => t.UserId == user.Id)
+                .ToListAsync();
+            _context.PasswordResetTokens.RemoveRange(allResetTokens);
+
+            // Opozovi/obriši sve aktivne RefreshToken zapise ovog korisnika (invalidacija postojećih sesija)
+            var userRefreshTokens = await _context.RefreshTokens
+                .Where(rt => rt.UserId == user.Id)
+                .ToListAsync();
+            if (userRefreshTokens.Count > 0)
+            {
+                _context.RefreshTokens.RemoveRange(userRefreshTokens);
+            }
+
+            await _context.SaveChangesAsync();
+            _logger.LogInformation("Lozinka uspješno resetovana i sesije poništene za korisnika sa ID: {UserId}", user.Id);
         }
     }
 }

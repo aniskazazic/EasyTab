@@ -96,6 +96,8 @@ builder.Services.AddScoped<IValidator<FavouriteInsertRequest>, FavouriteInsertVa
 builder.Services.AddScoped<IValidator<FavouriteUpdateRequest>, FavouriteUpdateValidator>();
 builder.Services.AddScoped<IValidator<LocaleImageInsertRequest>, LocaleImageInsertValidator>();
 builder.Services.AddScoped<IValidator<LocaleImageUpdateRequest>, LocaleImageUpdateValidator>();
+builder.Services.AddScoped<IValidator<ForgotPasswordRequest>, ForgotPasswordValidator>();
+builder.Services.AddScoped<IValidator<ResetPasswordRequest>, ResetPasswordValidator>();
 
 
 builder.Services.AddMapster();

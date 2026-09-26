@@ -1,4 +1,4 @@
-﻿using EasyTab.API.Services.AccessManager;
+using EasyTab.API.Services.AccessManager;
 using EasyTab.Model.Access;
 using EasyTab.Model.Requests;
 using EasyTab.Services.Interfaces;
@@ -41,6 +41,22 @@ namespace EasyTab.API.Controllers
         {
             await _userService.RegisterAsync(request);
             return Ok("Registracija uspješno izvršena !");
+        }
+
+        [HttpPost("ForgotPassword")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            await _userService.ForgotPasswordAsync(request);
+            return Ok(new { message = "Ukoliko nalog sa navedenom email adresom postoji, poslan je kod za oporavak lozinke." });
+        }
+
+        [HttpPost("ResetPassword")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            await _userService.ResetPasswordAsync(request);
+            return Ok(new { message = "Lozinka je uspješno promijenjena. Možete se prijaviti novom lozinkom." });
         }
     }
 }

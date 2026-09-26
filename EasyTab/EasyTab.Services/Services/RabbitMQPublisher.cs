@@ -74,6 +74,19 @@ namespace EasyTab.Services.Services
             }
         }
 
+        public async Task PublishPasswordResetAsync(PasswordResetMessage message)
+        {
+            try
+            {
+                await _bus.PubSub.PublishAsync(message);
+                _logger.LogInformation("Published PasswordResetMessage for {Email}", message.Email);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to publish PasswordResetMessage for {Email}", message.Email);
+            }
+        }
+
         public void Dispose()
         {
             _bus?.Dispose();

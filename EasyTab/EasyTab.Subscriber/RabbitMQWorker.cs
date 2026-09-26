@@ -100,6 +100,19 @@ namespace EasyTab.Subscriber
                 stoppingToken);
 
             _logger.LogInformation("Subscribed to ReservationCancelledMessage");
+
+            // Subscribe na PasswordResetMessage
+            await _bus.PubSub.SubscribeAsync<PasswordResetMessage>(
+                "easytab-subscriber-password-reset",
+                async msg =>
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var consumer = scope.ServiceProvider.GetRequiredService<PasswordResetConsumer>();
+                    await consumer.HandleAsync(msg);
+                },
+                stoppingToken);
+
+            _logger.LogInformation("Subscribed to PasswordResetMessage");
             _logger.LogInformation("EasyTab Subscriber is running and waiting for messages...");
 
             // Drži worker aktivan dok se ne zaustavi

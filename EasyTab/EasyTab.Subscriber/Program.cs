@@ -23,6 +23,7 @@ var host = Host.CreateDefaultBuilder(args)
         services.AddScoped<ReservationCreatedConsumer>();
         services.AddScoped<ReservationConfirmedConsumer>();
         services.AddScoped<ReservationCancelledConsumer>();
+        services.AddScoped<PasswordResetConsumer>();
 
         // Worker
         services.AddHostedService<RabbitMQWorker>();

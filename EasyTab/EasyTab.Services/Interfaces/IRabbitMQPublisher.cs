@@ -8,5 +8,6 @@ namespace EasyTab.Services.Interfaces
         Task PublishReservationCreatedAsync(ReservationCreatedMessage message);
         Task PublishReservationConfirmedAsync(ReservationConfirmedMessage message);
         Task PublishReservationCancelledAsync(ReservationCancelledMessage message);
+        Task PublishPasswordResetAsync(PasswordResetMessage message);
     }
 }

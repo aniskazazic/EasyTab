@@ -285,5 +285,22 @@ public partial class _220030Context : DbContext
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_Notifications_Users");
-        });    }
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.CodeHash).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.CodeSalt).HasMaxLength(255).IsRequired();
+            entity.Property(e => e.ExpiryTime).HasColumnType("datetime");
+            entity.Property(e => e.CreatedAt).HasColumnType("datetime");
+
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.PasswordResetTokens)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_PasswordResetTokens_Users");
+        });
+    }
 }
