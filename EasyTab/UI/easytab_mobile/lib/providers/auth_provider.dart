@@ -1,4 +1,6 @@
 import 'package:easytab_mobile/models/user.dart';
+import 'package:easytab_mobile/models/forgot_password_request.dart';
+import 'package:easytab_mobile/models/reset_password_request.dart';
 import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/userrole.dart';
 import 'package:easytab_mobile/models/role.dart';
@@ -118,6 +120,26 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       return false;
     }
+  }
+
+  Future<void> forgotPassword(String email) async {
+    var url = "$_baseUrl/Access/ForgotPassword";
+    var uri = Uri.parse(url);
+    var headers = createHeaders();
+    var body = jsonEncode(ForgotPasswordRequest(email: email).toJson());
+
+    http.Response response = await http.post(uri, headers: headers, body: body);
+    validateResponse(response);
+  }
+
+  Future<void> resetPassword(ResetPasswordRequest request) async {
+    var url = "$_baseUrl/Access/ResetPassword";
+    var uri = Uri.parse(url);
+    var headers = createHeaders();
+    var body = jsonEncode(request.toJson());
+
+    http.Response response = await http.post(uri, headers: headers, body: body);
+    validateResponse(response);
   }
 
   /// Login failures must not reveal whether the username exists (username enumeration).
