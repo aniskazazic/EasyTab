@@ -1,6 +1,7 @@
 using EasyTab.API.Filters;
 using EasyTab.API.Helpers;
 using EasyTab.API.Hubs;
+using EasyTab.API.Services;
 using EasyTab.API.Services.AccessManager;
 using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Models;
@@ -16,6 +17,7 @@ using FluentValidation;
 using Mapster;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -56,9 +58,11 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IOwnerService, OwnerService>();
 builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationPushService, SignalRNotificationPushService>();
 builder.Services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
 
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, UserIdProvider>();
 
 builder.Services.AddScoped<IQueryOptimizationService, QueryOptimizationService>();
 builder.Services.AddScoped<ICryptoService, CryptoService>();
@@ -151,6 +155,20 @@ builder.Services.AddAuthentication(options => // dodavanje authentfikacije i aut
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
         ClockSkew = TimeSpan.Zero
+    };
+    o.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            if (!string.IsNullOrEmpty(accessToken) &&
+                context.HttpContext.Request.Path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+            }
+
+            return Task.CompletedTask;
+        }
     };
 });
 builder.Services.AddAuthorization();

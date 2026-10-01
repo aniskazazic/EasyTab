@@ -4,5 +4,6 @@ namespace EasyTab.Services.Interfaces
     {
         Task EnsureCanManageLocaleAsync(int localeId);
         Task EnsureCanManageLocaleAsOwnerAsync(int localeId);
+        Task<List<int>> GetLocaleManagerUserIdsAsync(int localeId);
     }
 }

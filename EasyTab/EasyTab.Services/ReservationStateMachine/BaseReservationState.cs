@@ -2,8 +2,10 @@
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Services.Database;
+using EasyTab.Services.Interfaces;
 using MapsterMapper;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -62,6 +64,23 @@ namespace EasyTab.Services.ReservationStateMachine
             }
 
             return entity;
+        }
+
+        protected async Task PushNotificationsAsync(IEnumerable<Notification> notifications)
+        {
+            try
+            {
+                var pushService = _serviceProvider.GetRequiredService<INotificationPushService>();
+                foreach (var notification in notifications)
+                {
+                    await pushService.PushAsync(_mapper.Map<Notifications>(notification));
+                }
+            }
+            catch (Exception ex)
+            {
+                _serviceProvider.GetService<ILogger<BaseReservationState>>()?
+                    .LogError(ex, "Notification push processing failed after reservation commit.");
+            }
         }
 
         public BaseReservationState GetReservationState(string stateName)

@@ -28,6 +28,24 @@ namespace EasyTab.Services.Services
             return EnsureAccessAsync(localeId, allowWorker: false);
         }
 
+        public async Task<List<int>> GetLocaleManagerUserIdsAsync(int localeId)
+        {
+            var locale = await _context.Locales
+                .AsNoTracking()
+                .Include(x => x.Workers)
+                .FirstOrDefaultAsync(x => x.Id == localeId);
+
+            if (locale == null)
+                return new List<int>();
+
+            return new[] { locale.OwnerId }
+                .Concat(locale.Workers
+                    .Where(x => !x.IsDeleted)
+                    .Select(x => x.UserId))
+                .Distinct()
+                .ToList();
+        }
+
         private async Task EnsureAccessAsync(int localeId, bool allowWorker)
         {
             var user = _httpContextAccessor.HttpContext?.User;
