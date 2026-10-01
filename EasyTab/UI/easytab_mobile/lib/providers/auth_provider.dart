@@ -132,6 +132,16 @@ class AuthProvider extends ChangeNotifier {
     validateResponse(response);
   }
 
+  Future<void> register(Map<String, dynamic> request) async {
+    var url = "$_baseUrl/Access/Register";
+    var uri = Uri.parse(url);
+    var headers = createHeaders();
+    var body = jsonEncode(request);
+
+    http.Response response = await http.post(uri, headers: headers, body: body);
+    validateResponse(response);
+  }
+
   Future<void> resetPassword(ResetPasswordRequest request) async {
     var url = "$_baseUrl/Access/ResetPassword";
     var uri = Uri.parse(url);

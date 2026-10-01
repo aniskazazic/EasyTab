@@ -32,7 +32,6 @@ namespace EasyTab.API.Controllers
             return base.Create(request);
         }
 
-        [Authorization("Admin")]
         public override Task<Users?> Update(int id, [FromBody] UserUpdateRequest request)
         {
             return base.Update(id, request);

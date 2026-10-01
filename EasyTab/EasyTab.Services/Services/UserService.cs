@@ -200,6 +200,30 @@ namespace EasyTab.Services.Services
 
         public override async Task<Users?> UpdateAsync(int id, UserUpdateRequest request)
         {
+            var currentUser = _httpContextAccessor.HttpContext?.User;
+            var isAdmin = currentUser?.Claims.Any(claim =>
+                (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == "Admin") == true;
+            var currentUserId = currentUser?.FindFirst("Id")?.Value
+                ?? currentUser?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(currentUserId, out var authenticatedUserId))
+            {
+                throw new UnauthorizedAccessException("Korisnički identitet nije pronađen u tokenu.");
+            }
+
+            if (!isAdmin && authenticatedUserId != id)
+            {
+                throw new UnauthorizedAccessException("Nemate dozvolu za izmjenu drugog korisnika.");
+            }
+
+            // Lozinka se mijenja isključivo kroz ChangePasswordAsync, a status naloga samo Admin.
+            if (!isAdmin)
+            {
+                request.Password = null;
+                request.PasswordConfirmation = null;
+                request.IsDeleted = null;
+            }
+
             await _updateValidator.ValidateAndThrowAsync(request);
 
             var entity = await _context.Users.FindAsync(id);
@@ -258,7 +282,7 @@ namespace EasyTab.Services.Services
             else
                 entity.ProfilePicture = oldProfilePicture;
 
-            if (!string.IsNullOrWhiteSpace(request.Password))
+            if (isAdmin && !string.IsNullOrWhiteSpace(request.Password))
             {
                 if (request.Password != request.PasswordConfirmation)
                     throw new UserException("Lozinka i potvrda lozinke moraju biti iste!");
@@ -271,7 +295,7 @@ namespace EasyTab.Services.Services
                 entity.PasswordSalt = oldPasswordSalt;
             }
 
-            if (!request.IsDeleted.HasValue)
+            if (!isAdmin || !request.IsDeleted.HasValue)
             {
                 entity.IsDeleted = oldIsDeleted;
             }
@@ -406,7 +430,13 @@ namespace EasyTab.Services.Services
                 throw new UnauthorizedAccessException("Korisnički identitet nije pronađen u tokenu.");
             }
 
-            if (!isAdmin && authenticatedUserId != request.Id)
+            var ownerCanManageWorker = await _context.Workers
+                .AnyAsync(worker => worker.UserId == request.Id &&
+                    _context.Locales.Any(locale =>
+                        locale.Id == worker.LocaleId && locale.OwnerId == authenticatedUserId) &&
+                    !worker.IsDeleted);
+
+            if (!isAdmin && authenticatedUserId != request.Id && !ownerCanManageWorker)
             {
                 throw new UnauthorizedAccessException("Nemate dozvolu za promjenu lozinke drugog korisnika.");
             }
@@ -419,9 +449,11 @@ namespace EasyTab.Services.Services
                 throw new Exception("Korisnik nije pronađen !");
             }
 
-            if (!_cryptoService.Verify(user.PasswordHash,user.PasswordSalt, request.Password))
+            var changingAnotherUserAsAdmin = isAdmin && authenticatedUserId != request.Id;
+            if (!changingAnotherUserAsAdmin &&
+                !_cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password))
             {
-                throw new Exception("Pogrešni kredencijali !");
+                throw new UserException("Pogrešni kredencijali !");
             }
 
             if (!request.NewPassword.Equals(request.ConfirmNewPassword))

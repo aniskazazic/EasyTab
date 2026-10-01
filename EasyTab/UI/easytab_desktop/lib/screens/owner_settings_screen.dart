@@ -5,6 +5,7 @@ import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
+import 'package:easytab_desktop/widgets/desktop_password_section.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -25,8 +26,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   late UserProvider userProvider;
   bool isLoading = true;
   File? _imageFile;
-  bool _obscurePassword = true;
-  bool _obscurePasswordConfirmation = true;
+  bool _changePassword = false;
 
   @override
   void initState() {
@@ -42,28 +42,25 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       if (mounted) setState(() => isLoading = false);
       return;
     }
-
     try {
       final freshUser = await userProvider.getById(userId);
-      if (mounted) {
-        setState(() {
-          AuthProvider.currentUser = freshUser;
-          isLoading = false;
+      if (!mounted) return;
+      setState(() {
+        AuthProvider.currentUser = freshUser;
+        isLoading = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        formKey.currentState?.patchValue({
+          'firstName': freshUser.firstName,
+          'lastName': freshUser.lastName,
+          'username': freshUser.username,
+          'email': freshUser.email,
+          'phoneNumber': freshUser.phoneNumber,
+          'birthDate': freshUser.birthDate,
         });
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          formKey.currentState?.patchValue({
-            'firstName': freshUser.firstName,
-            'lastName': freshUser.lastName,
-            'username': freshUser.username,
-            'email': freshUser.email,
-            'phoneNumber': freshUser.phoneNumber,
-            'birthDate': freshUser.birthDate,
-          });
-        });
-      }
+      });
     } catch (e) {
-      debugPrint('Greška pri učitavanju korisnika: $e');
+      debugPrint('Greska pri ucitavanju korisnika: $e');
       if (mounted) setState(() => isLoading = false);
     }
   }
@@ -72,8 +69,8 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        title: const Text('Greska'),
+        content: Text(message.replaceAll('Exception: ', '')),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -88,7 +85,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Uspješno'),
+        title: const Text('Uspjesno'),
         content: Text(message),
         actions: [
           TextButton(
@@ -106,7 +103,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   }
 
   Future<void> _pickImage() async {
-    var result = await FilePicker.pickFiles(type: FileType.image);
+    final result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       setState(() => _imageFile = File(result.files.single.path!));
     }
@@ -115,42 +112,49 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   Future<void> _handleSave() async {
     formKey.currentState?.saveAndValidate();
     if (!(formKey.currentState?.validate() ?? false)) return;
-
     setState(() => isLoading = true);
-
+    var profileUpdated = false;
     try {
-      var request = Map<String, dynamic>.from(
+      final request = Map<String, dynamic>.from(
         formKey.currentState?.value ?? {},
       );
-
-      if (_imageFile != null) {
+      if (_imageFile != null)
         request['profilePicture'] = base64Encode(_imageFile!.readAsBytesSync());
-      }
-
       if (request['birthDate'] is DateTime) {
         request['birthDate'] = (request['birthDate'] as DateTime)
             .toUtc()
             .toIso8601String();
       }
-
       request.removeWhere(
         (key, value) => value == null || value.toString().isEmpty,
       );
-
+      final currentPassword = request.remove('currentPassword');
+      final newPassword = request.remove('password');
+      final passwordConfirmation = request.remove('passwordConfirmation');
       final userId = AuthProvider.currentUser?.id;
       if (userId == null) {
-        _showError('Greška: Korisnik nije prijavljen!');
+        _showError('Korisnik nije prijavljen!');
         return;
       }
-
       final updatedUser = await userProvider.update(userId, request);
       AuthProvider.currentUser = updatedUser;
-
-      if (mounted) {
-        _showSuccess('Podaci uspješno ažurirani!');
+      profileUpdated = true;
+      if (_changePassword) {
+        await userProvider.changePassword({
+          'id': userId,
+          'password': currentPassword,
+          'newPassword': newPassword,
+          'confirmNewPassword': passwordConfirmation,
+        });
       }
+      if (mounted) _showSuccess('Podaci uspjesno azurirani!');
     } catch (e) {
-      _showError(e.toString().replaceAll("Exception: ", ""));
+      final message = e.toString().replaceAll('Exception: ', '');
+      _showError(
+        profileUpdated
+            ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
+            : message,
+      );
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -159,16 +163,15 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   Future<void> _confirmDeleteImage() async {
     final user = AuthProvider.currentUser;
     if (user?.profilePicture == null) return;
-
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Brisanje slike'),
-        content: const Text('Da li ste sigurni da želite obrisati sliku?'),
+        content: const Text('Da li ste sigurni da zelite obrisati sliku?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Otkaži'),
+            child: const Text('Otkazi'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -176,24 +179,19 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
               Navigator.pop(context);
               try {
                 await userProvider.update(user!.id!, {'profilePicture': ''});
-
-                if (mounted) {
-                  setState(() {
-                    AuthProvider.currentUser = AuthProvider.currentUser
-                      ?..profilePicture = null;
-                  });
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Slika uspješno obrisana!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
+                if (!mounted) return;
+                setState(() => AuthProvider.currentUser?.profilePicture = null);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Slika uspjesno obrisana!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
               } catch (e) {
                 _showError(e.toString());
               }
             },
-            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+            child: const Text('Obrisi', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -203,7 +201,6 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final user = AuthProvider.currentUser;
-
     return MasterScreen(
       title: 'Postavke',
       sidebar: const OwnerSidebar(),
@@ -226,86 +223,52 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
               'email': user?.email ?? '',
               'phoneNumber': user?.phoneNumber ?? '',
               'birthDate': user?.birthDate,
-              'password': '',
-              'passwordConfirmation': '',
             },
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(30),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Profilna slika
                   Center(
                     child: Column(
                       children: [
-                        Container(
-                          width: 120,
-                          height: 120,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              width: 2,
-                            ),
-                            color: Colors.grey.shade100,
-                          ),
-                          child: ClipOval(
-                            child: _imageFile != null
-                                ? Image.file(_imageFile!, fit: BoxFit.cover)
-                                : imageProviderFromString(
-                                        user?.profilePicture,
-                                      ) !=
-                                      null
-                                ? Image(
-                                    image: imageProviderFromString(
-                                      user?.profilePicture,
-                                    )!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => const Icon(
-                                      Icons.person,
-                                      size: 60,
-                                      color: Colors.grey,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.person,
-                                    size: 60,
-                                    color: Colors.grey,
-                                  ),
-                          ),
+                        CircleAvatar(
+                          radius: 60,
+                          backgroundImage: _imageFile != null
+                              ? FileImage(_imageFile!)
+                              : imageProviderFromString(user?.profilePicture),
+                          child:
+                              user?.profilePicture == null && _imageFile == null
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 60,
+                                  color: Colors.grey,
+                                )
+                              : null,
                         ),
                         const SizedBox(height: 12),
-                        // Dugme promijeni sliku — uvijek vidljivo
                         TextButton.icon(
                           onPressed: _pickImage,
                           icon: const Icon(Icons.camera_alt),
                           label: Text(
                             _imageFile != null
-                                ? 'Slika odabrana ✓'
+                                ? 'Slika odabrana'
                                 : 'Promijeni sliku',
-                            style: TextStyle(
-                              color: _imageFile != null
-                                  ? Colors.green
-                                  : const Color(0xFF1E40AF),
-                            ),
                           ),
                         ),
-                        // Dugme obriši — samo ako postoji slika u bazi i nije odabrana nova
                         if (user?.profilePicture != null && _imageFile == null)
                           TextButton.icon(
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.red,
                             ),
                             icon: const Icon(Icons.delete, size: 18),
-                            label: const Text('Obriši sliku'),
+                            label: const Text('Obrisi sliku'),
                             onPressed: _confirmDeleteImage,
                           ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // Ime i prezime
                   Row(
                     children: [
                       Expanded(
@@ -336,21 +299,19 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // username i email
                   Row(
                     children: [
                       Expanded(
                         child: FormBuilderTextField(
                           name: 'username',
                           decoration: const InputDecoration(
-                            labelText: "Korisničko ime",
+                            labelText: 'Korisnicko ime',
                             border: OutlineInputBorder(),
                           ),
                           enabled: user != null,
                           validator: user != null
                               ? FormBuilderValidators.required(
-                                  errorText: 'Korisničko ime je obavezno',
+                                  errorText: 'Korisnicko ime je obavezno',
                                 )
                               : null,
                         ),
@@ -376,8 +337,6 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // Datum rođenja i broj telefona
                   Row(
                     children: [
                       Expanded(
@@ -386,7 +345,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                           inputType: InputType.date,
                           format: DateFormat('dd/MM/yyyy'),
                           decoration: const InputDecoration(
-                            labelText: 'Datum rođenja',
+                            labelText: 'Datum rodjenja',
                             border: OutlineInputBorder(),
                             suffixIcon: Icon(Icons.calendar_today),
                           ),
@@ -406,94 +365,17 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                       ),
                     ],
                   ),
-
                   const SizedBox(height: 24),
-
-                  // Separator
-                  Row(
-                    children: [
-                      Expanded(child: Divider(color: Colors.grey.shade300)),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Text(
-                          'Promjena lozinke',
-                          style: TextStyle(
-                            color: Colors.grey[600],
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                      Expanded(child: Divider(color: Colors.grey.shade300)),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Lozinka
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FormBuilderTextField(
-                          name: 'password',
-                          obscureText: _obscurePassword,
-                          decoration: InputDecoration(
-                            labelText:
-                                'Nova lozinka (ostavite prazno ukoliko ne mijenjate lozinku)',
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              onPressed: () => setState(
-                                () => _obscurePassword = !_obscurePassword,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: FormBuilderTextField(
-                          name: 'passwordConfirmation',
-                          obscureText: _obscurePasswordConfirmation,
-                          decoration: InputDecoration(
-                            labelText: 'Potvrda nove lozinke',
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                _obscurePasswordConfirmation
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              onPressed: () => setState(
-                                () => _obscurePasswordConfirmation =
-                                    !_obscurePasswordConfirmation,
-                              ),
-                            ),
-                          ),
-                          validator: (value) {
-                            final password =
-                                formKey.currentState?.fields['password']?.value
-                                    as String?;
-                            if (password != null &&
-                                password.isNotEmpty &&
-                                value != password) {
-                              return 'Lozinke se ne podudaraju';
-                            }
-                            return null;
-                          },
-                        ),
-                      ),
-                    ],
+                  DesktopPasswordSection(
+                    formKey: formKey,
+                    isSelf: true,
+                    onChanged: (value) => _changePassword = value,
                   ),
                 ],
               ),
             ),
           ),
         ),
-
-        // Dugme spremi
         Padding(
           padding: const EdgeInsets.all(16),
           child: SizedBox(

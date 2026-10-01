@@ -3,9 +3,7 @@ import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:easytab_mobile/providers/user_provider.dart';
-import 'package:easytab_mobile/models/user.dart';
-import 'package:easytab_mobile/models/search_result.dart';
+import 'package:easytab_mobile/providers/auth_provider.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -15,7 +13,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  late UserProvider userProvider;
+  late AuthProvider authProvider;
   final _formKey = GlobalKey<FormBuilderState>();
 
   String? confirmPasswordError;
@@ -27,7 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    userProvider = context.read<UserProvider>();
+    authProvider = context.read<AuthProvider>();
   }
 
   Future<void> _handleRegister() async {
@@ -43,7 +41,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       DateTime dob = req['birthDate'];
       req['birthDate'] = dob.toIso8601String().split('T')[0];
 
-      await userProvider.insert({
+      await authProvider.register({
         'firstName': req['firstName'],
         'lastName': req['lastName'],
         'username': req['username'],

@@ -4,6 +4,7 @@ import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
+import 'package:easytab_desktop/widgets/desktop_password_section.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
@@ -24,11 +25,9 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
   late UserProvider userProvider;
   bool isLoading = false;
+  bool _changePassword = false;
 
   File? _imageFile;
-  bool _obscurePassword = true;
-  bool _obscurePasswordConfirmation = true;
-
   bool get _isInsert => widget.user == null;
 
   @override
@@ -87,6 +86,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
 
     setState(() => isLoading = true);
 
+    var profileUpdated = false;
     try {
       var request = Map<String, dynamic>.from(
         formKey.currentState?.value ?? {},
@@ -111,11 +111,28 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
         await userProvider.insert(request);
         _showSuccess('Korisnik uspješno dodan!');
       } else {
+        final newPassword = request.remove('password');
+        final passwordConfirmation = request.remove('passwordConfirmation');
         await userProvider.update(widget.user!.id!, request);
+        profileUpdated = true;
+
+        if (_changePassword) {
+          await userProvider.changePassword({
+            'id': widget.user!.id,
+            'password': '',
+            'newPassword': newPassword,
+            'confirmNewPassword': passwordConfirmation,
+          });
+        }
         _showSuccess('Korisnik uspješno ažuriran!');
       }
     } catch (e) {
-      _showError(e.toString());
+      final message = e.toString().replaceAll("Exception: ", "");
+      _showError(
+        profileUpdated
+            ? 'Profil je sačuvan, ali lozinka nije promijenjena: $message'
+            : message,
+      );
     } finally {
       setState(() => isLoading = false);
     }
@@ -363,90 +380,11 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Separator
-            Row(
-              children: [
-                Expanded(child: Divider(color: Colors.grey.shade300)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Promjena lozinke',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                ),
-                Expanded(child: Divider(color: Colors.grey.shade300)),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            Row(
-              children: [
-                Expanded(
-                  child: FormBuilderTextField(
-                    name: "password",
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: _isInsert
-                          ? "Lozinka"
-                          : "Nova lozinka (ostavite prazno ako ne mijenjate)",
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (_isInsert && (value == null || value.isEmpty))
-                        return 'Lozinka je obavezna';
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: FormBuilderTextField(
-                    name: "passwordConfirmation",
-                    obscureText: _obscurePasswordConfirmation,
-                    decoration: InputDecoration(
-                      labelText: _isInsert
-                          ? "Potvrda lozinke"
-                          : "Potvrda nove lozinke",
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePasswordConfirmation
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () => setState(
-                          () => _obscurePasswordConfirmation =
-                              !_obscurePasswordConfirmation,
-                        ),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (_isInsert && (value == null || value.isEmpty)) {
-                        return 'Potvrda lozinke je obavezna';
-                      }
-                      final password =
-                          formKey.currentState?.fields['password']?.value
-                              as String?;
-                      if (password != null &&
-                          password.isNotEmpty &&
-                          value != password) {
-                        return 'Lozinke se ne podudaraju';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-              ],
+            DesktopPasswordSection(
+              formKey: formKey,
+              isRequired: _isInsert,
+              showSwitch: !_isInsert,
+              onChanged: (value) => _changePassword = value,
             ),
             const SizedBox(height: 16),
           ],

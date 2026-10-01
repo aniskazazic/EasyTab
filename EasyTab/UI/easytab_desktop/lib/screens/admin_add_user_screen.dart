@@ -5,6 +5,7 @@ import 'package:easytab_desktop/models/locale.dart' as models;
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
+import 'package:easytab_desktop/widgets/desktop_password_section.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
@@ -38,9 +39,6 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
   List<models.Locale> _locales = [];
   bool isLoading = false;
-  bool _obscurePassword = true;
-  bool _obscurePasswordConfirmation = true;
-
   @override
   void initState() {
     super.initState();
@@ -285,7 +283,11 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildPasswordRow(_userFormKey),
+                  DesktopPasswordSection(
+                    formKey: _userFormKey,
+                    isRequired: true,
+                    showSwitch: false,
+                  ),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -338,7 +340,11 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildPasswordRow(_ownerFormKey),
+                  DesktopPasswordSection(
+                    formKey: _ownerFormKey,
+                    isRequired: true,
+                    showSwitch: false,
+                  ),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -412,7 +418,11 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildPasswordRow(_workerFormKey),
+                  DesktopPasswordSection(
+                    formKey: _workerFormKey,
+                    isRequired: true,
+                    showSwitch: false,
+                  ),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -516,68 +526,6 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
             ),
             firstDate: DateTime(1900),
             lastDate: DateTime.now(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPasswordRow(GlobalKey<FormBuilderState> formKey) {
-    return Row(
-      children: [
-        Expanded(
-          child: FormBuilderTextField(
-            name: 'password',
-            obscureText: _obscurePassword,
-            decoration: InputDecoration(
-              labelText: 'Lozinka',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
-              ),
-            ),
-            validator: FormBuilderValidators.required(
-              errorText: 'Lozinka je obavezna',
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: FormBuilderTextField(
-            name: 'passwordConfirmation',
-            obscureText: _obscurePasswordConfirmation,
-            decoration: InputDecoration(
-              labelText: 'Potvrda lozinke',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  _obscurePasswordConfirmation
-                      ? Icons.visibility_off
-                      : Icons.visibility,
-                ),
-                onPressed: () => setState(
-                  () => _obscurePasswordConfirmation =
-                      !_obscurePasswordConfirmation,
-                ),
-              ),
-            ),
-            validator: (value) {
-              final password =
-                  formKey.currentState?.fields['password']?.value as String?;
-              if (value == null || value.isEmpty) {
-                return 'Potvrda lozinke je obavezna';
-              }
-              if (password != null &&
-                  password.isNotEmpty &&
-                  value != password) {
-                return 'Lozinke se ne podudaraju';
-              }
-              return null;
-            },
           ),
         ),
       ],

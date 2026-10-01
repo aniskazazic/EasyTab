@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:easytab_desktop/models/worker.dart';
 import 'package:easytab_desktop/providers/utils.dart';
+import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
+import 'package:easytab_desktop/widgets/desktop_password_section.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -31,17 +33,17 @@ class OwnerWorkerDetailsScreen extends StatefulWidget {
 class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
   late WorkerProvider workerProvider;
+  late UserProvider userProvider;
   bool isLoading = false;
+  bool _changePassword = false;
   File? _image;
-  bool _obscurePassword = true;
-  bool _obscurePasswordConfirmation = true;
-
   bool get _isInsert => widget.worker == null;
 
   @override
   void initState() {
     super.initState();
     workerProvider = Provider.of<WorkerProvider>(context, listen: false);
+    userProvider = Provider.of<UserProvider>(context, listen: false);
   }
 
   void _showError(String message) {
@@ -93,6 +95,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
 
     setState(() => isLoading = true);
 
+    var profileUpdated = false;
     try {
       var request = Map<String, dynamic>.from(
         formKey.currentState?.value ?? {},
@@ -119,11 +122,29 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
         await workerProvider.insert(request);
         _showSuccess('Radnik uspješno dodan!');
       } else {
+        final currentPassword = request.remove('currentPassword');
+        final newPassword = request.remove('password');
+        final passwordConfirmation = request.remove('passwordConfirmation');
         await workerProvider.update(widget.worker!.id!, request);
+        profileUpdated = true;
+
+        if (_changePassword && widget.worker!.userId != null) {
+          await userProvider.changePassword({
+            'id': widget.worker!.userId,
+            'password': currentPassword,
+            'newPassword': newPassword,
+            'confirmNewPassword': passwordConfirmation,
+          });
+        }
         _showSuccess('Radnik uspješno ažuriran!');
       }
     } catch (e) {
-      _showError(e.toString());
+      final message = e.toString().replaceAll("Exception: ", "");
+      _showError(
+        profileUpdated
+            ? 'Profil je sačuvan, ali lozinka nije promijenjena: $message'
+            : message,
+      );
     } finally {
       setState(() => isLoading = false);
     }
@@ -434,91 +455,12 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Separator
-            Row(
-              children: [
-                Expanded(child: Divider(color: Colors.grey.shade300)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Promjena lozinke',
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                ),
-                Expanded(child: Divider(color: Colors.grey.shade300)),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Lozinka
-            Row(
-              children: [
-                Expanded(
-                  child: FormBuilderTextField(
-                    name: 'password',
-                    obscureText: _obscurePassword,
-                    decoration: InputDecoration(
-                      labelText: _isInsert
-                          ? 'Lozinka'
-                          : 'Nova lozinka (ostavite prazno)',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                      ),
-                    ),
-                    validator: _isInsert
-                        ? FormBuilderValidators.required(
-                            errorText: 'Lozinka je obavezna',
-                          )
-                        : null,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: FormBuilderTextField(
-                    name: 'passwordConfirmation',
-                    obscureText: _obscurePasswordConfirmation,
-                    decoration: InputDecoration(
-                      labelText: _isInsert
-                          ? 'Potvrda lozinke'
-                          : 'Potvrda nove lozinke',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePasswordConfirmation
-                              ? Icons.visibility_off
-                              : Icons.visibility,
-                        ),
-                        onPressed: () => setState(
-                          () => _obscurePasswordConfirmation =
-                              !_obscurePasswordConfirmation,
-                        ),
-                      ),
-                    ),
-                    validator: (value) {
-                      final password =
-                          formKey.currentState?.fields['password']?.value
-                              as String?;
-                      if (_isInsert && (value == null || value.isEmpty)) {
-                        return 'Potvrda lozinke je obavezna';
-                      }
-                      if (password != null &&
-                          password.isNotEmpty &&
-                          value != password) {
-                        return 'Lozinke se ne podudaraju';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-              ],
+            DesktopPasswordSection(
+              formKey: formKey,
+              isSelf: !_isInsert,
+              isRequired: _isInsert,
+              showSwitch: !_isInsert,
+              onChanged: (value) => _changePassword = value,
             ),
             const SizedBox(height: 16),
           ],

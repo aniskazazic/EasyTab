@@ -37,6 +37,12 @@ namespace EasyTab.API.Filters
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 _logger.LogWarning("User rule: {Message}", ue.Message);
             }
+            else if (context.Exception is UnauthorizedAccessException unauthorizedAccessException)
+            {
+                context.ModelState.AddModelError("authorizationError", unauthorizedAccessException.Message);
+                context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                _logger.LogWarning("Authorization failed: {Message}", unauthorizedAccessException.Message);
+            }
             else
             {
                 //context.ModelState.AddModelError("serverError", context.Exception.Message);
