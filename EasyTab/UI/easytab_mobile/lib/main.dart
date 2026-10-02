@@ -39,7 +39,14 @@ void main() {
         ChangeNotifierProvider(create: (_) => TableProvider()),
         ChangeNotifierProvider(create: (_) => ZoneProvider()),
         ChangeNotifierProvider(create: (_) => ReservationProvider()),
-        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, NotificationProvider>(
+          create: (_) => NotificationProvider(),
+          update: (_, authProvider, notificationProvider) {
+            notificationProvider ??= NotificationProvider();
+            notificationProvider.syncSession(AuthProvider.isAuthenticated);
+            return notificationProvider;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => OwnerProvider()),
       ],
       child: const MyApp(),
