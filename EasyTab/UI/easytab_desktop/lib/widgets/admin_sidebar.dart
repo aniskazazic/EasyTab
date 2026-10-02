@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 
 class AdminSidebar extends StatelessWidget {
   const AdminSidebar({super.key});
@@ -163,7 +164,7 @@ class AdminSidebar extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              AuthProvider().logout();
+              context.read<AuthProvider>().logout();
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 '/login',

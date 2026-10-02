@@ -66,7 +66,7 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              AuthProvider().logout();
+              context.read<AuthProvider>().logout();
               Navigator.pushNamedAndRemoveUntil(
                 context,
                 '/login',

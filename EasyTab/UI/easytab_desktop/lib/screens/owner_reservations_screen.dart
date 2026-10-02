@@ -1,6 +1,7 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/reservation.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
+import 'package:easytab_desktop/providers/notification_provider.dart';
 import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
@@ -30,6 +31,8 @@ class OwnerReservationsScreen extends StatefulWidget {
 class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   bool isLoading = false;
   late ReservationProvider _reservationProvider;
+  late NotificationProvider _notificationProvider;
+  int _lastNotificationRefreshVersion = 0;
   int _totalCount = 0;
   int _currentPage = 0;
   final int _pageSize = 10;
@@ -58,16 +61,26 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reservationProvider = context.read<ReservationProvider>();
+    _notificationProvider = context.read<NotificationProvider>();
     if (!_initialized) {
       _initialized = true;
+      _notificationProvider.addListener(_onNotificationReceived);
       _loadReservations();
     }
   }
 
   @override
   void dispose() {
+    _notificationProvider.removeListener(_onNotificationReceived);
     searchController.dispose();
     super.dispose();
+  }
+
+  void _onNotificationReceived() {
+    final version = _notificationProvider.reservationRefreshVersion;
+    if (version == _lastNotificationRefreshVersion) return;
+    _lastNotificationRefreshVersion = version;
+    _loadReservations();
   }
 
   Future<void> _loadReservations() async {

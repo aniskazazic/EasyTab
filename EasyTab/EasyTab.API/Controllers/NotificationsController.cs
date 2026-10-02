@@ -1,5 +1,8 @@
 using EasyTab.Services.Interfaces;
 using EasyTab.API.Filters;
+using EasyTab.Model;
+using EasyTab.Model.Models;
+using EasyTab.Model.SearchObjects;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EasyTab.API.Controllers
@@ -24,6 +27,14 @@ namespace EasyTab.API.Controllers
         {
             var notifications = await _notificationService.GetByUserIdAsync();
             return Ok(notifications);
+        }
+
+        [HttpGet("All")]
+        [Authorization("Admin")]
+        public async Task<ActionResult<PagedResult<Notifications>>> GetAll(
+            [FromQuery] NotificationSearchObject search)
+        {
+            return Ok(await _notificationService.GetAllAsync(search));
         }
 
         /// <summary>

@@ -46,6 +46,7 @@ dependencies:
   fl_chart: ^0.70.2
   jwt_decoder: ^2.0.1
   pdf: ^3.11.3
+  signalr_netcore: ^1.4.4
 
 dev_dependencies:
   flutter_test:

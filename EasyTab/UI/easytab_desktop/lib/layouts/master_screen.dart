@@ -2,6 +2,9 @@ import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:easytab_desktop/widgets/admin_sidebar.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
+import 'package:easytab_desktop/providers/notification_provider.dart';
+import 'package:easytab_desktop/screens/notifications_screen.dart';
+import 'package:provider/provider.dart';
 
 class MasterScreen extends StatefulWidget {
   const MasterScreen({
@@ -37,6 +40,8 @@ class _MasterScreenState extends State<MasterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final unreadCount = context.watch<NotificationProvider>().unreadCount;
+
     // Kao kod owner ekrana: "Nazad" ili zatvara pushani ekran (detalji) ili
     // vodi na dashboard umjesto praznog/crnog ekrana kad nema routea ispod.
     final canPop = Navigator.canPop(context);
@@ -65,14 +70,59 @@ class _MasterScreenState extends State<MasterScreen> {
                           label: const Text('Nazad'),
                         ),
                       if (showBack) const SizedBox(width: 16),
-                      Text(
-                        widget.title,
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                      Expanded(
+                        child: Text(
+                          widget.title,
+                          style: const TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
                         ),
                       ),
+                      if (widget.title == 'Postavke')
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            IconButton(
+                              tooltip: 'Obavijesti',
+                              icon: const Icon(Icons.notifications_outlined),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const NotificationsScreen(),
+                                  ),
+                                );
+                              },
+                            ),
+                            if (unreadCount > 0)
+                              Positioned(
+                                right: 4,
+                                top: 2,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    unreadCount > 9 ? '9+' : '$unreadCount',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
                     ],
                   ),
                   const SizedBox(height: 32),

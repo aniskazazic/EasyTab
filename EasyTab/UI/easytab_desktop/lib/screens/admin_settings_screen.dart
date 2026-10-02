@@ -358,12 +358,17 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1E40AF), // plava pozadina
+                foregroundColor: Colors.white, // bijeli tekst
+              ),
               onPressed: isLoading ? null : _handleSave,
               child: isLoading
-                  ? const CircularProgressIndicator(
-                      color: const Color(0xFF1E40AF),
-                    )
-                  : const Text('Spremi izmjene'),
+                  ? const CircularProgressIndicator(color: Color(0xFF1E40AF))
+                  : const Text(
+                      'Spremi izmjene',
+                      style: TextStyle(color: Colors.white),
+                    ),
             ),
           ),
         ),

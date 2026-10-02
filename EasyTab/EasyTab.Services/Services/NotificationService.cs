@@ -1,4 +1,6 @@
 using EasyTab.Model.Models;
+using EasyTab.Model;
+using EasyTab.Model.SearchObjects;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using MapsterMapper;
@@ -28,6 +30,40 @@ namespace EasyTab.Services.Services
                 .ToListAsync();
 
             return _mapper.Map<List<Notifications>>(notifications);
+        }
+
+        public async Task<PagedResult<Notifications>> GetAllAsync(NotificationSearchObject search)
+        {
+            const int defaultPageSize = 10;
+            const int maxPageSize = 100;
+            var page = Math.Max(search.Page ?? 1, 1);
+            var pageSize = Math.Clamp(search.PageSize ?? defaultPageSize, 1, maxPageSize);
+
+            var query = _context.Notifications.AsNoTracking();
+            var totalCount = search.IncludeTotalCount ?? true
+                ? await query.CountAsync()
+                : (int?)null;
+
+            query = search.SortBy?.ToLowerInvariant() switch
+            {
+                "id" => query.OrderByDescending(n => n.Id),
+                "userid" => query.OrderByDescending(n => n.UserId),
+                "title" => query.OrderBy(n => n.Title).ThenByDescending(n => n.CreatedAt),
+                "isread" => query.OrderBy(n => n.IsRead).ThenByDescending(n => n.CreatedAt),
+                "createdat" or null or "" => query.OrderByDescending(n => n.CreatedAt).ThenByDescending(n => n.Id),
+                _ => query.OrderByDescending(n => n.CreatedAt).ThenByDescending(n => n.Id)
+            };
+
+            var notifications = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return new PagedResult<Notifications>
+            {
+                Items = _mapper.Map<List<Notifications>>(notifications),
+                TotalCount = totalCount
+            };
         }
 
         public async Task MarkAsReadAsync(int notificationId)

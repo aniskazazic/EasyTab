@@ -21,6 +21,7 @@ import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_locale_list_screen.dart';
 import 'package:easytab_desktop/providers/localeimage_provider.dart';
+import 'package:easytab_desktop/providers/notification_provider.dart';
 import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/screens/admin_reservations_screen.dart';
 import 'package:easytab_desktop/screens/owner_dashboard_screen.dart';
@@ -34,7 +35,8 @@ import 'package:easytab_desktop/screens/owner_tables_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-final GlobalKey<NavigatorState> globalNavigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> globalNavigatorKey =
+    GlobalKey<NavigatorState>();
 
 void main() {
   runApp(
@@ -53,6 +55,14 @@ void main() {
         ChangeNotifierProvider(create: (_) => LocaleImageProvider()),
         ChangeNotifierProvider(create: (_) => ReviewProvider()),
         ChangeNotifierProvider(create: (_) => ReservationProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, NotificationProvider>(
+          create: (_) => NotificationProvider(),
+          update: (_, authProvider, notificationProvider) {
+            notificationProvider ??= NotificationProvider();
+            notificationProvider.syncSession(authProvider.isAuthenticated);
+            return notificationProvider;
+          },
+        ),
       ],
       child: const MyLoginApp(),
     ),
@@ -100,28 +110,36 @@ class MyLoginApp extends StatelessWidget {
           return OwnerLocaleDetailsScreen(locale: locale);
         },
         '/owner-reservations': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          final args =
+              ModalRoute.of(context)!.settings.arguments
+                  as Map<String, dynamic>?;
           return OwnerReservationsScreen(
             localeId: args?['localeId'] as int? ?? 0,
             localeName: args?['localeName'] as String? ?? '',
           );
         },
         '/owner-reviews': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          final args =
+              ModalRoute.of(context)!.settings.arguments
+                  as Map<String, dynamic>?;
           return OwnerReviewsScreen(
             localeId: args?['localeId'] as int? ?? 0,
             localeName: args?['localeName'] as String? ?? '',
           );
         },
         '/owner-workers': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          final args =
+              ModalRoute.of(context)!.settings.arguments
+                  as Map<String, dynamic>?;
           return OwnerWorkersScreen(
             localeId: args?['localeId'] as int? ?? 0,
             localeName: args?['localeName'] as String? ?? '',
           );
         },
         '/owner-tables': (context) {
-          final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>?;
+          final args =
+              ModalRoute.of(context)!.settings.arguments
+                  as Map<String, dynamic>?;
           return OwnerTablesScreen(
             localeId: args?['localeId'] as int? ?? 0,
             localeName: args?['localeName'] as String? ?? '',

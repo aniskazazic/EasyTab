@@ -3,6 +3,7 @@ import 'package:easytab_desktop/models/locale.dart' as model;
 import 'package:easytab_desktop/models/reservation.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
+import 'package:easytab_desktop/providers/notification_provider.dart';
 import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,8 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   bool isLoading = false;
   late ReservationProvider _reservationProvider;
   late LocaleProvider _localeProvider;
+  late NotificationProvider _notificationProvider;
+  int _lastNotificationRefreshVersion = 0;
 
   int _totalCount = 0;
   int _currentPage = 0;
@@ -54,16 +57,26 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
     super.didChangeDependencies();
     _reservationProvider = context.read<ReservationProvider>();
     _localeProvider = context.read<LocaleProvider>();
+    _notificationProvider = context.read<NotificationProvider>();
     if (!_initialized) {
       _initialized = true;
+      _notificationProvider.addListener(_onNotificationReceived);
       _loadInitial();
     }
   }
 
   @override
   void dispose() {
+    _notificationProvider.removeListener(_onNotificationReceived);
     searchController.dispose();
     super.dispose();
+  }
+
+  void _onNotificationReceived() {
+    final version = _notificationProvider.reservationRefreshVersion;
+    if (version == _lastNotificationRefreshVersion) return;
+    _lastNotificationRefreshVersion = version;
+    _loadReservations();
   }
 
   Future<void> _loadInitial() async {
