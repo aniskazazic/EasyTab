@@ -1,5 +1,4 @@
-﻿using EasyTab.Model.Exceptions;
-using EasyTab.Services.Database;
+﻿using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -28,15 +27,9 @@ namespace EasyTab.Services.Services
             return _context.SaveChangesAsync(); ;
         }
 
-        public async Task<RefreshToken> GetStoredTokenAsync(string refreshToken)
+        public async Task<RefreshToken?> GetStoredTokenAsync(string refreshToken)
         {
-            var token = await _refreshTokens.FirstOrDefaultAsync(rt => rt.Token == refreshToken);
-
-            if (token == null) {
-                throw new UserException("Refresh token nije pronađen.");
-            }
-
-            return token;
+            return await _refreshTokens.FirstOrDefaultAsync(rt => rt.Token == refreshToken);
         }
 
         public async Task InsertAsync(RefreshToken refreshToken)

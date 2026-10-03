@@ -6,5 +6,6 @@ namespace EasyTab.API.Services.AccessManager
     {
         Task<UserLoginResponse> LoginAsync(UserLoginRequest request);
         Task<UserLoginResponse> LoginWithRefreshTokenAsync(RefreshAccessTokenRequest request);
+        Task LogoutAsync(int userId);
     }
 }

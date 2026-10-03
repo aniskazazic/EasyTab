@@ -200,13 +200,24 @@ class AuthProvider extends ChangeNotifier {
     currentUser = null;
   }
 
-  void logout() {
-    SessionManager().stopSession();
-    _accessToken = null;
-    _refreshToken = null;
-    _isAuthenticated = false;
-    _accessTokenDecoded = null;
-    currentUser = null;
-    notifyListeners();
+  Future<void> logout({bool notifyServer = true}) async {
+    try {
+      if (notifyServer && _accessToken != null) {
+        await http.post(
+          Uri.parse('$_baseUrl/Access/Logout'),
+          headers: createHeaders(),
+        );
+      }
+    } catch (_) {
+      // Local logout must complete even when the server is unavailable.
+    } finally {
+      SessionManager().stopSession();
+      _accessToken = null;
+      _refreshToken = null;
+      _isAuthenticated = false;
+      _accessTokenDecoded = null;
+      currentUser = null;
+      notifyListeners();
+    }
   }
 }

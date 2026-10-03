@@ -8,8 +8,9 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 class AuthProvider extends ChangeNotifier {
   bool _isAuthenticated = false;
   static String? _accessToken;
-  String? _refreshToken;
+  static String? _refreshToken;
   static Map<String, dynamic>? _accessTokenDecoded;
+  static Future<bool>? _refreshFuture;
 
   bool get isAuthenticated => _isAuthenticated;
   static String? get accessToken => _accessToken;
@@ -57,13 +58,58 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void logout() {
-    _accessToken = null;
-    _refreshToken = null;
-    _isAuthenticated = false;
-    _accessTokenDecoded = null;
-    currentUser = null;
-    notifyListeners();
+  Future<bool> renewSession() async {
+    if (_refreshFuture != null) return _refreshFuture!;
+    _refreshFuture = _renewSession();
+    try {
+      return await _refreshFuture!;
+    } finally {
+      _refreshFuture = null;
+    }
+  }
+
+  Future<bool> _renewSession() async {
+    if (_refreshToken == null) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/Access/LoginWithRefreshToken'),
+        headers: createHeaders(),
+        body: jsonEncode({'refreshToken': _refreshToken}),
+      );
+
+      if (response.statusCode < 200 || response.statusCode > 299) {
+        return false;
+      }
+
+      final data = jsonDecode(response.body);
+      _accessToken = data['accessToken'];
+      _refreshToken = data['refreshToken'];
+      _accessTokenDecoded = JwtDecoder.decode(_accessToken ?? '');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> logout({bool notifyServer = true}) async {
+    try {
+      if (notifyServer && _accessToken != null) {
+        await http.post(
+          Uri.parse('$_baseUrl/Access/Logout'),
+          headers: createHeaders(),
+        );
+      }
+    } catch (_) {
+      // Local logout must complete even when the server is unavailable.
+    } finally {
+      _accessToken = null;
+      _refreshToken = null;
+      _isAuthenticated = false;
+      _accessTokenDecoded = null;
+      currentUser = null;
+      notifyListeners();
+    }
   }
 
   /// Login failures must not reveal whether the username exists (username enumeration).

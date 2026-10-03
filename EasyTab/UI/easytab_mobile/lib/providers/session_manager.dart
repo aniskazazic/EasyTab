@@ -136,7 +136,7 @@ class SessionManager with WidgetsBindingObserver {
     final context = globalNavigatorKey.currentContext;
     if (context != null) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      authProvider.logout(); // Očisti tokene
+      authProvider.logout(notifyServer: false); // Očisti tokene
     }
   }
 

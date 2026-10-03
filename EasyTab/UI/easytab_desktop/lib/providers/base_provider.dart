@@ -31,7 +31,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
-    var response = await http.get(uri, headers: headers);
+    var response = await _sendRequestWithRefresh(
+      () => http.get(uri, headers: headers),
+    );
 
     validateResponse(response);
 
@@ -52,7 +54,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var headers = createHeaders();
 
     var jsonRequest = jsonEncode(request);
-    var response = await http.post(uri, headers: headers, body: jsonRequest);
+    var response = await _sendRequestWithRefresh(
+      () => http.post(uri, headers: headers, body: jsonRequest),
+    );
 
     validateResponse(response);
 
@@ -66,7 +70,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var headers = createHeaders();
 
     var jsonRequest = jsonEncode(request);
-    var response = await http.put(uri, headers: headers, body: jsonRequest);
+    var response = await _sendRequestWithRefresh(
+      () => http.put(uri, headers: headers, body: jsonRequest),
+    );
 
     validateResponse(response);
 
@@ -77,7 +83,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   Future<void> delete(int id) async {
     var url = "$baseUrl/$_endpoint/$id";
     var uri = Uri.parse(url);
-    var response = await http.delete(uri, headers: createHeaders());
+    var response = await _sendRequestWithRefresh(
+      () => http.delete(uri, headers: createHeaders()),
+    );
     validateResponse(response);
   }
 
@@ -113,7 +121,10 @@ abstract class BaseProvider<T> extends ChangeNotifier {
       final context = globalNavigatorKey.currentContext;
       if (context != null) {
         // Clear auth details
-        Provider.of<AuthProvider>(context, listen: false).logout();
+        Provider.of<AuthProvider>(
+          context,
+          listen: false,
+        ).logout(notifyServer: false);
 
         // Show dialog
         showDialog(
@@ -214,7 +225,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
-    var response = await http.get(uri, headers: headers);
+    var response = await _sendRequestWithRefresh(
+      () => http.get(uri, headers: headers),
+    );
     // throw new Exception("Greška");
     validateResponse(response);
     var data = jsonDecode(response.body);
@@ -223,5 +236,17 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     return fromJson(data);
     // return result;
     // print("response: ${response.request} ${response.statusCode}, ${response.body}");
+  }
+
+  Future<Response> _sendRequestWithRefresh(
+    Future<Response> Function() requestBuilder,
+  ) async {
+    var response = await requestBuilder();
+    if (response.statusCode == 401) {
+      if (await AuthProvider().renewSession()) {
+        response = await requestBuilder();
+      }
+    }
+    return response;
   }
 }

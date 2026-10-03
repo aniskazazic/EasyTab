@@ -173,7 +173,7 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
                   ),
                 );
                 if (leave != true || !mounted) return;
-                context.read<AuthProvider>().logout();
+                await context.read<AuthProvider>().logout();
                 globalNavigatorKey.currentState?.pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                   (route) => false,

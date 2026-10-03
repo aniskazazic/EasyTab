@@ -37,6 +37,12 @@ namespace EasyTab.API.Filters
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 _logger.LogWarning("User rule: {Message}", ue.Message);
             }
+            else if (context.Exception is InvalidRefreshTokenException invalidRefreshTokenException)
+            {
+                context.ModelState.AddModelError("refreshTokenError", invalidRefreshTokenException.Message);
+                context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                _logger.LogWarning("Invalid refresh token: {Message}", invalidRefreshTokenException.Message);
+            }
             else if (context.Exception is UnauthorizedAccessException unauthorizedAccessException)
             {
                 context.ModelState.AddModelError("authorizationError", unauthorizedAccessException.Message);

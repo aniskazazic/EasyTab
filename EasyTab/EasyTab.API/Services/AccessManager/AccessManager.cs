@@ -102,20 +102,20 @@ namespace EasyTab.API.Services.AccessManager
 
         public async Task<UserLoginResponse> LoginWithRefreshTokenAsync(RefreshAccessTokenRequest request)
         {
-            if (string.IsNullOrEmpty(request.RefreshToken)) { 
-                throw new UserException("Refresh token je obavezan!");
+            if (string.IsNullOrEmpty(request.RefreshToken)) {
+                throw new InvalidRefreshTokenException("Refresh token je obavezan!");
             }
 
             var refreshToken = await _refreshTokenService.GetStoredTokenAsync(request.RefreshToken);
 
             if (refreshToken == null)
             {
-                throw new UserException("Refresh token nije validan!");
+                throw new InvalidRefreshTokenException("Refresh token nije validan!");
             }
 
             if (refreshToken.ExpiresAt < DateTime.UtcNow)
             {
-                throw new UserException("Refresh token je istekao!");
+                throw new InvalidRefreshTokenException("Refresh token je istekao!");
             }
 
             var user = await _userService.GetWithRoleByIdAsync(refreshToken.UserId);
@@ -150,6 +150,11 @@ namespace EasyTab.API.Services.AccessManager
                 AccessToken = accessToken,
                 RefreshToken = refreshTokenValue
             };
+        }
+
+        public Task LogoutAsync(int userId)
+        {
+            return _refreshTokenService.DeleteAllUserRefreshTokensAsync(userId);
         }
     }
 }

@@ -13,10 +13,12 @@ namespace EasyTab.API.Controllers
     {
         private readonly IAccessManager _accessManager;
         private readonly IUserService _userService;
-        public AccessController(IAccessManager accessManager, IUserService userService)
+        private readonly ICurrentUserService _currentUser;
+        public AccessController(IAccessManager accessManager, IUserService userService, ICurrentUserService currentUser)
         {
             _accessManager = accessManager;
             _userService = userService;
+            _currentUser = currentUser;
         }
 
         [HttpPost("Login")]
@@ -33,6 +35,14 @@ namespace EasyTab.API.Controllers
         {
             var result = await _accessManager.LoginWithRefreshTokenAsync(request);
             return Ok(result);
+        }
+
+        [HttpPost("Logout")]
+        [Authorize]
+        public async Task<IActionResult> Logout()
+        {
+            await _accessManager.LogoutAsync(_currentUser.UserId);
+            return NoContent();
         }
 
         [HttpPost("Register")]

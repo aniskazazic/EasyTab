@@ -9,7 +9,7 @@ namespace EasyTab.Services.Interfaces
 {
     public interface IRefreshTokenService
     {
-        Task<RefreshToken> GetStoredTokenAsync(string refreshToken);
+        Task<RefreshToken?> GetStoredTokenAsync(string refreshToken);
         Task InsertAsync(RefreshToken refreshToken);
         Task DeleteAllUserRefreshTokensAsync(int userId);
     }
