@@ -7,7 +7,6 @@ namespace EasyTab.Services.Validators
     {
         public ReservationUpdateValidator()
         {
-            // Add validation rules as needed
         }
     }
 }

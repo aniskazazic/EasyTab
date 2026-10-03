@@ -7,7 +7,6 @@ namespace EasyTab.Services.Validators
     {
         public ReactionInsertValidator()
         {
-            // Add validation rules as needed
         }
     }
 }

@@ -108,29 +108,6 @@ namespace EasyTab.Services.BaseServices.Implementation
 
         }
 
-        public virtual void Delete(int id)
-        {
-            var entity = Context.Set<TDbEntity>().Find(id);
-
-            if (entity == null)
-            {
-                throw new Exception("Unesite postojeci id");
-            }
-
-            if (entity is ISoftDelete softDeleteEntity)
-            {
-                softDeleteEntity.IsDeleted = true;
-                softDeleteEntity.DeletedAt = DateTime.UtcNow;
-                Context.Update(entity);
-            }
-            else
-            {
-                Context.Remove(entity);
-            }
-
-            Context.SaveChanges();
-        }
-
         public virtual async Task<bool> DeleteAsync(int id)
         {
             var entity = await _context.Set<TDbEntity>().FindAsync(id);

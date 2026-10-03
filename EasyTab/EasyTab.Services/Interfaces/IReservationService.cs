@@ -15,8 +15,6 @@ namespace EasyTab.Services.Interfaces
         List<TimeSlots> GetAvailableSlots(int tableId, DateTime date);
         Task CancelReservationAsync(int id, string reason);
 
-        Task<Reservations> ActivateAsync(int id);
-        Task<Reservations> DeactivateAsync(int id);
         Task<Reservations> ConfirmAsync(int id);
         Task<Reservations> CompleteAsync(int id);
         Task<List<string>> GetAllowedActionsAsync(int id);

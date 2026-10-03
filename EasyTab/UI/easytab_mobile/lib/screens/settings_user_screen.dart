@@ -1,7 +1,7 @@
 import 'package:easytab_mobile/models/user.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/user_provider.dart';
-import 'package:easytab_mobile/screens/change_password_screeen.dart';
+import 'package:easytab_mobile/screens/change_password_screen.dart';
 import 'package:easytab_mobile/screens/login_screen.dart';
 import 'package:easytab_mobile/screens/profile_edit_screen.dart';
 import 'package:easytab_mobile/screens/user_reviews_screen.dart';

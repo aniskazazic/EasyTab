@@ -8,7 +8,6 @@ using EasyTab.Services.Interfaces;
 using EasyTab.Services.ReservationStateMachine;
 using FluentValidation;
 using MapsterMapper;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -21,15 +20,13 @@ namespace EasyTab.Services.Services
 {
     public class ReservationService : BaseCRUDService<Reservations, ReservationSearchObject, Reservation, ReservationInsertRequest, ReservationUpdateRequest>, IReservationService
     {
-        private readonly IWebHostEnvironment _wh;
         private readonly ILogger<ReservationService> _logger;
         private readonly IServiceProvider _serviceProvider;
         private readonly ILocaleAccessService _localeAccessService;
         private readonly ICurrentUserService _currentUser;
 
-        public ReservationService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<ReservationService> logger, IServiceProvider serviceProvider, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser) : base(context, mapper, insertValidator, updateValidator)
+        public ReservationService(_220030Context context, IMapper mapper, ILogger<ReservationService> logger, IServiceProvider serviceProvider, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser) : base(context, mapper, insertValidator, updateValidator)
         {
-            _wh = wh;
             _logger = logger;
             _serviceProvider = serviceProvider;
             _localeAccessService = localeAccessService;
@@ -321,47 +318,11 @@ namespace EasyTab.Services.Services
             _logger.LogWarning("Reservation cancelled successfully. ReservationId: {ReservationId}", id);
         }
 
-        // Vraća logo kao base64
-        private async Task<string> GetLogoBase64(string? logo, CancellationToken cancellationToken)
-        {
-            if (string.IsNullOrEmpty(logo)) return "";
-
-            string logoPath = Path.Combine(_wh.WebRootPath, "images", "locales", logo);
-            if (!File.Exists(logoPath)) return "";
-
-            byte[] imageBytes = await File.ReadAllBytesAsync(logoPath, cancellationToken);
-            return $"data:image/png;base64,{Convert.ToBase64String(imageBytes)}";
-        }
-
         public override async Task<Reservations> CreateAsync(ReservationInsertRequest request)
         {
             request.UserId = _currentUser.UserId;
             var initialState = GetStateMachine(nameof(InitialReservationState));
             return await initialState.CreateAsync(request);
-        }
-
-        public async Task<Reservations> ActivateAsync(int id)
-        {
-            var reservation = await Context.Reservations.FindAsync(id);
-            if (reservation == null)
-            {
-                throw new UserException("Rezervacija nije pronađena!");
-            }
-
-            var state = GetStateMachine(reservation.ReservationState);
-            return await state.ConfirmAsync(id, reservation.UserId);
-        }
-
-        public async Task<Reservations> DeactivateAsync(int id)
-        {
-            var reservation = await Context.Reservations.FindAsync(id);
-            if (reservation == null)
-            {
-                throw new UserException("Rezervacija nije pronađena!");
-            }
-
-            var state = GetStateMachine(reservation.ReservationState);
-            return await state.CompleteAsync(id);
         }
 
         public async Task<Reservations> ConfirmAsync(int id)

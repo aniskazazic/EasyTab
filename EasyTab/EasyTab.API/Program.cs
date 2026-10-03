@@ -8,7 +8,6 @@ using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
-using EasyTab.Services.QueryOptimization;
 using EasyTab.Services.ReservationStateMachine;
 using EasyTab.Services.SeedData;
 using EasyTab.Services.Services;
@@ -64,7 +63,6 @@ builder.Services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, UserIdProvider>();
 
-builder.Services.AddScoped<IQueryOptimizationService, QueryOptimizationService>();
 builder.Services.AddScoped<ICryptoService, CryptoService>();
 builder.Services.AddScoped<IAccessManager, AccessManager>();
 builder.Services.AddScoped<IRefreshTokenService, RefreshTokenService>();
@@ -120,8 +118,6 @@ TypeAdapterConfig<TimeOnly?, TimeSpan?>.NewConfig()
 
 
 builder.Services.AddHttpContextAccessor();
-
-//var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=localhost;Initial Catalog=220030;Integrated Security=True;TrustServerCertificate=True";
 
 var connectionString = builder.Configuration.GetConnectionString("EasyTabConnection");
 

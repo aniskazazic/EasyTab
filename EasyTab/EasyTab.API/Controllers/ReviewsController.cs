@@ -34,16 +34,16 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpDelete("soft-delete/{id}")]
-        public IActionResult SoftDelete(int id)
+        public async Task<IActionResult> SoftDelete(int id)
         {
-            _service.DeleteAsync(id);
+            await _service.DeleteAsync(id);
             return Ok(new { Message = "Recenzija obrisana!" });
         }
 
         [HttpGet("by-locale/{localeId}")]
-        public IActionResult GetReviewsByLocaleId(int localeId)
+        public async Task<IActionResult> GetReviewsByLocaleId(int localeId)
         {
-            var reviews = _service.GetByLocaleId(localeId).Result;
+            var reviews = await _service.GetByLocaleId(localeId);
             return Ok(reviews);
         }
     }

@@ -59,7 +59,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.check_circle_rounded, color: Color(0xFF1E40AF), size: 24),
+            Icon(
+              Icons.check_circle_rounded,
+              color: Color(0xFF1E40AF),
+              size: 24,
+            ),
             SizedBox(width: 8),
             Text('Uspješno'),
           ],
@@ -108,9 +112,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-              'Kod za oporavak lozinke je poslan na vaš email.',
-            ),
+            content: Text('Kod za oporavak lozinke je poslan na vaš email.'),
             backgroundColor: Color(0xFF1E40AF),
             duration: Duration(seconds: 4),
           ),
@@ -176,7 +178,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     }
   }
 
-  InputDecoration _inputDecoration(String hint, IconData icon, {Widget? suffix}) {
+  InputDecoration _inputDecoration(
+    String hint,
+    IconData icon, {
+    Widget? suffix,
+  }) {
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -224,10 +230,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             child: SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
               child: Column(
-                children: [
-                  _buildHeader(size),
-                  _buildFormCard(context),
-                ],
+                children: [_buildHeader(size), _buildFormCard(context)],
               ),
             ),
           ),
@@ -577,7 +580,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   size: 20,
                 ),
                 onPressed: () => setState(
-                    () => _obscureConfirmPassword = !_obscureConfirmPassword),
+                  () => _obscureConfirmPassword = !_obscureConfirmPassword,
+                ),
               ),
             ),
             validator: (value) {
@@ -627,7 +631,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         ),
                       )
                     : const Text(
-                        'Poništi lozinku',
+                        'Promijeni lozinku',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -643,13 +647,12 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextButton(
-                onPressed: _isLoading ? null : () => setState(() => _currentStep = 1),
+                onPressed: _isLoading
+                    ? null
+                    : () => setState(() => _currentStep = 1),
                 child: const Text(
                   'Promijeni email',
-                  style: TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 13,
-                  ),
+                  style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
                 ),
               ),
               TextButton(

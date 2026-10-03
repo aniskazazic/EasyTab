@@ -7,7 +7,6 @@ namespace EasyTab.Services.Validators
     {
         public FavouriteUpdateValidator()
         {
-            // Add validation rules as needed
         }
     }
 }

@@ -129,9 +129,7 @@ namespace EasyTab.Services.Services
             }
 
             // Publish RabbitMQ poruka za registraciju korisnika
-            try
-            {
-                var registeredUser = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+            var registeredUser = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
                 if (registeredUser != null)
                 {
                     var message = new UserRegisteredMessage
@@ -147,11 +145,12 @@ namespace EasyTab.Services.Services
                         {
                             await _rabbitMQPublisher.PublishUserRegisteredAsync(message);
                         }
-                        catch { /* publish greška ne blokira registraciju */ }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to publish UserRegisteredMessage for {Email}", message.Email);
+                        }
                     });
                 }
-            }
-            catch { /* greška ne blokira registraciju */ }
 
             return result;
         }

@@ -255,20 +255,6 @@ public partial class _220030Context : DbContext
            .HasForeignKey(a => a.LocaleId)
            .OnDelete(DeleteBehavior.Cascade);
 
-        //// User -> Worker (ako treba)
-        //modelBuilder.Entity<Worker>()
-        //    .HasOne(w => w.User)
-        //    .WithMany(u => u.Workers)
-        //    .HasForeignKey(w => w.UserId)
-        //    .OnDelete(DeleteBehavior.Cascade);
-
-        //// User -> Locale (Owner)
-        //modelBuilder.Entity<Locale>()
-        //    .HasOne(l => l.Owner)
-        //    .WithMany(u => u.Locales)
-        //    .HasForeignKey(l => l.OwnerId)
-        //    .OnDelete(DeleteBehavior.Cascade);
-
         modelBuilder.Entity<Notification>(entity =>
         {
             entity.HasKey(e => e.Id);
