@@ -91,43 +91,6 @@ namespace EasyTab.Services.Services
         {
             var result = await base.CreateAsync(request);
 
-            var user = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-            if (user != null)
-            {
-                // Ako su poslane role ID-eve, koristi te
-                if (request.RoleIds != null && request.RoleIds.Count > 0)
-                {
-                    foreach (var roleId in request.RoleIds)
-                    {
-                        if (await Context.Roles.AnyAsync(r => r.Id == roleId))
-                        {
-                            Context.UserRoles.Add(new UserRole
-                            {
-                                UserId = user.Id,
-                                RoleId = roleId
-                            });
-                        }
-                    }
-                }
-                else
-                {
-                    // Ako nisu poslane role ID-eve, automatski dodeli "Korisnik" rolu
-                    var defaultRole = await Context.Roles.FirstOrDefaultAsync(r => r.Name == "Korisnik");
-                    if (defaultRole != null)
-                    {
-                        Context.UserRoles.Add(new UserRole
-                        {
-                            UserId = user.Id,
-                            RoleId = defaultRole.Id
-                        });
-
-                        _logger.LogInformation($"Automatski dodeljena rola 'Korisnik' korisniku {request.Username}");
-                    }
-                }
-
-                await Context.SaveChangesAsync();
-            }
-
             // Publish RabbitMQ poruka za registraciju korisnika
             var registeredUser = await Context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
                 if (registeredUser != null)
@@ -193,6 +156,33 @@ namespace EasyTab.Services.Services
             entity.ProfilePicture = string.IsNullOrWhiteSpace(request.ProfilePicture)
                 ? null
                 : request.ProfilePicture;
+
+            if (request.RoleIds != null && request.RoleIds.Count > 0)
+            {
+                foreach (var roleId in request.RoleIds)
+                {
+                    if (await Context.Roles.AnyAsync(r => r.Id == roleId))
+                    {
+                        entity.UserRoles.Add(new UserRole
+                        {
+                            RoleId = roleId
+                        });
+                    }
+                }
+            }
+            else
+            {
+                var defaultRole = await Context.Roles.FirstOrDefaultAsync(r => r.Name == "Korisnik");
+                if (defaultRole != null)
+                {
+                    entity.UserRoles.Add(new UserRole
+                    {
+                        RoleId = defaultRole.Id
+                    });
+
+                    _logger.LogInformation("Automatski dodeljena rola 'Korisnik' korisniku {Username}", request.Username);
+                }
+            }
 
             await Task.CompletedTask;
         }

@@ -101,11 +101,10 @@ namespace EasyTab.Services.Services
             user.PasswordHash = _cryptoService.GenerateHash(request.Password,salt);
 
             Context.Users.Add(user);
-            await Context.SaveChangesAsync();
 
             var worker = new Worker
             {
-                UserId = user.Id,
+                User = user,
                 LocaleId = request.LocaleId,
                 HireDate = DateTime.Now,
                 EndDate = null,
@@ -122,7 +121,7 @@ namespace EasyTab.Services.Services
                     {
                         Context.UserRoles.Add(new UserRole
                         {
-                            UserId = user.Id,
+                            User = user,
                             RoleId = roleId
                         });
                     }
@@ -135,7 +134,7 @@ namespace EasyTab.Services.Services
                 {
                     Context.UserRoles.Add(new UserRole
                     {
-                        UserId = user.Id,
+                        User = user,
                         RoleId = workerRole.Id
                     });
                 }
