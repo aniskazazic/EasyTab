@@ -1,4 +1,5 @@
 ﻿using EasyTab.Model.Requests;
+using EasyTab.Model.Responses;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,9 +10,9 @@ namespace EasyTab.Services.Interfaces
 {
     public interface IAdminService 
     {
-        Task<object> GetStats();
-        Task<object> GetAnalytics();
-        Task<object> GetAllLocales(string? search, bool showDeleted, int page, int pageSize);
+        Task<AdminStatsResponse> GetStats();
+        Task<AdminAnalyticsResponse> GetAnalytics();
+        Task<AdminLocalePageResponse> GetAllLocales(string? search, bool showDeleted, int page, int pageSize);
         Task UpdateLocale(int id, AdminUpdateLocaleRequest request);
         Task ReactivateLocale(int id);
     }

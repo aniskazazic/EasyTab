@@ -1,6 +1,7 @@
 ﻿using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using EasyTab.Model.Exceptions;
+using EasyTab.Model.Responses;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -71,7 +72,7 @@ namespace EasyTab.Services.Services
             return count;
         }
 
-        public async Task<object> GetMyLocale(int localeId)
+        public async Task<OwnerLocaleResponse> GetMyLocale(int localeId)
         {
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(localeId);
             var locale = await _db.Locales
@@ -85,10 +86,25 @@ namespace EasyTab.Services.Services
                 throw new UserException("Lokal nije pronađen!");
             }
 
-            return locale;
+            return new OwnerLocaleResponse
+            {
+                Id = locale.Id,
+                Name = locale.Name,
+                Address = locale.Address,
+                StartOfWorkingHours = locale.StartOfWorkingHours,
+                EndOfWorkingHours = locale.EndOfWorkingHours,
+                LengthOfReservation = locale.LengthOfReservation,
+                Logo = locale.Logo,
+                CityId = locale.CityId,
+                CategoryId = locale.CategoryId,
+                OwnerId = locale.OwnerId,
+                IsDeleted = locale.IsDeleted,
+                DeletedAt = locale.DeletedAt,
+                PhoneNumber = locale.PhoneNumber
+            };
         }
 
-        public async Task<object> GetTableDistribution(int localeId)
+        public async Task<List<TableDistributionResponse>> GetTableDistribution(int localeId)
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
             var total = await _db.Tables
@@ -97,13 +113,13 @@ namespace EasyTab.Services.Services
 
             if (total == 0)
             {
-                return new List<object>();
+                return new List<TableDistributionResponse>();
             }
 
             var distribution = await _db.Tables
                 .Where(t => t.LocaleId == localeId)
                 .GroupBy(t => t.NumberOfGuests)
-                .Select(g => new
+                .Select(g => new TableDistributionResponse
                 {
                     Seats = g.Key,
                     Count = g.Count(),
@@ -113,7 +129,7 @@ namespace EasyTab.Services.Services
             return distribution;
         }
 
-        public async Task<object> GetAllReservations(int userId, string? q, DateTime? date, int page, int pageSize)
+        public async Task<OwnerReservationsPageResponse> GetAllReservations(int userId, string? q, DateTime? date, int page, int pageSize)
         {
             var selectedDate = (date?.Date ?? DateTime.Today);
 
@@ -150,11 +166,11 @@ namespace EasyTab.Services.Services
                 .ThenBy(s => s.Id)
                 .Skip(page * pageSize)
                 .Take(pageSize)
-                .Select(s => new
+                .Select(s => new OwnerReservationListItemResponse
                 {
-                    s.Id,
-                    s.User.FirstName,
-                    s.User.LastName,
+                    Id = s.Id,
+                    FirstName = s.User.FirstName,
+                    LastName = s.User.LastName,
                     ReservationDate = s.ReservationDate,
                     StartTime = s.StartTime,
                     EndTime = s.EndTime,
@@ -164,7 +180,7 @@ namespace EasyTab.Services.Services
                 })
                 .ToListAsync();
 
-            return new { Items = result, TotalCount = total };
+            return new OwnerReservationsPageResponse { Items = result, TotalCount = total };
         }
 
         public async Task<bool> CheckIfOwner(int localeId, int userId)

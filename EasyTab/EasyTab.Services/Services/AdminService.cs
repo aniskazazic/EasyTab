@@ -1,4 +1,5 @@
 ﻿using EasyTab.Model.Requests;
+using EasyTab.Model.Responses;
 using EasyTab.Model.Exceptions;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
@@ -22,7 +23,7 @@ namespace EasyTab.Services.Services
             _db = db;
             _logger = logger;
         }
-        public async Task<object> GetAllLocales(string? search, bool showDeleted, int page, int pageSize)
+        public async Task<AdminLocalePageResponse> GetAllLocales(string? search, bool showDeleted, int page, int pageSize)
         {
 
             var query = _db.Locales
@@ -42,25 +43,25 @@ namespace EasyTab.Services.Services
                 .OrderBy(c => c.Id)
                 .Skip(page * pageSize)
                 .Take(pageSize)
-                .Select(c => new
+                .Select(c => new AdminLocaleListItemResponse
                 {
-                    c.Id,
+                    Id = c.Id,
                     LocaleName = c.Name,
                     City = c.City.Name,
                     Country = c.City.Country.Name,
                     Category = c.Category.Name,
-                    c.Address,
-                    c.IsDeleted,
+                    Address = c.Address,
+                    IsDeleted = c.IsDeleted,
                     CountryId = c.City.CountryId,
                     CityId = c.CityId,
                     CategoryId = c.CategoryId
                 })
                 .ToListAsync();
 
-            return new { Items = result, TotalCount = total };
+            return new AdminLocalePageResponse { Items = result, TotalCount = total };
         }
 
-        public async Task<object> GetAnalytics()
+        public async Task<AdminAnalyticsResponse> GetAnalytics()
         {
 
             var users = await _db.Users.ToListAsync();
@@ -89,7 +90,7 @@ namespace EasyTab.Services.Services
                 .OrderByDescending(x => x.Count)
                 .ToList();
 
-            return new
+            return new AdminAnalyticsResponse
             {
                 UserStatsData = new[] { activeUsers, deletedUsers },
                 UserRoleData = new[] { ownerCount, workerCount, normalUserCount },
@@ -99,10 +100,10 @@ namespace EasyTab.Services.Services
             };
         }
 
-        public async Task<object> GetStats()
+        public async Task<AdminStatsResponse> GetStats()
         {
 
-            var stats = new
+            var stats = new AdminStatsResponse
             {
                 CountOfUsers = await _db.Users.CountAsync(),
                 CountOfDeletedUsers = await _db.Users.CountAsync(u => u.IsDeleted),
