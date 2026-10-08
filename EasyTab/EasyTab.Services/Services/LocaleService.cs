@@ -7,7 +7,6 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -22,13 +21,11 @@ namespace EasyTab.Services.Services
     public class LocaleService : BaseCRUDService<Locales, LocaleSearchObject, Locale, LocaleInsertRequest, LocaleUpdateRequest>, ILocaleService
     {
 
-        private readonly IWebHostEnvironment _wh;
         private readonly ILogger<LocaleService> _logger;
         private readonly ILocaleAccessService _localeAccessService;
 
-        public LocaleService(_220030Context context, IMapper mapper, IWebHostEnvironment wh, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper, insertValidator, updateValidator)
+        public LocaleService(_220030Context context, IMapper mapper, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper, insertValidator, updateValidator)
         {
-            _wh = wh;
             _logger = logger;
             _localeAccessService = localeAccessService;
         }

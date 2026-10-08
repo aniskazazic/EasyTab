@@ -46,11 +46,9 @@ Image imageFromBase64String(String base64String) {
 ImageProvider? imageProviderFromString(String? value) {
   if (value == null || value.isEmpty) return null;
 
-  if (value.startsWith('http://') || value.startsWith('https://')) {
-    return NetworkImage(value);
-  }
-
-  final base64Part = value.contains(',') ? value.split(',').last : value;
+  final base64Part = value.startsWith('data:image')
+      ? value.split(',').last
+      : value;
 
   try {
     return MemoryImage(base64Decode(base64Part));

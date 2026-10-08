@@ -55,7 +55,6 @@ builder.Services.AddScoped<IFavouriteService, FavouriteService>();
 builder.Services.AddScoped<ILocaleImageService, LocaleImageService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IOwnerService, OwnerService>();
-builder.Services.AddScoped<IFileService, FileService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationPushService, SignalRNotificationPushService>();
 builder.Services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
@@ -235,7 +234,6 @@ if (!app.Environment.IsDevelopment())
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.UseStaticFiles();
 app.MapControllers();
 app.MapHub<NotificationHub>("/notificationHub");
 

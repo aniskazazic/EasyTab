@@ -29,10 +29,4 @@
     <ProjectReference Include="..\EasyTab.Services\EasyTab.Services.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="wwwroot\ImageFolder\LocaleImage\" />
-    <Folder Include="wwwroot\ImageFolder\LocaleLogo\" />
-    <Folder Include="wwwroot\ImageFolder\ProfilePictures\" />
-  </ItemGroup>
-
 </Project>
