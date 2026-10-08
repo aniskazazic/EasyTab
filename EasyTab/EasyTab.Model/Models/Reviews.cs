@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
+using EasyTab.Model.Serialization;
 
 namespace EasyTab.Model.Models
 {
@@ -15,6 +17,7 @@ namespace EasyTab.Model.Models
         public string? UserFullName { get; set; }
         public int LocaleId { get; set; }
         public string? LocaleName { get; set; }
+        [JsonConverter(typeof(UtcDateTimeJsonConverter))]
         public DateTime DateAdded { get; set; }
         public bool IsDeleted { get; set; }
         public int Likes { get; set; }

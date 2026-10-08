@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
+import 'package:easytab_mobile/providers/utils.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -334,7 +334,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 'Datum rođenja',
                 Icons.calendar_today_rounded,
               ),
-              format: DateFormat('dd/MM/yyyy'),
+              format: dateOnlyFormatter,
               firstDate: DateTime(1900),
               lastDate: DateTime.now(),
               validator: FormBuilderValidators.compose([

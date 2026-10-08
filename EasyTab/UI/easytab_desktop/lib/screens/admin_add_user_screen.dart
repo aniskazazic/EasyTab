@@ -4,6 +4,7 @@ import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as models;
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
 import 'package:easytab_desktop/widgets/desktop_password_section.dart';
 import 'package:file_picker/file_picker.dart';
@@ -11,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 class AdminAddUserScreen extends StatefulWidget {
   final VoidCallback? onSaved;
@@ -120,8 +120,9 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
     if (request['birthDate'] is DateTime) {
       request['birthDate'] = (request['birthDate'] as DateTime)
-          .toUtc()
-          .toIso8601String();
+          .toIso8601String()
+          .split('T')
+          .first;
     }
 
     request.removeWhere(
@@ -518,7 +519,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
           child: FormBuilderDateTimePicker(
             name: 'birthDate',
             inputType: InputType.date,
-            format: DateFormat('dd/MM/yyyy'),
+            format: dateOnlyFormatter,
             decoration: const InputDecoration(
               labelText: 'Datum rođenja',
               border: OutlineInputBorder(),

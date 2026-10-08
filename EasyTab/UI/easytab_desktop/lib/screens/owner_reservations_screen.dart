@@ -6,7 +6,6 @@ import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class OwnerReservationsScreen extends StatefulWidget {
@@ -443,7 +442,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
             icon: const Icon(Icons.calendar_today, size: 18),
             label: Text(
               _selectedDate != null
-                  ? DateFormat('dd.MM.yyyy').format(_selectedDate!)
+                  ? formatDateOnly(_selectedDate!)
                   : 'Svi datumi',
             ),
             onPressed: () async {
@@ -523,7 +522,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
             ],
             rows: list.map((res) {
               final dateStr = res.reservationDate != null
-                  ? DateFormat('dd.MM.yyyy').format(res.reservationDate!)
+                  ? formatDateOnly(res.reservationDate!)
                   : '-';
               final timeStr =
                   '${_formatTime(res.startTime)} - ${_formatTime(res.endTime)}';

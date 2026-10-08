@@ -6,7 +6,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 
@@ -211,7 +210,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           FormBuilderDateTimePicker(
             name: 'birthDate',
             inputType: InputType.date,
-            format: DateFormat('dd.MM.yyyy'),
+            format: dateOnlyFormatter,
             decoration: const InputDecoration(labelText: "Datum rođenja"),
             firstDate: DateTime(1900),
             lastDate: DateTime.now(),

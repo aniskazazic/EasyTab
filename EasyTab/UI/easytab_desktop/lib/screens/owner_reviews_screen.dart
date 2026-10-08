@@ -222,7 +222,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
       final matchesDate =
           selectedDate == null ||
           (review.dateAdded != null &&
-              _isSameDay(review.dateAdded!, selectedDate));
+              _isSameDay(toLocalDateTime(review.dateAdded!), selectedDate));
       final matchesRating =
           selectedRating == null || review.rating == selectedRating;
       return matchesQuery && matchesDate && matchesRating;
@@ -236,9 +236,11 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   }
 
   bool _isSameDay(DateTime first, DateTime second) {
-    return first.year == second.year &&
-        first.month == second.month &&
-        first.day == second.day;
+    final localFirst = toLocalDateTime(first);
+    final localSecond = toLocalDateTime(second);
+    return localFirst.year == localSecond.year &&
+        localFirst.month == localSecond.month &&
+        localFirst.day == localSecond.day;
   }
 
   bool get _isFiltering =>
@@ -247,9 +249,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
       _selectedRating != null;
 
   String _formatDate(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    return '$day.$month.${date.year}';
+    return formatSystemDateOnly(date);
   }
 
   Future<void> _pickDate() async {

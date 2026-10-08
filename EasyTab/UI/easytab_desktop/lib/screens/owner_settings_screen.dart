@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 class OwnerSettingsScreen extends StatefulWidget {
   const OwnerSettingsScreen({super.key});
@@ -122,8 +121,9 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
         request['profilePicture'] = base64Encode(_imageFile!.readAsBytesSync());
       if (request['birthDate'] is DateTime) {
         request['birthDate'] = (request['birthDate'] as DateTime)
-            .toUtc()
-            .toIso8601String();
+            .toIso8601String()
+            .split('T')
+            .first;
       }
       request.removeWhere(
         (key, value) => value == null || value.toString().isEmpty,
@@ -343,7 +343,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                         child: FormBuilderDateTimePicker(
                           name: 'birthDate',
                           inputType: InputType.date,
-                          format: DateFormat('dd/MM/yyyy'),
+                          format: dateOnlyFormatter,
                           decoration: const InputDecoration(
                             labelText: 'Datum rodjenja',
                             border: OutlineInputBorder(),

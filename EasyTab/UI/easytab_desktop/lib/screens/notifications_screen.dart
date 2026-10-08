@@ -214,8 +214,8 @@ class _NotificationTile extends StatelessWidget {
             item.createdAt == null
                 ? ''
                 : DateFormat(
-                    'dd.MM.yyyy HH:mm',
-                  ).format(item.createdAt!.toLocal()),
+                    'dd.MM.yyyy. · HH:mm',
+                  ).format(toLocalDateTime(item.createdAt!)),
             style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
         ],

@@ -121,7 +121,7 @@ namespace EasyTab.Services.Services
                 throw new UserException("Već ste ostavili recenziju za ovaj lokal!");
             }
 
-            entity.DateAdded = DateTime.Now;
+            entity.DateAdded = DateTime.UtcNow;
             entity.IsDeleted = false;
 
             return Task.CompletedTask;

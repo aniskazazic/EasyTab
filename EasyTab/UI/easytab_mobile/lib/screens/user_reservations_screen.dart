@@ -328,9 +328,9 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
         (state.toLowerCase() == 'na čekanju' ||
             state.toLowerCase() == 'potvrđena');
 
-    final dateStr = res.reservationDate != null
-        ? '${res.reservationDate!.day.toString().padLeft(2, '0')}.${res.reservationDate!.month.toString().padLeft(2, '0')}.${res.reservationDate!.year}.'
-        : '-';
+    final dateStr = res.reservationDate == null
+        ? '-'
+        : formatDateOnly(res.reservationDate!);
 
     final startTimeClean = _formatTime(res.startTime);
     final endTimeClean = _formatTime(res.endTime);

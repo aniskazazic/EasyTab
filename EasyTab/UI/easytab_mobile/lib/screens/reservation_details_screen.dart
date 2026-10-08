@@ -4,6 +4,7 @@ import 'package:easytab_mobile/models/table.dart';
 import 'package:easytab_mobile/models/time_slot.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/reservation_provider.dart';
+import 'package:easytab_mobile/providers/utils.dart';
 import 'package:flutter/material.dart';
 
 class ReservationDetailsScreen extends StatefulWidget {
@@ -76,7 +77,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
   }
 
   String _fmtDate(DateTime dt) {
-    return '${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}';
+    return formatDateOnly(dt);
   }
 
   Future<void> _pickDate() async {
@@ -499,7 +500,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${_selectedDate.day.toString().padLeft(2, '0')}.${_selectedDate.month.toString().padLeft(2, '0')}.${_selectedDate.year}.',
+                      formatDateOnly(_selectedDate),
                       style: const TextStyle(
                         fontSize: 16.5,
                         fontWeight: FontWeight.w700,

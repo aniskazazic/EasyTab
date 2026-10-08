@@ -200,7 +200,7 @@ namespace EasyTab.Services.Services
                 throw new UserException("Stol je već rezervisan za ovaj termin!");
             }
 
-            entity.CreatedAt = DateTime.Now;
+            entity.CreatedAt = DateTime.UtcNow;
             entity.ReservationState = PendingReservationState.StateName;
 
             await Task.CompletedTask;

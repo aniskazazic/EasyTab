@@ -1,6 +1,7 @@
 import 'package:easytab_mobile/models/notification.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/notification_provider.dart';
+import 'package:easytab_mobile/providers/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -77,25 +78,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               child: CircularProgressIndicator(color: Color(0xFF1E40AF)),
             )
           : provider.error != null && notifications.isEmpty
-              ? _buildErrorView(provider.error!)
-              : notifications.isEmpty
-                  ? _buildEmptyView()
-                  : RefreshIndicator(
-                      color: const Color(0xFF1E40AF),
-                      onRefresh: _loadNotifications,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 16,
-                        ),
-                        itemCount: notifications.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final item = notifications[index];
-                          return _buildNotificationCard(item);
-                        },
-                      ),
-                    ),
+          ? _buildErrorView(provider.error!)
+          : notifications.isEmpty
+          ? _buildEmptyView()
+          : RefreshIndicator(
+              color: const Color(0xFF1E40AF),
+              onRefresh: _loadNotifications,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 16,
+                ),
+                itemCount: notifications.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final item = notifications[index];
+                  return _buildNotificationCard(item);
+                },
+              ),
+            ),
     );
   }
 
@@ -130,9 +131,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     item.title ?? 'Obavijest',
                     style: TextStyle(
                       fontSize: 14.5,
-                      fontWeight: isUnread
-                          ? FontWeight.w700
-                          : FontWeight.w600,
+                      fontWeight: isUnread ? FontWeight.w700 : FontWeight.w600,
                       color: const Color(0xFF0F172A),
                     ),
                   ),
@@ -177,7 +176,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   String _formatDate(DateTime? dt) {
     if (dt == null) return '';
-    final local = dt.toLocal();
+    final local = toLocalDateTime(dt);
     final now = DateTime.now();
 
     final diff = now.difference(local);

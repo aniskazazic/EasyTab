@@ -7,7 +7,6 @@ import 'package:easytab_desktop/providers/notification_provider.dart';
 import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 class AdminReservationsScreen extends StatefulWidget {
@@ -441,7 +440,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
             icon: const Icon(Icons.calendar_today, size: 18),
             label: Text(
               _selectedDate != null
-                  ? DateFormat('dd.MM.yyyy').format(_selectedDate!)
+                  ? formatDateOnly(_selectedDate!)
                   : 'Svi datumi',
             ),
             onPressed: () async {
@@ -523,7 +522,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
             ],
             rows: list.map((res) {
               final dateStr = res.reservationDate != null
-                  ? DateFormat('dd.MM.yyyy').format(res.reservationDate!)
+                  ? formatDateOnly(res.reservationDate!)
                   : '-';
               final timeStr =
                   '${_formatTime(res.startTime)} - ${_formatTime(res.endTime)}';

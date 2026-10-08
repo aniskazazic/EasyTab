@@ -967,9 +967,9 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     final isMyReview = review.userId == _currentUserId;
     final userReaction = _effectiveUserReaction(review);
     final rating = review.rating ?? 0;
-    final dateStr = review.dateAdded != null
-        ? '${review.dateAdded!.day}.${review.dateAdded!.month}.${review.dateAdded!.year}.'
-        : '';
+    final dateStr = review.dateAdded == null
+        ? ''
+        : formatSystemDateOnly(review.dateAdded!);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

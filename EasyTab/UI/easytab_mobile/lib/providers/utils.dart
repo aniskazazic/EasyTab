@@ -4,6 +4,15 @@ import 'package:easytab_mobile/providers/base_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+final dateOnlyFormatter = DateFormat('dd.MM.yyyy.');
+
+String formatDateOnly(DateTime date) => dateOnlyFormatter.format(date);
+
+String formatSystemDateOnly(DateTime date) =>
+    dateOnlyFormatter.format(date.toLocal());
+
+DateTime toLocalDateTime(DateTime date) => date.toLocal();
+
 String formatNumber(dynamic number) {
   var f = NumberFormat("#.##0.00", "en_US");
   if (number == null) {

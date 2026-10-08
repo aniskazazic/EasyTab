@@ -106,7 +106,7 @@ namespace EasyTab.Services.Services
             {
                 User = user,
                 LocaleId = request.LocaleId,
-                HireDate = DateTime.Now,
+                HireDate = DateTime.UtcNow,
                 EndDate = null,
             };
 
@@ -233,20 +233,20 @@ namespace EasyTab.Services.Services
 
             // 1. Soft delete Worker
             worker.IsDeleted = true;
-            worker.DeletedAt = DateTime.Now;
-            worker.EndDate = DateTime.Now;
+            worker.DeletedAt = DateTime.UtcNow;
+            worker.EndDate = DateTime.UtcNow;
 
             // 2. Soft delete User
             if (worker.User != null)
             {
                 worker.User.IsDeleted = true;
-                worker.User.DeletedAt = DateTime.Now;
+                worker.User.DeletedAt = DateTime.UtcNow;
 
                 // 3. Soft delete UserRoles
                 foreach (var userRole in worker.User.UserRoles)
                 {
                     userRole.IsDeleted = true;
-                    userRole.DeletedAt = DateTime.Now;
+                    userRole.DeletedAt = DateTime.UtcNow;
                 }
             }
 

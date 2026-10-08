@@ -117,7 +117,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                 OutlinedButton.icon(
                   onPressed: _pickDate,
                   icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                  label: Text(DateFormat('dd.MM.yyyy').format(_selectedDate)),
+                  label: Text(formatDateOnly(_selectedDate)),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.black87,
                     padding: const EdgeInsets.symmetric(

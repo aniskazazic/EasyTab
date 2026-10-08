@@ -1,4 +1,6 @@
 using System;
+using System.Text.Json.Serialization;
+using EasyTab.Model.Serialization;
 
 namespace EasyTab.Model.Models
 {
@@ -9,6 +11,7 @@ namespace EasyTab.Model.Models
         public string Title { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
         public bool IsRead { get; set; }
+        [JsonConverter(typeof(UtcDateTimeJsonConverter))]
         public DateTime CreatedAt { get; set; }
     }
 }

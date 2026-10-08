@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
+using EasyTab.Model.Serialization;
 
 namespace EasyTab.Model.Models
 {
@@ -20,11 +22,14 @@ namespace EasyTab.Model.Models
         public DateTime ReservationDate { get; set; }
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
+        [JsonConverter(typeof(UtcDateTimeJsonConverter))]
         public DateTime CreatedAt { get; set; }
         public string? ReservationState { get; set; }
         public int? ApprovedById { get; set; }
+        [JsonConverter(typeof(UtcNullableDateTimeJsonConverter))]
         public DateTime? ApprovedAt { get; set; }
         public int? CancelledById { get; set; }
+        [JsonConverter(typeof(UtcNullableDateTimeJsonConverter))]
         public DateTime? CancelledAt { get; set; }
         public string? CancellationReason { get; set; }
         public int? LocaleId { get; set; }

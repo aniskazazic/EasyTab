@@ -11,7 +11,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 
 class OwnerWorkerDetailsScreen extends StatefulWidget {
   final int localeId;
@@ -104,7 +103,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
       // Formatiraj datum rođenja
       final birthDate = request['birthDate'];
       if (birthDate is DateTime) {
-        request['birthDate'] = birthDate.toUtc().toIso8601String();
+        request['birthDate'] = birthDate.toIso8601String().split('T').first;
       }
 
       // Upload slike ako je odabrana
@@ -439,7 +438,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                         ),
                         child: Text(
                           field.value != null
-                              ? DateFormat('dd/MM/yyyy').format(field.value!)
+                              ? formatDateOnly(field.value!)
                               : 'Odaberite datum rođenja',
                           style: TextStyle(
                             color: field.value != null

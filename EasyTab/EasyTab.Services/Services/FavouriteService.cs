@@ -76,7 +76,7 @@ namespace EasyTab.Services.Services
             {
                 // Reaktiviraj postojeći
                 existing.IsActive = true;
-                existing.DateAdded = DateTime.Now;
+                existing.DateAdded = DateTime.UtcNow;
                 Context.SaveChanges();
                 _logger.LogInformation("Favourite reactivated. UserId: {UserId}, LocaleId: {LocaleId}", userId, localeId);
                 
@@ -106,7 +106,7 @@ namespace EasyTab.Services.Services
             {
                 UserId = userId,
                 LocaleId = localeId,
-                DateAdded = DateTime.Now,
+                DateAdded = DateTime.UtcNow,
                 IsActive = true
             };
 

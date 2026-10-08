@@ -30,7 +30,7 @@ namespace EasyTab.Services.Validators
                 .When(x => !string.IsNullOrEmpty(x.PhoneNumber));
 
             RuleFor(x => x.BirthDate)
-                .LessThan(DateTime.Now).WithMessage("Datum rođenja ne može biti u budućnosti.")
+                .LessThan(DateTime.UtcNow).WithMessage("Datum rođenja ne može biti u budućnosti.")
                 .When(x => x.BirthDate.HasValue);
         }
     }

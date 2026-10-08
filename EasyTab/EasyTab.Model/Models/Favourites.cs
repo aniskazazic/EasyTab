@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Text.Json.Serialization;
+using EasyTab.Model.Serialization;
 
 namespace EasyTab.Model.Models
 {
@@ -18,6 +20,7 @@ namespace EasyTab.Model.Models
         public string? LocaleCityName { get; set; }
         public TimeOnly StartOfWorkingHours { get; set; }
         public TimeOnly EndOfWorkingHours { get; set; }
+        [JsonConverter(typeof(UtcDateTimeJsonConverter))]
         public DateTime DateAdded { get; set; }
         public bool IsActive { get; set; }
     }

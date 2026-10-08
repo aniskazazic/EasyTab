@@ -1,7 +1,7 @@
 import 'package:easytab_mobile/models/reservation.dart';
 import 'package:easytab_mobile/providers/reservation_provider.dart';
+import 'package:easytab_mobile/providers/utils.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 class WorkerReservationDetailsScreen extends StatefulWidget {
   final Reservation reservation;
@@ -29,7 +29,7 @@ class _WorkerReservationDetailsScreenState
 
   String _formatDate(DateTime? date) {
     if (date == null) return '-';
-    return DateFormat('dd.MM.yyyy').format(date);
+    return formatDateOnly(date);
   }
 
   String _formatTime(String? value) {
