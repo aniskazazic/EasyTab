@@ -112,6 +112,13 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
         filter['ReservationState'] = _appliedState;
       }
 
+      if (_appliedDate != null) {
+        filter['ReservationDate'] =
+            '${_appliedDate!.year.toString().padLeft(4, '0')}-'
+            '${_appliedDate!.month.toString().padLeft(2, '0')}-'
+            '${_appliedDate!.day.toString().padLeft(2, '0')}';
+      }
+
       final result = await _reservationProvider.get(filter: filter);
       if (mounted) {
         setState(() {
@@ -171,15 +178,6 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
         return table.contains(_appliedQuery) ||
             locale.contains(_appliedQuery) ||
             guests.contains(_appliedQuery);
-      }).toList();
-    }
-
-    if (_appliedDate != null) {
-      list = list.where((r) {
-        if (r.reservationDate == null) return false;
-        return r.reservationDate!.year == _appliedDate!.year &&
-            r.reservationDate!.month == _appliedDate!.month &&
-            r.reservationDate!.day == _appliedDate!.day;
       }).toList();
     }
 

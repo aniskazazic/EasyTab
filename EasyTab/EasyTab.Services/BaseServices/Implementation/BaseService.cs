@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Dynamic.Core;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -61,7 +62,13 @@ namespace EasyTab.Services.BaseServices.Implementation
                 ? search.SortBy!
                 : "Id";
 
-            query = query.OrderBy(sortColumn)
+            if (!string.IsNullOrWhiteSpace(search.SortBy) ||
+                !ContainsOrdering(query.Expression))
+            {
+                query = query.OrderBy(sortColumn);
+            }
+
+            query = query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize);
 
@@ -78,6 +85,23 @@ namespace EasyTab.Services.BaseServices.Implementation
         protected virtual IQueryable<TDbEntity> ApplyFilter(IQueryable<TDbEntity> query, TSearch? search)
         {
             return query;
+        }
+
+        private static bool ContainsOrdering(Expression expression)
+        {
+            if (expression is MethodCallExpression methodCall)
+            {
+                if (methodCall.Method.Name is "OrderBy" or "OrderByDescending" or
+                    "ThenBy" or "ThenByDescending")
+                {
+                    return true;
+                }
+
+                return methodCall.Arguments.Any(ContainsOrdering);
+            }
+
+            return expression is UnaryExpression unary &&
+                   ContainsOrdering(unary.Operand);
         }
 
 

@@ -64,6 +64,14 @@ namespace EasyTab.Services.Services
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.Table.LocaleId == search.LocaleId);
 
+            if (search?.ReservationDate.HasValue == true)
+            {
+                var date = search.ReservationDate.Value.Date;
+                var nextDate = date.AddDays(1);
+                query = query.Where(x => x.ReservationDate >= date &&
+                                         x.ReservationDate < nextDate);
+            }
+
             if (search?.ReservationState != null)
                 query = query.Where(x => x.ReservationState == search.ReservationState);
 
@@ -92,7 +100,8 @@ namespace EasyTab.Services.Services
             if (string.IsNullOrWhiteSpace(search?.SortBy))
             {
                 query = query.OrderByDescending(x => x.ReservationDate)
-                             .ThenByDescending(x => x.StartTime);
+                             .ThenBy(x => x.StartTime)
+                             .ThenBy(x => x.Id);
             }
 
             return query;
