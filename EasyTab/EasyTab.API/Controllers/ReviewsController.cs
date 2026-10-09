@@ -20,16 +20,16 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpGet("average/{localeId}")]
-        public IActionResult GetAverageRating(int localeId)
+        public async Task<IActionResult> GetAverageRating(int localeId)
         {
-            var result = _service.GetAverageRating(localeId);
+            var result = await _service.GetAverageRatingAsync(localeId);
             return Ok(result);
         }
 
         [HttpGet("rating-counts/{localeId}")]
-        public IActionResult GetRatingCounts(int localeId)
+        public async Task<IActionResult> GetRatingCounts(int localeId)
         {
-            var result = _service.GetRatingCounts(localeId);
+            var result = await _service.GetRatingCountsAsync(localeId);
             return Ok(result);
         }
 

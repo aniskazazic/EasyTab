@@ -141,11 +141,11 @@ namespace EasyTab.Services.Services
             return Task.CompletedTask;
         }
 
-        public ReviewAverage GetAverageRating(int localeId)
+        public async Task<ReviewAverage> GetAverageRatingAsync(int localeId)
         {
-            var reviews = Context.Reviews
+            var reviews = await Context.Reviews
                 .Where(r => r.LocaleId == localeId && !r.IsDeleted)
-                .ToList();
+                .ToListAsync();
 
             var result = new ReviewAverage
             {
@@ -156,11 +156,11 @@ namespace EasyTab.Services.Services
             return result;
         }
 
-        public ReviewRatingCount GetRatingCounts(int localeId)
+        public async Task<ReviewRatingCount> GetRatingCountsAsync(int localeId)
         {
-            var reviews = Context.Reviews
+            var reviews = await Context.Reviews
                 .Where(r => r.LocaleId == localeId && !r.IsDeleted)
-                .ToList();
+                .ToListAsync();
 
             var counts = new ReviewRatingCount
             {

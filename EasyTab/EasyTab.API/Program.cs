@@ -22,6 +22,11 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
 
+internal class Program
+{
+    private static async Task Main(string[] args)
+    {
+
 var envFile = Path.Combine(Directory.GetCurrentDirectory(), ".env");
 if (!File.Exists(envFile))
 {
@@ -121,15 +126,27 @@ builder.Services.AddHttpContextAccessor();
 var connectionString = builder.Configuration.GetConnectionString("EasyTabConnection");
 
 
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add<ExceptionFilter>();
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
     });
 
-
-builder.Services.AddControllers( x => {
-    x.Filters.Add<ExceptionFilter>();
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? Array.Empty<string>();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ConfiguredOrigins", policy =>
+    {
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
 });
 
 builder.Services.AddAuthentication(options => // dodavanje authentfikacije i autorizacije u projekat
@@ -224,13 +241,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// The mobile app uses the HTTP development profile locally. In production,
-// HTTPS redirection remains enabled.
-if (!app.Environment.IsDevelopment())
-{
-    app.UseHttpsRedirection();
-}
-
+app.UseCors("ConfiguredOrigins");
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -241,29 +252,19 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<_220030Context>();
     var dbSeeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
     
     try
     {
-        // Provjeri da li se možeš povezati na bazu
-        if (dbContext.Database.CanConnect())
-        {
-            // Baza postoji – samo primijeni migracije (ako ih ima)
-            dbContext.Database.Migrate();
-            await dbSeeder.SeedAsync();
-        }
-        else
-        {
-            // Baza ne postoji – kreiraj je i primijeni migracije
-            dbContext.Database.Migrate();
-            await dbSeeder.SeedAsync();
-        }
+        dbContext.Database.Migrate();
+        await dbSeeder.SeedAsync();
     }
     catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 1801)
     {
-        // Ako iz nekog razloga ipak dođe do greške "Database already exists",
-        // samo je ignoriraj i nastavi dalje – baza postoji i to je dovoljno.
-        Console.WriteLine("Database already exists, continuing...");
+        logger.LogWarning(ex, "Database already exists, continuing...");
     }
 }
 
-app.Run();
+        await app.RunAsync();
+    }
+}

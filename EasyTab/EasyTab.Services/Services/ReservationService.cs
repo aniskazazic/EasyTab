@@ -215,21 +215,23 @@ namespace EasyTab.Services.Services
             await Task.CompletedTask;
         }
 
-        public List<TimeSlots> GetAvailableSlots(int tableId, DateTime date)
+        public async Task<List<TimeSlots>> GetAvailableSlotsAsync(int tableId, DateTime date)
         {
             var locale = Context.Tables
                 .Include(x => x.Locale)
                 .Where(x => x.Id == tableId)
-                .FirstOrDefault()?.Locale;
+                .Select(x => x.Locale)
+                .FirstOrDefaultAsync();
+            var localeEntity = await locale;
 
-            if (locale == null)
+            if (localeEntity == null)
             {
                 _logger.LogWarning("Cannot fetch available slots because locale was not found. TableId: {TableId}", tableId);
                 throw new UserException("Lokal nije pronađen!");
             }
 
-            var open = locale.StartOfWorkingHours.ToTimeSpan();
-            var close = locale.EndOfWorkingHours.ToTimeSpan();
+            var open = localeEntity.StartOfWorkingHours.ToTimeSpan();
+            var close = localeEntity.EndOfWorkingHours.ToTimeSpan();
 
             // Fallback ako radno vrijeme nije podešeno u bazi ili je 00:00 - 00:00
             if (open == TimeSpan.Zero && close == TimeSpan.Zero)
@@ -249,7 +251,7 @@ namespace EasyTab.Services.Services
                 }
             }
 
-            var slotHours = (locale.LengthOfReservation > 0) ? locale.LengthOfReservation : 2.0;
+            var slotHours = (localeEntity.LengthOfReservation > 0) ? localeEntity.LengthOfReservation : 2.0;
             var slotLength = TimeSpan.FromHours(slotHours);
 
             // Generiši sve slotove
@@ -265,7 +267,8 @@ namespace EasyTab.Services.Services
                             r.ReservationDate.Date == date.Date &&
                             r.ReservationState != CancelledReservationState.StateName)
                 .Select(r => new { r.StartTime, r.EndTime })
-                .ToList();
+                .ToListAsync();
+            var reservedSlots = await reserved;
 
             var now = DateTime.Now;
 
@@ -280,7 +283,7 @@ namespace EasyTab.Services.Services
             // Filtriraj slobodne slotove
             var slots = allSlots
                 .Where(slot =>
-                    !reserved.Any(res =>
+                    !reservedSlots.Any(res =>
                         slot.Start < res.EndTime.ToTimeSpan() && res.StartTime.ToTimeSpan() < slot.End) &&
                     date.Date.Add(slot.Start) > now)
                 .Select(s => new TimeSlots

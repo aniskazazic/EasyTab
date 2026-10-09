@@ -12,7 +12,7 @@ namespace EasyTab.Services.Interfaces
 {
     public interface IReservationService : ICRUDService<Reservations, ReservationSearchObject, ReservationInsertRequest, ReservationUpdateRequest>
     {
-        List<TimeSlots> GetAvailableSlots(int tableId, DateTime date);
+        Task<List<TimeSlots>> GetAvailableSlotsAsync(int tableId, DateTime date);
         Task CancelReservationAsync(int id, string reason);
 
         Task<Reservations> ConfirmAsync(int id);

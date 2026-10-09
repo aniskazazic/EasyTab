@@ -49,9 +49,14 @@ namespace EasyTab.API.Filters
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Forbidden;
                 _logger.LogWarning("Authorization failed: {Message}", unauthorizedAccessException.Message);
             }
+            else if (context.Exception is NotFoundException || context.Exception is KeyNotFoundException)
+            {
+                context.ModelState.AddModelError("notFound", context.Exception.Message);
+                context.HttpContext.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                _logger.LogWarning("Resource not found: {Message}", context.Exception.Message);
+            }
             else
             {
-                //context.ModelState.AddModelError("serverError", context.Exception.Message);
                 context.ModelState.AddModelError("serverError", "Server side error, please check logs.");
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
                 _logger.LogError(context.Exception, "Unhandled exception.");
@@ -63,7 +68,7 @@ namespace EasyTab.API.Filters
                     c => c.Key,
                     c => c.Value!.Errors.Select(z => z.ErrorMessage).ToList());
 
-            // Single human-readable line for mobile/clients; "clientError" is used for ClinetException.
+            // Single human-readable line for mobile/clients; "clientError" is used for ClientException.
             var allMessages = list.Values.SelectMany(v => v).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
             var message = allMessages.FirstOrDefault()
                 ?? (context.Exception is UserException ? context.Exception.Message : null)

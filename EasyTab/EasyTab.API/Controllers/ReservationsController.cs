@@ -29,9 +29,9 @@ namespace EasyTab.API.Controllers
         public override Task<bool> Delete(int id) => base.Delete(id);
 
         [HttpGet("available-slots")]
-        public IActionResult GetAvailableSlots([FromQuery] int tableId, [FromQuery] DateTime date)
+        public async Task<IActionResult> GetAvailableSlots([FromQuery] int tableId, [FromQuery] DateTime date)
         {
-            var slots = _service.GetAvailableSlots(tableId, date);
+            var slots = await _service.GetAvailableSlotsAsync(tableId, date);
             return Ok(slots);
         }
 

@@ -20,18 +20,17 @@ namespace EasyTab.Common.Services.CryptoService
 
         public string GenerateSalt()
         {
-            using (var rng = new RNGCryptoServiceProvider())
-            {
-                byte[] saltBytes = new byte[16];
-                rng.GetBytes(saltBytes);
-                return Convert.ToBase64String(saltBytes);
-            }
+            byte[] saltBytes = new byte[16];
+            RandomNumberGenerator.Fill(saltBytes);
+            return Convert.ToBase64String(saltBytes);
         }
 
         public bool Verify(string hash, string salt, string password)
         {
             var generatedHash = GenerateHash(password, salt);
-            return hash == generatedHash;
+            return CryptographicOperations.FixedTimeEquals(
+                Convert.FromBase64String(hash),
+                Convert.FromBase64String(generatedHash));
         }
     }
 }

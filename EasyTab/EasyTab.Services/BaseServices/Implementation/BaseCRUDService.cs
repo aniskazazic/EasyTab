@@ -1,5 +1,6 @@
 ﻿using Azure.Core;
 using EasyTab.Model;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Interfaces;
@@ -86,7 +87,7 @@ namespace EasyTab.Services.BaseServices.Implementation
 
 
             if (entity == null)
-                throw new KeyNotFoundException($"{typeof(TDbEntity).Name} with id {id} not found.");
+                throw new NotFoundException($"{typeof(TDbEntity).Name} with id {id} not found.");
 
 
             MapUpdateToEntity(entity, request);
@@ -113,7 +114,7 @@ namespace EasyTab.Services.BaseServices.Implementation
             var entity = await _context.Set<TDbEntity>().FindAsync(id);
 
             if (entity == null)
-                throw new KeyNotFoundException($"{typeof(TDbEntity).Name} with id {id} not found.");
+                throw new UserException($"{typeof(TDbEntity).Name} with id {id} not found.");
 
             await BeforeDelete(entity);
 

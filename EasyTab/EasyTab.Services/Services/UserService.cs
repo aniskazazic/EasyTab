@@ -435,7 +435,7 @@ namespace EasyTab.Services.Services
 
             if (user == null)
             {
-                throw new Exception("Korisnik nije pronađen !");
+                throw new UserException("Korisnik nije pronađen !");
             }
 
             var changingAnotherUserAsAdmin = isAdmin && authenticatedUserId != request.Id;
@@ -447,7 +447,7 @@ namespace EasyTab.Services.Services
 
             if (!request.NewPassword.Equals(request.ConfirmNewPassword))
             {
-                throw new Exception("Lozinka i potvrda lozinke moraju biti iste !");
+                throw new UserException("Lozinka i potvrda lozinke moraju biti iste !");
             }
 
             user.PasswordSalt = _cryptoService.GenerateSalt();
