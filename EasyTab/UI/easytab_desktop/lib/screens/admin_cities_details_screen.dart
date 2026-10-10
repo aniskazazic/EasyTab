@@ -33,7 +33,9 @@ class _AdminCityDetailsScreenState extends State<AdminCityDetailsScreen> {
 
   Future<void> _loadData() async {
     try {
-      countries = await countryProvider.get(filter: {"RetrieveAll": true});
+      countries = await countryProvider.get(
+        filter: {"Page": 1, "PageSize": 100},
+      );
       setState(() => isLoading = false);
     } catch (e) {
       setState(() => isLoading = false);

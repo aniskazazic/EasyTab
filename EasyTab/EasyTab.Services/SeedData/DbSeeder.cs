@@ -1,6 +1,7 @@
 using EasyTab.Common.Services.CryptoService;
 using EasyTab.Services.Database;
 using EasyTab.Services.ReservationStateMachine;
+using EasyTab.Services.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 
@@ -10,11 +11,13 @@ namespace EasyTab.Services.SeedData
     {
         private readonly _220030Context _context;
         private readonly ICryptoService _cryptoService;
+        private readonly LookupCacheVersionService _cacheVersions;
 
-        public DbSeeder(_220030Context context, ICryptoService cryptoService)
+        public DbSeeder(_220030Context context, ICryptoService cryptoService, LookupCacheVersionService cacheVersions)
         {
             _context = context;
             _cryptoService = cryptoService;
+            _cacheVersions = cacheVersions;
         }
 
         public async Task SeedAsync()
@@ -82,6 +85,9 @@ namespace EasyTab.Services.SeedData
             await _context.SaveChangesAsync();
 
             await transaction.CommitAsync();
+            _cacheVersions.Invalidate("countries");
+            _cacheVersions.Invalidate("cities");
+            _cacheVersions.Invalidate("categories");
         }
 
         private static List<Role> CreateRoles()

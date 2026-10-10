@@ -1,9 +1,27 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 final dateOnlyFormatter = DateFormat('dd.MM.yyyy.');
+const _maxImageCacheEntries = 80;
+final Map<String, Uint8List> _decodedImages = {};
+
+Uint8List _decodeCached(String value) {
+  final cached = _decodedImages.remove(value);
+  if (cached != null) {
+    _decodedImages[value] = cached;
+    return cached;
+  }
+
+  final decoded = base64Decode(value);
+  _decodedImages[value] = decoded;
+  if (_decodedImages.length > _maxImageCacheEntries) {
+    _decodedImages.remove(_decodedImages.keys.first);
+  }
+  return decoded;
+}
 
 String formatDateOnly(DateTime date) => dateOnlyFormatter.format(date);
 
@@ -40,7 +58,7 @@ void alertBox(BuildContext context, String title, String content) {
 }
 
 Image imageFromBase64String(String base64String) {
-  return Image.memory(base64Decode(base64String), height: 200, width: 200);
+  return Image.memory(_decodeCached(base64String), height: 200, width: 200);
 }
 
 ImageProvider? imageProviderFromString(String? value) {
@@ -51,7 +69,7 @@ ImageProvider? imageProviderFromString(String? value) {
       : value;
 
   try {
-    return MemoryImage(base64Decode(base64Part));
+    return MemoryImage(_decodeCached(base64Part));
   } catch (_) {
     return null;
   }

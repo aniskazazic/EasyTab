@@ -63,32 +63,31 @@ namespace EasyTab.Services.Services
 
         public async Task<AdminAnalyticsResponse> GetAnalytics()
         {
-
-            var users = await _db.Users.ToListAsync();
-            var locales = await _db.Locales
-                .Include(l => l.Category)
-                .Include(l => l.City).ThenInclude(c => c.Country)
-                .Where(l => !l.IsDeleted)
-                .ToListAsync();
-
-            var activeUsers = users.Count(u => !u.IsDeleted);
-            var deletedUsers = users.Count(u => u.IsDeleted);
-
+            var activeUsers = await _db.Users.CountAsync(u => !u.IsDeleted);
+            var deletedUsers = await _db.Users.CountAsync(u => u.IsDeleted);
             var ownerCount = await _db.Locales.Select(l => l.OwnerId).Distinct().CountAsync();
             var workerCount = await _db.Workers.CountAsync();
-            var normalUserCount = users.Count - ownerCount - workerCount;
+            var totalUsers = activeUsers + deletedUsers;
+            var normalUserCount = totalUsers - ownerCount - workerCount;
 
+            var categoryGroups = await _db.Locales
+                .Where(l => !l.IsDeleted)
+                .GroupBy(l => l.CategoryId)
+                .Select(g => new { CategoryId = g.Key, Count = g.Count() })
+                .OrderBy(x => x.CategoryId)
+                .Take(3)
+                .ToListAsync();
             var categoryCounts = new int[3];
-            categoryCounts[0] = locales.Count(l => l.Category?.Id == 1);
-            categoryCounts[1] = locales.Count(l => l.Category?.Id == 2);
-            categoryCounts[2] = locales.Count(l => l.Category?.Id == 3);
+            for (var i = 0; i < categoryGroups.Count; i++)
+                categoryCounts[i] = categoryGroups[i].Count;
 
-            var topCountries = locales
-                .Where(l => l.City?.Country != null)
-                .GroupBy(l => l.City.Country)
-                .Select(g => new { CountryName = g.Key.Name, Count = g.Count() })
+            var topCountries = await _db.Locales
+                .Where(l => !l.IsDeleted)
+                .GroupBy(l => new { l.City.CountryId, CountryName = l.City.Country.Name })
+                .Select(g => new { g.Key.CountryId, g.Key.CountryName, Count = g.Count() })
                 .OrderByDescending(x => x.Count)
-                .ToList();
+                .ThenBy(x => x.CountryId)
+                .ToListAsync();
 
             return new AdminAnalyticsResponse
             {

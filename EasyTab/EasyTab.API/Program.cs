@@ -42,6 +42,8 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddScoped<ICountryService, CountryService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<LookupCacheVersionService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();

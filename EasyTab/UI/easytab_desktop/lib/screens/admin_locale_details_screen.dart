@@ -62,11 +62,11 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   Future<void> _loadData() async {
     try {
       final results = await Future.wait([
-        categoryProvider.get(filter: {"RetrieveAll": true}),
-        countryProvider.get(filter: {"RetrieveAll": true}),
-        cityProvider.get(filter: {"RetrieveAll": true}),
+        categoryProvider.get(filter: {"Page": 1, "PageSize": 100}),
+        countryProvider.get(filter: {"Page": 1, "PageSize": 100}),
+        cityProvider.get(filter: {"Page": 1, "PageSize": 100}),
 
-        if (_isInsert) userProvider.get(filter: {"RetrieveAll": true}),
+        if (_isInsert) userProvider.get(filter: {}),
       ]);
 
       setState(() {

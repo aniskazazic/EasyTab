@@ -2,6 +2,7 @@ using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Access;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Messages;
+using EasyTab.Model;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;

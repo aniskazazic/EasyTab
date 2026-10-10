@@ -73,9 +73,9 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   Future<void> _loadData() async {
     try {
       final results = await Future.wait([
-        categoryProvider.get(filter: {}),
-        countryProvider.get(filter: {}),
-        cityProvider.get(filter: {}),
+        categoryProvider.get(filter: {"Page": 1, "PageSize": 100}),
+        countryProvider.get(filter: {"Page": 1, "PageSize": 100}),
+        cityProvider.get(filter: {"Page": 1, "PageSize": 100}),
       ]);
 
       var localeimages = SearchResult<LocaleImage>();

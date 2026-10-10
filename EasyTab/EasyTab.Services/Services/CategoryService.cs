@@ -1,4 +1,5 @@
-﻿using EasyTab.Model.Models;
+using EasyTab.Model;
+using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
@@ -7,6 +8,7 @@ using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -18,29 +20,51 @@ namespace EasyTab.Services.Services
     public class CategoryService : BaseCRUDService<Categories, CategorySearchObject,Category, CategoryUpsertRequest, CategoryUpsertRequest>, ICategoryService
     {
         private readonly ILogger<CategoryService> _logger;
+        private readonly IMemoryCache _cache;
+        private readonly LookupCacheVersionService _cacheVersions;
+        private const string CacheGroup = "categories";
 
-        public CategoryService(_220030Context context, IMapper mapper, ILogger<CategoryService> logger, IValidator<CategoryUpsertRequest> insertValidator, IValidator<CategoryUpsertRequest> updateValidator) 
+        public CategoryService(_220030Context context, IMapper mapper, ILogger<CategoryService> logger, IValidator<CategoryUpsertRequest> insertValidator, IValidator<CategoryUpsertRequest> updateValidator, IMemoryCache cache, LookupCacheVersionService cacheVersions)
             : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
+            _cache = cache;
+            _cacheVersions = cacheVersions;
+        }
+
+        public override async Task<PagedResult<Categories>> GetAsync(CategorySearchObject search)
+        {
+            var key = $"{CacheGroup}:{_cacheVersions.GetVersion(CacheGroup)}:{System.Text.Json.JsonSerializer.Serialize(search)}";
+            if (_cache.TryGetValue(key, out PagedResult<Categories>? cached) && cached != null)
+                return cached;
+
+            var result = await base.GetAsync(search);
+            _cache.Set(key, result, TimeSpan.FromMinutes(7));
+            return result;
         }
 
         public override async Task<Categories> CreateAsync(CategoryUpsertRequest request)
         {
             _logger.LogInformation("Creating category. CategoryName: {CategoryName}", request.Name);
-            return await base.CreateAsync(request);
+            var result = await base.CreateAsync(request);
+            _cacheVersions.Invalidate(CacheGroup);
+            return result;
         }
 
         public override async Task<Categories?> UpdateAsync(int id, CategoryUpsertRequest request)
         {
             _logger.LogInformation("Updating category. CategoryId: {CategoryId}, CategoryName: {CategoryName}", id, request.Name);
-            return await base.UpdateAsync(id, request);
+            var result = await base.UpdateAsync(id, request);
+            _cacheVersions.Invalidate(CacheGroup);
+            return result;
         }
 
         public override async Task<bool> DeleteAsync(int id)
         {
             _logger.LogWarning("Deleting category. CategoryId: {CategoryId}", id);
-            return await base.DeleteAsync(id);
+            var result = await base.DeleteAsync(id);
+            _cacheVersions.Invalidate(CacheGroup);
+            return result;
         }
 
         protected override IQueryable<Category> ApplyFilter(IQueryable<Category> query, CategorySearchObject search)

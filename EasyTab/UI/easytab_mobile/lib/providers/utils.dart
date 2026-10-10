@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -177,6 +178,24 @@ class PaginationUtils {
 }
 
 class ImageUtils {
+  static const int _maxCacheEntries = 80;
+  static final Map<String, Uint8List> _decodedImages = {};
+
+  static Uint8List _decodeCached(String value) {
+    final cached = _decodedImages.remove(value);
+    if (cached != null) {
+      _decodedImages[value] = cached;
+      return cached;
+    }
+
+    final decoded = base64Decode(value);
+    _decodedImages[value] = decoded;
+    if (_decodedImages.length > _maxCacheEntries) {
+      _decodedImages.remove(_decodedImages.keys.first);
+    }
+    return decoded;
+  }
+
   /// Vraća Widget za prikaz slike iz base64 stringa.
   static Widget buildImage(
     String? imageUrl, {
@@ -195,7 +214,7 @@ class ImageUtils {
         final base64String = imageUrl.startsWith('data:image')
             ? imageUrl.split(',').last
             : imageUrl;
-        final bytes = base64Decode(base64String);
+        final bytes = _decodeCached(base64String);
         return Image.memory(
           bytes,
           width: width,
@@ -246,5 +265,8 @@ void alertBox(BuildContext context, String title, String content) {
 }
 
 MemoryImage imageFromBase64WithouthDimensions(String base64Image) {
-  return MemoryImage(base64Decode(base64Image));
+  final base64Part = base64Image.startsWith('data:image')
+      ? base64Image.split(',').last
+      : base64Image;
+  return MemoryImage(ImageUtils._decodeCached(base64Part));
 }

@@ -63,9 +63,10 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
   Future<void> _loadDropdowns() async {
     setState(() => _isLoading = true);
     try {
-      final categoryResult = await _categoryProvider.get(filter: {});
-      final countryResult = await _countryProvider.get(filter: {});
-      final cityResult = await _cityProvider.get(filter: {});
+      final lookupFilter = {"Page": 1, "PageSize": 100};
+      final categoryResult = await _categoryProvider.get(filter: lookupFilter);
+      final countryResult = await _countryProvider.get(filter: lookupFilter);
+      final cityResult = await _cityProvider.get(filter: lookupFilter);
 
       if (!mounted) return;
 

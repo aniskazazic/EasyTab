@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Text.Json.Serialization;
 using static System.Collections.Specialized.BitVector32;
 
 namespace EasyTab.Model.Models
@@ -21,6 +22,7 @@ namespace EasyTab.Model.Models
 
         public DateTime? BirthDate { get; set; }
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ProfilePicture { get; set; }
 
         public bool IsDeleted { get; set; }

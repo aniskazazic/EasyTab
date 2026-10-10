@@ -120,8 +120,7 @@ namespace EasyTab.Services.Services
         {
             query = query.Include(x => x.City).ThenInclude(x => x.Country)
                          .Include(x => x.Category)
-                         .Include(x => x.Owner)
-                         .Include(x => x.LocaleImages);
+                         .Include(x => x.Owner);
 
             // Default: prikaži samo aktivne
             // Ako IsDeleted == true (checkbox čekiran) — prikaži SVE (aktivne + obrisane)
