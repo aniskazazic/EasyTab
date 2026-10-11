@@ -14,82 +14,89 @@ namespace EasyTab.Services.Services
         public RabbitMQPublisher(IConfiguration configuration, ILogger<RabbitMQPublisher> logger)
         {
             _logger = logger;
-            var host = configuration["RabbitMQ:Host"] ?? "localhost";
-            var username = configuration["RabbitMQ:Username"] ?? "admin";
-            var password = configuration["RabbitMQ:Password"] ?? "admin";
+            var host = RequireSetting(configuration, "RabbitMQ:Host");
+            var username = RequireSetting(configuration, "RabbitMQ:Username");
+            var password = RequireSetting(configuration, "RabbitMQ:Password");
 
             var connectionString = $"host={host};username={username};password={password}";
             _bus = RabbitHutch.CreateBus(connectionString);
         }
 
-        public async Task PublishUserRegisteredAsync(UserRegisteredMessage message)
+        public Task PublishUserRegisteredAsync(UserRegisteredMessage message)
         {
-            try
+            QueuePublish(message, $"UserRegisteredMessage for {message.Email}");
+            return Task.CompletedTask;
+        }
+
+        public Task PublishReservationCreatedAsync(ReservationCreatedMessage message)
+        {
+            QueuePublish(message, $"ReservationCreatedMessage for ReservationId: {message.ReservationId}");
+            return Task.CompletedTask;
+        }
+
+        public Task PublishReservationConfirmedAsync(ReservationConfirmedMessage message)
+        {
+            QueuePublish(message, $"ReservationConfirmedMessage for ReservationId: {message.ReservationId}");
+            return Task.CompletedTask;
+        }
+
+        public Task PublishReservationCancelledAsync(ReservationCancelledMessage message)
+        {
+            QueuePublish(message, $"ReservationCancelledMessage for ReservationId: {message.ReservationId}");
+            return Task.CompletedTask;
+        }
+
+        public Task PublishPasswordResetAsync(PasswordResetMessage message)
+        {
+            QueuePublish(message, $"PasswordResetMessage for {message.Email}");
+            return Task.CompletedTask;
+        }
+
+        private void QueuePublish<T>(T message, string description)
+        {
+            _ = PublishWithRetryAsync(message, description);
+        }
+
+        private async Task PublishWithRetryAsync<T>(T message, string description)
+        {
+            for (var attempt = 0; attempt < 5; attempt++)
             {
-                await _bus.PubSub.PublishAsync(message);
-                _logger.LogInformation("Published UserRegisteredMessage for {Email}", message.Email);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish UserRegisteredMessage for {Email}", message.Email);
+                try
+                {
+                    await _bus.PubSub.PublishAsync(message);
+                    _logger.LogInformation("Published {Description}", description);
+                    return;
+                }
+                catch (Exception ex) when (attempt < 4)
+                {
+                    var delaySeconds = 1 << attempt;
+                    _logger.LogWarning(
+                        ex,
+                        "Failed to publish {Description}. Retrying in {DelaySeconds}s (attempt {Attempt}/5)",
+                        description,
+                        delaySeconds,
+                        attempt + 1);
+                    await Task.Delay(TimeSpan.FromSeconds(delaySeconds));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to publish {Description} after 5 attempts", description);
+                }
             }
         }
 
-        public async Task PublishReservationCreatedAsync(ReservationCreatedMessage message)
+        private static string RequireSetting(IConfiguration configuration, string key)
         {
-            try
-            {
-                await _bus.PubSub.PublishAsync(message);
-                _logger.LogInformation("Published ReservationCreatedMessage for ReservationId: {Id}", message.ReservationId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish ReservationCreatedMessage for ReservationId: {Id}", message.ReservationId);
-            }
-        }
+            var value = configuration[key];
+            if (string.IsNullOrWhiteSpace(value))
+                throw new InvalidOperationException($"Missing required configuration value '{key}'.");
 
-        public async Task PublishReservationConfirmedAsync(ReservationConfirmedMessage message)
-        {
-            try
-            {
-                await _bus.PubSub.PublishAsync(message);
-                _logger.LogInformation("Published ReservationConfirmedMessage for ReservationId: {Id}", message.ReservationId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish ReservationConfirmedMessage for ReservationId: {Id}", message.ReservationId);
-            }
-        }
-
-        public async Task PublishReservationCancelledAsync(ReservationCancelledMessage message)
-        {
-            try
-            {
-                await _bus.PubSub.PublishAsync(message);
-                _logger.LogInformation("Published ReservationCancelledMessage for ReservationId: {Id}", message.ReservationId);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish ReservationCancelledMessage for ReservationId: {Id}", message.ReservationId);
-            }
-        }
-
-        public async Task PublishPasswordResetAsync(PasswordResetMessage message)
-        {
-            try
-            {
-                await _bus.PubSub.PublishAsync(message);
-                _logger.LogInformation("Published PasswordResetMessage for {Email}", message.Email);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to publish PasswordResetMessage for {Email}", message.Email);
-            }
+            return value;
         }
 
         public void Dispose()
         {
-            _bus?.Dispose();
+            _bus.Dispose();
         }
     }
 }

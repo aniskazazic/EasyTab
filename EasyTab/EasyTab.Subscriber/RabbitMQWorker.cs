@@ -20,15 +20,13 @@ namespace EasyTab.Subscriber
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var host = _configuration["RabbitMQ:Host"] ?? "localhost";
-            var username = _configuration["RabbitMQ:Username"] ?? "admin";
-            var password = _configuration["RabbitMQ:Password"] ?? "admin";
-
+            var host = RequireSetting("RabbitMQ:Host");
+            var username = RequireSetting("RabbitMQ:Username");
+            var password = RequireSetting("RabbitMQ:Password");
             var connectionString = $"host={host};username={username};password={password}";
 
             _logger.LogInformation("Connecting to RabbitMQ at {Host}...", host);
 
-            // Retry logika za slučaj da RabbitMQ nije spreman odmah
             var retries = 0;
             while (!stoppingToken.IsCancellationRequested)
             {
@@ -41,7 +39,7 @@ namespace EasyTab.Subscriber
                 catch (Exception ex)
                 {
                     retries++;
-                    _logger.LogWarning("Failed to connect to RabbitMQ (attempt {Retry}): {Message}", retries, ex.Message);
+                    _logger.LogWarning(ex, "Failed to connect to RabbitMQ (attempt {Retry}): {Message}", retries, ex.Message);
                     if (retries >= 10) throw;
                     await Task.Delay(5000, stoppingToken);
                 }
@@ -49,74 +47,62 @@ namespace EasyTab.Subscriber
 
             if (_bus == null) return;
 
-            // Subscribe na UserRegisteredMessage
             await _bus.PubSub.SubscribeAsync<UserRegisteredMessage>(
                 "easytab-subscriber-user-registered",
                 async msg =>
                 {
                     using var scope = _serviceProvider.CreateScope();
-                    var consumer = scope.ServiceProvider.GetRequiredService<UserRegisteredConsumer>();
-                    await consumer.HandleAsync(msg);
+                    await scope.ServiceProvider.GetRequiredService<UserRegisteredConsumer>().HandleAsync(msg);
                 },
                 stoppingToken);
 
-            _logger.LogInformation("Subscribed to UserRegisteredMessage");
-
-            // Subscribe na ReservationCreatedMessage
             await _bus.PubSub.SubscribeAsync<ReservationCreatedMessage>(
                 "easytab-subscriber-reservation-created",
                 async msg =>
                 {
                     using var scope = _serviceProvider.CreateScope();
-                    var consumer = scope.ServiceProvider.GetRequiredService<ReservationCreatedConsumer>();
-                    await consumer.HandleAsync(msg);
+                    await scope.ServiceProvider.GetRequiredService<ReservationCreatedConsumer>().HandleAsync(msg);
                 },
                 stoppingToken);
 
-            _logger.LogInformation("Subscribed to ReservationCreatedMessage");
-
-            // Subscribe na ReservationConfirmedMessage
             await _bus.PubSub.SubscribeAsync<ReservationConfirmedMessage>(
                 "easytab-subscriber-reservation-confirmed",
                 async msg =>
                 {
                     using var scope = _serviceProvider.CreateScope();
-                    var consumer = scope.ServiceProvider.GetRequiredService<ReservationConfirmedConsumer>();
-                    await consumer.HandleAsync(msg);
+                    await scope.ServiceProvider.GetRequiredService<ReservationConfirmedConsumer>().HandleAsync(msg);
                 },
                 stoppingToken);
 
-            _logger.LogInformation("Subscribed to ReservationConfirmedMessage");
-
-            // Subscribe na ReservationCancelledMessage
             await _bus.PubSub.SubscribeAsync<ReservationCancelledMessage>(
                 "easytab-subscriber-reservation-cancelled",
                 async msg =>
                 {
                     using var scope = _serviceProvider.CreateScope();
-                    var consumer = scope.ServiceProvider.GetRequiredService<ReservationCancelledConsumer>();
-                    await consumer.HandleAsync(msg);
+                    await scope.ServiceProvider.GetRequiredService<ReservationCancelledConsumer>().HandleAsync(msg);
                 },
                 stoppingToken);
 
-            _logger.LogInformation("Subscribed to ReservationCancelledMessage");
-
-            // Subscribe na PasswordResetMessage
             await _bus.PubSub.SubscribeAsync<PasswordResetMessage>(
                 "easytab-subscriber-password-reset",
                 async msg =>
                 {
                     using var scope = _serviceProvider.CreateScope();
-                    var consumer = scope.ServiceProvider.GetRequiredService<PasswordResetConsumer>();
-                    await consumer.HandleAsync(msg);
+                    await scope.ServiceProvider.GetRequiredService<PasswordResetConsumer>().HandleAsync(msg);
                 },
                 stoppingToken);
 
-            _logger.LogInformation("Subscribed to PasswordResetMessage");
             _logger.LogInformation("EasyTab Subscriber is running and waiting for messages...");
-
-            // Drži worker aktivan dok se ne zaustavi
             await Task.Delay(Timeout.Infinite, stoppingToken);
+        }
+
+        private string RequireSetting(string key)
+        {
+            var value = _configuration[key];
+            if (string.IsNullOrWhiteSpace(value))
+                throw new InvalidOperationException($"Missing required configuration value '{key}'.");
+
+            return value;
         }
 
         public override void Dispose()

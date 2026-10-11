@@ -103,17 +103,7 @@ namespace EasyTab.Services.Services
                         Username = registeredUser.Username
                     };
 
-                    _ = Task.Run(async () =>
-                    {
-                        try
-                        {
-                            await _rabbitMQPublisher.PublishUserRegisteredAsync(message);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "Failed to publish UserRegisteredMessage for {Email}", message.Email);
-                        }
-                    });
+                    await _rabbitMQPublisher.PublishUserRegisteredAsync(message);
                 }
 
             return result;
@@ -514,17 +504,7 @@ namespace EasyTab.Services.Services
                 Code = code
             };
 
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _rabbitMQPublisher.PublishPasswordResetAsync(message);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Greška prilikom slanja PasswordResetMessage na RabbitMQ za {Email}", user.Email);
-                }
-            });
+            await _rabbitMQPublisher.PublishPasswordResetAsync(message);
 
             _logger.LogInformation("Password reset kod uspješno generisan i poslan za korisnika sa ID: {UserId}", user.Id);
         }

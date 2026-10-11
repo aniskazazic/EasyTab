@@ -83,14 +83,7 @@ namespace EasyTab.Services.ReservationStateMachine
                 };
 
                 var publisher = _serviceProvider.GetRequiredService<IRabbitMQPublisher>();
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await publisher.PublishReservationCreatedAsync(message);
-                    }
-                    catch { /* publish greška ne blokira API */ }
-                });
+                await publisher.PublishReservationCreatedAsync(message);
             }
 
             return _mapper.Map<Reservations>(entity);

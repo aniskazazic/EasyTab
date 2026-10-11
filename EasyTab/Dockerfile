@@ -3,6 +3,9 @@ WORKDIR /app
 EXPOSE 5241
 ENV ASPNETCORE_URLS=http://+:5241
 ENV ASPNETCORE_ENVIRONMENT=Development
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tzdata \
+    && rm -rf /var/lib/apt/lists/*
 
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src

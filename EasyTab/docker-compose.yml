@@ -1,6 +1,6 @@
 services:
   easytab-sql:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    image: mcr.microsoft.com/mssql/server:2022-CU26-ubuntu-22.04
     container_name: easytab-sql
     environment:
       - ACCEPT_EULA=Y
@@ -29,7 +29,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__EasyTabConnection=Server=easytab-sql;Database=220030;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
+      - TZ=Europe/Sarajevo
       - RabbitMQ__Host=easytab-rabbitmq
+      - RabbitMQ__Username=${RABBITMQ_DEFAULT_USER}
+      - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
     ports:
       - "5241:5241"
     expose:
@@ -45,7 +48,7 @@ services:
       - easytabnetwork
 
   easytab-rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:3.13-management
     restart: unless-stopped
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
@@ -75,6 +78,8 @@ services:
       - .env
     environment:
       - RabbitMQ__Host=easytab-rabbitmq
+      - RabbitMQ__Username=${RABBITMQ_DEFAULT_USER}
+      - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
     depends_on:
       easytab-rabbitmq:
         condition: service_healthy
