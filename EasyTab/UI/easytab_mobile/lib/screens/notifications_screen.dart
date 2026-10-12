@@ -24,16 +24,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
-    final userId = AuthProvider.currentUserId;
-    if (userId != null) {
-      await _notificationProvider.getNotifications(userId);
+    if (AuthProvider.currentUserId != null) {
+      await _notificationProvider.getNotifications();
     }
   }
 
   Future<void> _markAllAsRead() async {
-    final userId = AuthProvider.currentUserId;
-    if (userId != null) {
-      await _notificationProvider.markAllAsRead(userId);
+    if (AuthProvider.currentUserId != null) {
+      await _notificationProvider.markAllAsRead();
     }
   }
 

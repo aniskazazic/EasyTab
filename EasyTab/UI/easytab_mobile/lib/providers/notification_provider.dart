@@ -20,8 +20,7 @@ class NotificationProvider extends BaseProvider<AppNotification> {
   HubConnection? _connection;
   bool _isStarting = false;
 
-  int get unreadCount =>
-      notifications.where((n) => n.isRead == false).length;
+  int get unreadCount => notifications.where((n) => n.isRead == false).length;
 
   void syncSession(bool isAuthenticated) {
     if (isAuthenticated) {
@@ -59,7 +58,8 @@ class NotificationProvider extends BaseProvider<AppNotification> {
 
     try {
       await connection.start();
-      if (!AuthProvider.isAuthenticated || !identical(_connection, connection)) {
+      if (!AuthProvider.isAuthenticated ||
+          !identical(_connection, connection)) {
         await connection.stop();
       }
     } catch (e) {
@@ -113,9 +113,8 @@ class NotificationProvider extends BaseProvider<AppNotification> {
   }
 
   Future<void> _reloadNotifications() async {
-    final userId = AuthProvider.currentUserId;
-    if (userId != null) {
-      await getNotifications(userId);
+    if (AuthProvider.currentUserId != null) {
+      await getNotifications();
     }
   }
 
@@ -140,26 +139,30 @@ class NotificationProvider extends BaseProvider<AppNotification> {
     }
 
     notifications = [...merged.values, ...withoutId]
-      ..sort((a, b) => (b.createdAt ?? DateTime(0))
-          .compareTo(a.createdAt ?? DateTime(0)));
+      ..sort(
+        (a, b) =>
+            (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)),
+      );
   }
 
-  Future<List<AppNotification>> getNotifications(int userId) async {
+  Future<List<AppNotification>> getNotifications() async {
     isLoading = true;
     error = null;
     notifyListeners();
 
     try {
-      final url = '${BaseProvider.baseUrl}/Notifications?userId=$userId';
+      final url = '${BaseProvider.baseUrl}/Notifications';
       final uri = Uri.parse(url);
 
       final response = await http.get(uri, headers: createHeaders());
       validateResponse(response);
 
       final List<dynamic> data = jsonDecode(response.body);
-      _mergeNotifications(data.map(
-        (item) => AppNotification.fromJson(item as Map<String, dynamic>),
-      ));
+      _mergeNotifications(
+        data.map(
+          (item) => AppNotification.fromJson(item as Map<String, dynamic>),
+        ),
+      );
 
       isLoading = false;
       notifyListeners();
@@ -199,9 +202,9 @@ class NotificationProvider extends BaseProvider<AppNotification> {
     }
   }
 
-  Future<void> markAllAsRead(int userId) async {
+  Future<void> markAllAsRead() async {
     try {
-      final url = '${BaseProvider.baseUrl}/Notifications/read-all?userId=$userId';
+      final url = '${BaseProvider.baseUrl}/Notifications/read-all';
       final uri = Uri.parse(url);
 
       final response = await http.put(uri, headers: createHeaders());

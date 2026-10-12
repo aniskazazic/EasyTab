@@ -24,9 +24,8 @@ class _MasterScreenState extends State<MasterScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userId = AuthProvider.currentUserId;
-      if (userId != null) {
-        context.read<NotificationProvider>().getNotifications(userId);
+      if (AuthProvider.currentUserId != null) {
+        context.read<NotificationProvider>().getNotifications();
       }
     });
   }

@@ -1,6 +1,5 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/reservation.dart';
-import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/notification_provider.dart';
 import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
@@ -163,9 +162,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   }
 
   Future<void> _confirmReservation(Reservation reservation) async {
-    final currentUserId =
-        int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
-    if (reservation.id == null || currentUserId == 0) return;
+    if (reservation.id == null) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -193,10 +190,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     if (confirmed != true) return;
 
     try {
-      await _reservationProvider.confirmReservation(
-        reservation.id!,
-        currentUserId,
-      );
+      await _reservationProvider.confirmReservation(reservation.id!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -267,9 +261,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   }
 
   Future<void> _cancelReservation(Reservation reservation) async {
-    final currentUserId =
-        int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
-    if (reservation.id == null || currentUserId == 0) return;
+    if (reservation.id == null) return;
 
     final reasonController = TextEditingController();
 
@@ -319,11 +311,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
         : 'Otkazano od strane vlasnika';
 
     try {
-      await _reservationProvider.cancelReservation(
-        reservation.id!,
-        reason,
-        currentUserId,
-      );
+      await _reservationProvider.cancelReservation(reservation.id!, reason);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

@@ -28,17 +28,16 @@ class ReactionProvider extends BaseProvider<Reaction> {
   }
 
   Future<void> loadUserReactions(int userId) async {
-    final result = await get(filter: {
-      'UserId': userId,
-      'Page': 1,
-      'PageSize': 1000,
-    });
+    final result = await get(
+      filter: {'UserId': userId, 'Page': 1, 'PageSize': 1000},
+    );
 
     _userReactionByReviewId.clear();
     for (final reaction in result.items ?? <Reaction>[]) {
       if (reaction.reviewId != null) {
-        _userReactionByReviewId[reaction.reviewId!] =
-            reaction.isLike == true ? 1 : -1;
+        _userReactionByReviewId[reaction.reviewId!] = reaction.isLike == true
+            ? 1
+            : -1;
       }
     }
     _loadedUserId = userId;
@@ -58,11 +57,13 @@ class ReactionProvider extends BaseProvider<Reaction> {
     await insert({'reviewId': reviewId, 'userId': userId, 'isLike': isLike});
   }
 
-  /// Backend očekuje DELETE /Reactions?reviewId=X&userId=Y
-  Future<void> removeReaction(int reviewId, int userId) async {
-    final url =
-        '${BaseProvider.baseUrl}/Reactions?reviewId=$reviewId&userId=$userId';
-    final response = await http.delete(Uri.parse(url), headers: createHeaders());
+  /// Backend određuje korisnika iz JWT-a.
+  Future<void> removeReaction(int reviewId) async {
+    final url = '${BaseProvider.baseUrl}/Reactions?reviewId=$reviewId';
+    final response = await http.delete(
+      Uri.parse(url),
+      headers: createHeaders(),
+    );
     if (!isValidResponse(response)) {
       throw Exception('Greška pri uklanjanju reakcije');
     }

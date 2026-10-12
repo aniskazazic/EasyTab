@@ -140,11 +140,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
           ? reasonController.text.trim()
           : 'Korisnik otkazao rezervaciju';
 
-      await _reservationProvider.cancelReservation(
-        reservation.id!,
-        reason,
-        userId,
-      );
+      await _reservationProvider.cancelReservation(reservation.id!, reason);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

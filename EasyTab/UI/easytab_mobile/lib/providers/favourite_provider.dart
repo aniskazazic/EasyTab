@@ -12,9 +12,9 @@ class FavouriteProvider extends BaseProvider<Favourite> {
 
   List<Favourite> myFavourites = [];
 
-  // GET /Favourites/by-user/{userId}
-  Future<List<Favourite>> getMyFavourites(int userId) async {
-    final url = '${BaseProvider.baseUrl}/Favourites/by-user/$userId';
+  // GET /Favourites/by-user
+  Future<List<Favourite>> getMyFavourites() async {
+    final url = '${BaseProvider.baseUrl}/Favourites/by-user/';
     debugPrint('Favourites URL: $url');
     final response = await http.get(Uri.parse(url), headers: createHeaders());
     debugPrint('Response status: ${response.statusCode}');
@@ -30,10 +30,9 @@ class FavouriteProvider extends BaseProvider<Favourite> {
     }
   }
 
-  // POST /Favourites/add?userId=&localeId=
-  Future<Favourite> addFavourite(int userId, int localeId) async {
-    final url =
-        '${BaseProvider.baseUrl}/Favourites/add?userId=$userId&localeId=$localeId';
+  // POST /Favourites/add?localeId=
+  Future<Favourite> addFavourite(int localeId) async {
+    final url = '${BaseProvider.baseUrl}/Favourites/add?localeId=$localeId';
     final response = await http.post(
       Uri.parse(url),
       headers: createHeaders(),
@@ -48,10 +47,9 @@ class FavouriteProvider extends BaseProvider<Favourite> {
     throw Exception('Greška pri dodavanju favorita');
   }
 
-  // DELETE /Favourites/remove?userId=&localeId=
-  Future<void> removeFavourite(int userId, int localeId) async {
-    final url =
-        '${BaseProvider.baseUrl}/Favourites/remove?userId=$userId&localeId=$localeId';
+  // DELETE /Favourites/remove?localeId=
+  Future<void> removeFavourite(int localeId) async {
+    final url = '${BaseProvider.baseUrl}/Favourites/remove?localeId=$localeId';
     final response = await http.delete(
       Uri.parse(url),
       headers: createHeaders(),
@@ -59,15 +57,15 @@ class FavouriteProvider extends BaseProvider<Favourite> {
     if (response.statusCode != 200) {
       throw Exception('Greška pri uklanjanju favorita');
     }
-    
-    myFavourites.removeWhere((f) => f.localeId == localeId && f.userId == userId);
+
+    myFavourites.removeWhere((f) => f.localeId == localeId);
     notifyListeners();
   }
 
   // Pomoćna metoda za provjeru da li je favorit
-  Future<bool> isFavourited(int userId, int localeId) async {
+  Future<bool> isFavourited(int localeId) async {
     final url =
-        '${BaseProvider.baseUrl}/Favourites/is-favourited?userId=$userId&localeId=$localeId';
+        '${BaseProvider.baseUrl}/Favourites/is-favourited?localeId=$localeId';
     final response = await http.get(Uri.parse(url), headers: createHeaders());
     if (response.statusCode == 200) {
       return jsonDecode(response.body) as bool;

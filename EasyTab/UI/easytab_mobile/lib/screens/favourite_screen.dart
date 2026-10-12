@@ -32,7 +32,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
     try {
       final userId = AuthProvider.currentUserId;
       if (userId == null) return;
-      await _favouriteProvider.getMyFavourites(userId);
+      await _favouriteProvider.getMyFavourites();
     } catch (e) {
       debugPrint('Error loading favourites: $e');
     } finally {
@@ -42,10 +42,7 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
 
   Future<void> _removeFavourite(Favourite fav) async {
     try {
-      await _favouriteProvider.removeFavourite(
-        AuthProvider.currentUserId!,
-        fav.localeId!,
-      );
+      await _favouriteProvider.removeFavourite(fav.localeId!);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

@@ -1,8 +1,8 @@
 import 'dart:convert';
 
 import 'package:easytab_mobile/models/reservation.dart';
-import 'package:easytab_mobile/models/search_result.dart';
 import 'package:easytab_mobile/models/time_slot.dart';
+import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/base_provider.dart';
 import 'package:http/http.dart' as http;
 
@@ -21,10 +21,7 @@ class ReservationProvider extends BaseProvider<Reservation> {
   String? errorPast;
 
   Future<void> loadAll(int userId) async {
-    await Future.wait([
-      loadUpcoming(userId),
-      loadPast(userId),
-    ]);
+    await Future.wait([loadUpcoming(userId), loadPast(userId)]);
   }
 
   Future<List<Reservation>> loadUpcoming(int userId) async {
@@ -109,21 +106,20 @@ class ReservationProvider extends BaseProvider<Reservation> {
   }
 
   /// Cancels a reservation through the state machine.
-  Future<void> cancelReservation(
-    int id,
-    String reason,
-    int cancelledById,
-  ) async {
+  Future<void> cancelReservation(int id, String reason) async {
     final url = '${BaseProvider.baseUrl}/Reservations/cancel/$id';
     final uri = Uri.parse(url);
 
     final response = await http.put(
       uri,
       headers: createHeaders(),
-      body: jsonEncode({'reason': reason, 'cancelledById': cancelledById}),
+      body: jsonEncode({'reason': reason}),
     );
     validateResponse(response);
 
-    await loadAll(cancelledById);
+    final userId = AuthProvider.currentUserId;
+    if (userId != null) {
+      await loadAll(userId);
+    }
   }
 }

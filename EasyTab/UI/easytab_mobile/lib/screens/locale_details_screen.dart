@@ -152,7 +152,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     try {
       if (_isFavourite) {
         // Ukloni
-        await _favouriteProvider.removeFavourite(_currentUserId!, locale.id!);
+        await _favouriteProvider.removeFavourite(locale.id!);
         setState(() => _isFavourite = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -165,7 +165,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
         }
       } else {
         // Dodaj
-        await _favouriteProvider.addFavourite(_currentUserId!, locale.id!);
+        await _favouriteProvider.addFavourite(locale.id!);
         setState(() => _isFavourite = true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -187,10 +187,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   Future<void> _checkFavourite() async {
     try {
       if (_currentUserId == null || locale.id == null) return;
-      final isFav = await _favouriteProvider.isFavourited(
-        _currentUserId!,
-        locale.id!,
-      );
+      final isFav = await _favouriteProvider.isFavourited(locale.id!);
       if (mounted) {
         setState(() {
           _isFavourite = isFav;
@@ -291,7 +288,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
 
     try {
       if (togglingOff) {
-        await _reactionProvider.removeReaction(review.id!, _currentUserId!);
+        await _reactionProvider.removeReaction(review.id!);
         _reactionProvider.updateUserReaction(review.id!, 0);
       } else {
         await _reactionProvider.react(
@@ -445,13 +442,13 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
               ),
               child: ElevatedButton(
                 onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ReservationScreen(locale: locale),
-                      ),
-                    );
-                  },
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ReservationScreen(locale: locale),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1E40AF),
                   padding: const EdgeInsets.symmetric(vertical: 16),

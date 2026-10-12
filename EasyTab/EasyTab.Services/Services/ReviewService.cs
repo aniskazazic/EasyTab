@@ -150,10 +150,14 @@ namespace EasyTab.Services.Services
             return Task.CompletedTask;
         }
 
-        protected override Task BeforeDelete(Review entity)
+        protected override async Task BeforeDelete(Review entity)
         {
-            EnsureOwnership(entity);
-            return Task.CompletedTask;
+            if (_currentUser.IsAdmin || entity.UserId == _currentUser.UserId)
+                return;
+
+            var isLocaleOwner = await Context.Locales.AnyAsync(l => l.Id == entity.LocaleId && l.OwnerId == _currentUser.UserId);
+            if (!isLocaleOwner)
+                throw new UnauthorizedAccessException("Nemate dozvolu za ovu akciju.");
         }
 
         private void EnsureOwnership(Review entity)
