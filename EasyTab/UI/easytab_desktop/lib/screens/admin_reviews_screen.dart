@@ -20,13 +20,11 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   int _currentPage = 0;
   final int _pageSize = 10;
   bool showDeleted = false;
-  List<Review> _allReviews = [];
   List<Review> _reviews = [];
   bool _initialized = false;
   DateTime? _selectedDate;
   int? _selectedRating;
 
-  DateTime? _lastSearchTime;
   final TextEditingController searchController = TextEditingController();
   final Map<int, String> ratings = {
     5: '5 - Odlično',
@@ -45,11 +43,6 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       _initialized = true;
       _loadReviews();
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
   }
 
   @override
@@ -77,17 +70,16 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
             isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _buildTable(),
-            if (!isLoading && !_isFiltering)
-              PaginationUtils.buildPageControls(
-                currentPage: _currentPage,
-                totalCount: _totalCount,
-                pageSize: _pageSize,
-                onPageChanged: (page) {
-                  setState(() => _currentPage = page);
-                  _loadReviews();
-                },
-                pageButtonSize: 36,
-              ),
+            PaginationUtils.buildPageControls(
+              currentPage: _currentPage,
+              totalCount: _totalCount,
+              pageSize: _pageSize,
+              onPageChanged: (page) {
+                setState(() => _currentPage = page);
+                _loadReviews();
+              },
+              pageButtonSize: 36,
+            ),
           ],
         ),
       ),
@@ -140,6 +132,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
               onChanged: (value) {
                 setState(() {
                   _selectedRating = value == 0 ? null : value;
+                  _currentPage = 0;
                 });
               },
             ),
@@ -184,75 +177,38 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   Future<void> _loadReviews() async {
     setState(() => isLoading = true);
     try {
+      final selectedDate = _selectedDate;
+      final dateFrom = selectedDate == null
+          ? null
+          : DateTime(
+              selectedDate.year,
+              selectedDate.month,
+              selectedDate.day,
+            ).toUtc();
       final filter = <String, dynamic>{
         "Page": _currentPage + 1,
-        "PageSize": _isFiltering ? 1000 : _pageSize,
+        "PageSize": _pageSize,
         "IncludeTotalCount": true,
         "IsDeleted": showDeleted,
-        if (searchController.text.isNotEmpty) "Name": searchController.text,
+        if (searchController.text.trim().isNotEmpty)
+          "Text": searchController.text.trim(),
         if (_selectedRating != null) "Rating": _selectedRating,
+        if (dateFrom != null) "DateFrom": dateFrom.toIso8601String(),
+        if (dateFrom != null)
+          "DateTo": dateFrom.add(const Duration(days: 1)).toIso8601String(),
       };
 
       final result = await _reviewProvider.get(filter: filter);
-      _allReviews = result.items ?? [];
-
-      if (_isFiltering &&
-          (result.totalCount ?? 0) > (filter["PageSize"] as int)) {
-        final totalPages =
-            ((result.totalCount ?? 0) / (filter["PageSize"] as int)).ceil();
-        for (int page = 2; page <= totalPages; page++) {
-          filter["Page"] = page;
-          final pageResult = await _reviewProvider.get(filter: filter);
-          _allReviews.addAll(pageResult.items ?? []);
-        }
-      }
-
-      _applyFilters(result.totalCount ?? 0);
       setState(() {
+        _reviews = result.items ?? [];
+        _totalCount = result.totalCount ?? _reviews.length;
         isLoading = false;
       });
     } catch (e) {
       setState(() => isLoading = false);
       _showError(e.toString());
     }
-    print('Loaded ${_reviews.length} reviews, total count: $_totalCount');
   }
-
-  void _applyFilters(int serverTotalCount) {
-    final query = searchController.text.toLowerCase();
-    final selectedDate = _selectedDate;
-
-    _reviews = _allReviews.where((review) {
-      final combinedText =
-          '${review.userFullName ?? ''} ${review.localeName ?? ''} ${review.description ?? ''}'
-              .toLowerCase();
-      final matchesQuery = query.isEmpty || combinedText.contains(query);
-      final matchesDate =
-          selectedDate == null ||
-          (review.dateAdded != null &&
-              _isSameDay(toLocalDateTime(review.dateAdded!), selectedDate));
-      return matchesQuery && matchesDate;
-    }).toList();
-
-    if (_isFiltering) {
-      _totalCount = _reviews.length;
-    } else {
-      _totalCount = serverTotalCount;
-    }
-  }
-
-  bool _isSameDay(DateTime first, DateTime second) {
-    final localFirst = toLocalDateTime(first);
-    final localSecond = toLocalDateTime(second);
-    return localFirst.year == localSecond.year &&
-        localFirst.month == localSecond.month &&
-        localFirst.day == localSecond.day;
-  }
-
-  bool get _isFiltering =>
-      searchController.text.isNotEmpty ||
-      _selectedDate != null ||
-      _selectedRating != null;
 
   String _formatDate(DateTime date) {
     return formatSystemDateOnly(date);
@@ -279,6 +235,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       _selectedDate = null;
       _currentPage = 0;
     });
+    _loadReviews();
   }
 
   void _showError(String message) {

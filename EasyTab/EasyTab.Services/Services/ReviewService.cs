@@ -59,6 +59,27 @@ namespace EasyTab.Services.Services
             if (search?.Rating.HasValue == true)
                 query = query.Where(x => x.Rating == search.Rating);
 
+            if (!string.IsNullOrWhiteSpace(search?.Text))
+            {
+                var text = search.Text.Trim();
+                query = query.Where(x =>
+                    x.Description.Contains(text) ||
+                    (x.User.FirstName + " " + x.User.LastName).Contains(text) ||
+                    x.Locale.Name.Contains(text));
+            }
+
+            if (search?.DateFrom.HasValue == true)
+            {
+                var dateFrom = search.DateFrom.Value.ToUniversalTime();
+                query = query.Where(x => x.DateAdded >= dateFrom);
+            }
+
+            if (search?.DateTo.HasValue == true)
+            {
+                var dateTo = search.DateTo.Value.ToUniversalTime();
+                query = query.Where(x => x.DateAdded < dateTo);
+            }
+
             query = search?.SortBy?.ToLower() switch
             {
                 "mostlikes" => query.OrderByDescending(x => x.Reactions.Count(r => r.IsLike)),

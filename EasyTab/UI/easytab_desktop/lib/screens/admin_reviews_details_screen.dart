@@ -32,7 +32,7 @@ class _AdminReviewsDetailsScreenState extends State<AdminReviewsDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     return MasterScreen(
-      title: 'Admin Reviews Details',
+      title: 'Detalji recenzije',
       child: SingleChildScrollView(
         child: SizedBox(
           width: double.infinity,

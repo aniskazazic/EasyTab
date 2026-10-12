@@ -14,5 +14,8 @@ namespace EasyTab.Model.SearchObjects
         public int? LocaleId { get; set; }
         public bool? IsDeleted { get; set; }
         public string? SortBy { get; set; }
+        public string? Text { get; set; }
+        public DateTime? DateFrom { get; set; }
+        public DateTime? DateTo { get; set; }
     }
 }

@@ -28,12 +28,23 @@ class ReactionProvider extends BaseProvider<Reaction> {
   }
 
   Future<void> loadUserReactions(int userId) async {
-    final result = await get(
-      filter: {'UserId': userId, 'Page': 1, 'PageSize': 1000},
-    );
+    final reactions = <Reaction>[];
+    var page = 1;
+    var totalCount = 0;
+
+    do {
+      final result = await get(
+        filter: {'Page': page, 'PageSize': 100, 'IncludeTotalCount': true},
+      );
+      final items = result.items ?? <Reaction>[];
+      reactions.addAll(items);
+      totalCount = result.totalCount ?? reactions.length;
+      if (items.isEmpty) break;
+      page++;
+    } while (reactions.length < totalCount);
 
     _userReactionByReviewId.clear();
-    for (final reaction in result.items ?? <Reaction>[]) {
+    for (final reaction in reactions) {
       if (reaction.reviewId != null) {
         _userReactionByReviewId[reaction.reviewId!] = reaction.isLike == true
             ? 1
