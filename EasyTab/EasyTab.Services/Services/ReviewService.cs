@@ -23,11 +23,19 @@ namespace EasyTab.Services.Services
     public class ReviewService : BaseCRUDService<Reviews, ReviewSearchObject, Review, ReviewInsertRequest, ReviewUpdateRequest>, IReviewService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICurrentUserService _currentUser;
         private readonly ILogger<ReviewService> _logger;
 
-        public ReviewService(_220030Context context, IMapper mapper, IHttpContextAccessor httpContextAccessor, ILogger<ReviewService> logger, IValidator<ReviewInsertRequest> insertValidator, IValidator<ReviewUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator) {
+        public ReviewService(_220030Context context, IMapper mapper, IHttpContextAccessor httpContextAccessor, ICurrentUserService currentUser, ILogger<ReviewService> logger, IValidator<ReviewInsertRequest> insertValidator, IValidator<ReviewUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator) {
             _httpContextAccessor = httpContextAccessor;
+            _currentUser = currentUser;
             _logger = logger;
+        }
+
+        public override async Task<Reviews> CreateAsync(ReviewInsertRequest request)
+        {
+            request.UserId = _currentUser.UserId;
+            return await base.CreateAsync(request);
         }
 
         protected override IQueryable<Review> ApplyFilter(IQueryable<Review> query, ReviewSearchObject search)
@@ -130,6 +138,7 @@ namespace EasyTab.Services.Services
 
         protected override Task BeforeUpdate(Review entity, ReviewUpdateRequest request)
         {
+            EnsureOwnership(entity);
             _logger.LogInformation("Updating review. ReviewId: {ReviewId}", entity.Id);
 
             if (request.Rating.HasValue && (request.Rating < 1 || request.Rating > 5))
@@ -139,6 +148,18 @@ namespace EasyTab.Services.Services
                 throw new UserException("Opis recenzije ne može biti prazan!");
 
             return Task.CompletedTask;
+        }
+
+        protected override Task BeforeDelete(Review entity)
+        {
+            EnsureOwnership(entity);
+            return Task.CompletedTask;
+        }
+
+        private void EnsureOwnership(Review entity)
+        {
+            if (!_currentUser.IsAdmin && entity.UserId != _currentUser.UserId)
+                throw new UnauthorizedAccessException("Nemate dozvolu za ovu akciju.");
         }
 
         public async Task<ReviewAverage> GetAverageRatingAsync(int localeId)

@@ -30,6 +30,7 @@ namespace EasyTab.Services.Services
         public string? Role => _httpContextAccessor.HttpContext?.User.FindFirst("Role")?.Value
             ?? _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Role)?.Value;
 
-        public bool IsAdmin => string.Equals(Role, "Admin", StringComparison.Ordinal);
+        public bool IsAdmin => _httpContextAccessor.HttpContext?.User.Claims
+            .Any(c => (c.Type == "Role" || c.Type == ClaimTypes.Role) && c.Value == "Admin") ?? false;
     }
 }

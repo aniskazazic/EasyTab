@@ -29,9 +29,11 @@ namespace EasyTab.API.Filters
                 if (_roles.Length == 0)
                     return;
 
-                var userRole = context.HttpContext.User.Claims.FirstOrDefault(c => c.Type == ClaimNames.Role || c.Type == "Role")?.Value;
+                var userRoles = context.HttpContext.User.Claims
+                    .Where(c => c.Type == ClaimNames.Role || c.Type == "Role")
+                    .Select(c => c.Value);
 
-                if (userRole == null || !_roles.Any(r => r == userRole))
+                if (!userRoles.Any(userRole => _roles.Any(r => r == userRole)))
                 {
                     context.Result = new ForbidResult();
                 }
