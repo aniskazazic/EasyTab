@@ -20,23 +20,23 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPost]
-        public IActionResult React(ReactionInsertRequest request)
+        public async Task<IActionResult> React(ReactionInsertRequest request)
         {
-            var result = _service.React(request.ReviewId, request.IsLike);
+            var result = await _service.ReactAsync(request.ReviewId, request.IsLike);
             return Ok(result);
         }
 
         [HttpDelete]
-        public IActionResult RemoveReaction([FromQuery] int reviewId)
+        public async Task<IActionResult> RemoveReaction([FromQuery] int reviewId)
         {
-            _service.RemoveReaction(reviewId);
+            await _service.RemoveReactionAsync(reviewId);
             return Ok(new { Message = "Reakcija uklonjena!" });
         }
 
         [HttpGet("count/{reviewId}")]
-        public IActionResult GetReactionCounts(int reviewId)
+        public async Task<IActionResult> GetReactionCounts(int reviewId)
         {
-            var result = _service.GetReactionCounts(reviewId);
+            var result = await _service.GetReactionCountsAsync(reviewId);
             return Ok(result);
         }
     }

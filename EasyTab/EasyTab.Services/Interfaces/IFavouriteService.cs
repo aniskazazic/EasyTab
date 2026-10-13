@@ -12,9 +12,9 @@ namespace EasyTab.Services.Interfaces
 {
     public interface IFavouriteService : ICRUDService<Favourites, FavouriteSearchObject, FavouriteInsertRequest, FavouriteUpdateRequest>
     {
-        Favourites AddToFavourites(int localeId);
-        void RemoveFromFavourites(int localeId);
-        bool IsFavourited(int localeId);
-        List<Favourites> GetByUser();
+        Task<Favourites> AddToFavouritesAsync(int localeId);
+        Task RemoveFromFavouritesAsync(int localeId);
+        Task<bool> IsFavouritedAsync(int localeId);
+        Task<List<Favourites>> GetByUserAsync();
     }
 }

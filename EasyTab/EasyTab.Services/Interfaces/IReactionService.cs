@@ -13,8 +13,8 @@ namespace EasyTab.Services.Interfaces
 {
     public interface IReactionService : ICRUDService<Reactions, ReactionSearchObject, ReactionInsertRequest, ReactionUpdateRequest>
     {
-        Reactions React(int reviewId, bool isLike);
-        void RemoveReaction(int reviewId);
-        ReactionsCount GetReactionCounts(int reviewId);
+        Task<Reactions> ReactAsync(int reviewId, bool isLike);
+        Task RemoveReactionAsync(int reviewId);
+        Task<ReactionsCount> GetReactionCountsAsync(int reviewId);
     }
 }

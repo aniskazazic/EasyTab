@@ -32,8 +32,13 @@ namespace EasyTab.Services.Services
             return await _refreshTokens.FirstOrDefaultAsync(rt => rt.Token == refreshToken);
         }
 
-        public async Task InsertAsync(RefreshToken refreshToken)
+        public async Task ReplaceUserRefreshTokenAsync(int userId, RefreshToken refreshToken)
         {
+            var existingTokens = await _refreshTokens
+                .Where(token => token.UserId == userId)
+                .ToListAsync();
+
+            _refreshTokens.RemoveRange(existingTokens);
             await _refreshTokens.AddAsync(refreshToken);
             await _context.SaveChangesAsync();
         }

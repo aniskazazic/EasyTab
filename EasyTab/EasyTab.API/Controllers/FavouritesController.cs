@@ -19,30 +19,30 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPost("add")]
-        public IActionResult AddToFavourites([FromQuery] int localeId)
+        public async Task<IActionResult> AddToFavourites([FromQuery] int localeId)
         {
-            var result = _service.AddToFavourites(localeId);
+            var result = await _service.AddToFavouritesAsync(localeId);
             return Ok(result);
         }
 
         [HttpDelete("remove")]
-        public IActionResult RemoveFromFavourites([FromQuery] int localeId)
+        public async Task<IActionResult> RemoveFromFavourites([FromQuery] int localeId)
         {
-            _service.RemoveFromFavourites(localeId);
+            await _service.RemoveFromFavouritesAsync(localeId);
             return Ok(new { Message = "Lokal uklonjen iz favorita!" });
         }
 
         [HttpGet("is-favourited")]
-        public IActionResult IsFavourited([FromQuery] int localeId)
+        public async Task<IActionResult> IsFavourited([FromQuery] int localeId)
         {
-            var result = _service.IsFavourited(localeId);
+            var result = await _service.IsFavouritedAsync(localeId);
             return Ok(result);
         }
 
         [HttpGet("by-user/")]
-        public IActionResult GetByUser()
+        public async Task<IActionResult> GetByUser()
         {
-            var result = _service.GetByUser();
+            var result = await _service.GetByUserAsync();
             return Ok(result);
         }
     }

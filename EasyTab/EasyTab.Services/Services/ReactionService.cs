@@ -52,12 +52,12 @@ namespace EasyTab.Services.Services
             return Mapper.Map<Reactions>(entity);
         }
 
-        public Reactions React(int reviewId, bool isLike)
+        public async Task<Reactions> ReactAsync(int reviewId, bool isLike)
         {
             var userId = _currentUser.UserId;
 
-            var existing = Context.Reactions
-                            .FirstOrDefault(r => r.ReviewId == reviewId && r.UserId == userId);
+            var existing = await Context.Reactions
+                .FirstOrDefaultAsync(r => r.ReviewId == reviewId && r.UserId == userId);
 
             if (existing != null)
             {
@@ -69,7 +69,7 @@ namespace EasyTab.Services.Services
 
                 // Ako je različita reakcija — update
                 existing.IsLike = isLike;
-                Context.SaveChanges();
+                await Context.SaveChangesAsync();
                 return Mapper.Map<Reactions>(existing);
             }
 
@@ -82,18 +82,18 @@ namespace EasyTab.Services.Services
             };
 
             Context.Reactions.Add(newReaction);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
             _logger.LogInformation("Reaction created. UserId: {UserId}, ReviewId: {ReviewId}", userId, reviewId);
 
             return Mapper.Map<Reactions>(newReaction);
         }
 
-        public void RemoveReaction(int reviewId)
+        public async Task RemoveReactionAsync(int reviewId)
         {
             var userId = _currentUser.UserId;
 
-            var reaction = Context.Reactions
-                .FirstOrDefault(r => r.ReviewId == reviewId && r.UserId == userId);
+            var reaction = await Context.Reactions
+                .FirstOrDefaultAsync(r => r.ReviewId == reviewId && r.UserId == userId);
 
             if (reaction == null)
             {
@@ -102,16 +102,16 @@ namespace EasyTab.Services.Services
             }
 
             Context.Reactions.Remove(reaction);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
             _logger.LogWarning("Reaction removed. UserId: {UserId}, ReviewId: {ReviewId}", userId, reviewId);
         }
 
-        public ReactionsCount GetReactionCounts(int reviewId)
+        public async Task<ReactionsCount> GetReactionCountsAsync(int reviewId)
         {
             var counts = new ReactionsCount
             {
-                Likes = Context.Reactions.Count(r => r.ReviewId == reviewId && r.IsLike),
-                Dislikes = Context.Reactions.Count(r => r.ReviewId == reviewId && !r.IsLike)
+                Likes = await Context.Reactions.CountAsync(r => r.ReviewId == reviewId && r.IsLike),
+                Dislikes = await Context.Reactions.CountAsync(r => r.ReviewId == reviewId && !r.IsLike)
             };
 
             return counts;

@@ -61,11 +61,11 @@ namespace EasyTab.Services.Services
             return result;
         }
 
-        public Favourites AddToFavourites(int localeId)
+        public async Task<Favourites> AddToFavouritesAsync(int localeId)
         {
             var userId = _currentUser.UserId;
-            var existing = Context.Favourites
-                            .FirstOrDefault(f => f.UserId == userId && f.LocaleId == localeId);
+            var existing = await Context.Favourites
+                .FirstOrDefaultAsync(f => f.UserId == userId && f.LocaleId == localeId);
 
             if (existing != null && existing.IsActive)
             {
@@ -77,17 +77,17 @@ namespace EasyTab.Services.Services
                 // Reaktiviraj postojeći
                 existing.IsActive = true;
                 existing.DateAdded = DateTime.UtcNow;
-                Context.SaveChanges();
+                await Context.SaveChangesAsync();
                 _logger.LogInformation("Favourite reactivated. UserId: {UserId}, LocaleId: {LocaleId}", userId, localeId);
                 
                 var existingResponse = Mapper.Map<Favourites>(existing);
                 existingResponse.LocaleId = existing.LocaleId;
 
                 // Učitaj detalje lokala kako bi se odmah bogato prikazali u UI
-                var existingLocale = Context.Locales
+                var existingLocale = await Context.Locales
                     .Include(l => l.Category)
                     .Include(l => l.City)
-                    .FirstOrDefault(l => l.Id == localeId);
+                    .FirstOrDefaultAsync(l => l.Id == localeId);
 
                 if (existingLocale != null)
                 {
@@ -111,16 +111,16 @@ namespace EasyTab.Services.Services
             };
 
             Context.Favourites.Add(fav);
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
 
             var newResponse = Mapper.Map<Favourites>(fav);
             newResponse.LocaleId = fav.LocaleId;
 
             // Učitaj detalje lokala kako bi se odmah bogato prikazali u UI
-            var newLocale = Context.Locales
+            var newLocale = await Context.Locales
                 .Include(l => l.Category)
                 .Include(l => l.City)
-                .FirstOrDefault(l => l.Id == localeId);
+                .FirstOrDefaultAsync(l => l.Id == localeId);
 
             if (newLocale != null)
             {
@@ -134,19 +134,19 @@ namespace EasyTab.Services.Services
             return newResponse;
         }
 
-        public List<Favourites> GetByUser()
+        public async Task<List<Favourites>> GetByUserAsync()
         {
             var userId = _currentUser.UserId;
             _logger.LogDebug("Fetching favourites. UserId: {UserId}", userId);
-            var favourites = Context.Favourites
+            var favouriteList = await Context.Favourites
                            .Include(f => f.Locale)
                              .ThenInclude(l => l.Category)
                            .Include(f => f.Locale)
                              .ThenInclude(l => l.City)
                            .Where(f => f.UserId == userId && f.IsActive)
-                           .ToList();
+                           .ToListAsync();
 
-            var result = favourites.Select(x =>
+            var result = favouriteList.Select(x =>
             {
                 var model = Mapper.Map<Favourites>(x);
                 model.LocaleId = x.LocaleId;
@@ -163,19 +163,18 @@ namespace EasyTab.Services.Services
             return result;
         }
 
-        public bool IsFavourited(int localeId)
+        public async Task<bool> IsFavouritedAsync(int localeId)
         {
             var userId = _currentUser.UserId;
-            var isFavourited = Context.Favourites
-               .Any(f => f.UserId == userId && f.LocaleId == localeId && f.IsActive);
-            return isFavourited;
+            return await Context.Favourites
+                .AnyAsync(f => f.UserId == userId && f.LocaleId == localeId && f.IsActive);
         }
 
-        public void RemoveFromFavourites(int localeId)
+        public async Task RemoveFromFavouritesAsync(int localeId)
         {
             var userId = _currentUser.UserId;
-            var fav = Context.Favourites
-                      .FirstOrDefault(f => f.UserId == userId && f.LocaleId == localeId && f.IsActive);
+            var fav = await Context.Favourites
+                .FirstOrDefaultAsync(f => f.UserId == userId && f.LocaleId == localeId && f.IsActive);
 
             if (fav == null)
             {
@@ -184,7 +183,7 @@ namespace EasyTab.Services.Services
             }
 
             fav.IsActive = false;
-            Context.SaveChanges();
+            await Context.SaveChangesAsync();
             _logger.LogWarning("Favourite removed. UserId: {UserId}, LocaleId: {LocaleId}", userId, localeId);
         }
     }

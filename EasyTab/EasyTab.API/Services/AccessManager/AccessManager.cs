@@ -41,8 +41,6 @@ namespace EasyTab.API.Services.AccessManager
 
             var refreshTokenValue = GenerateRefreshToken();
 
-            await _refreshTokenService.DeleteAllUserRefreshTokensAsync(user.Id);
-
             var refreshToken = new RefreshToken
             {
                 Token = refreshTokenValue,
@@ -50,7 +48,7 @@ namespace EasyTab.API.Services.AccessManager
                 ExpiresAt = DateTime.UtcNow.AddDays(7)
             };
 
-            await _refreshTokenService.InsertAsync(refreshToken);
+            await _refreshTokenService.ReplaceUserRefreshTokenAsync(user.Id, refreshToken);
 
             return new UserLoginResponse
             {
@@ -130,8 +128,6 @@ namespace EasyTab.API.Services.AccessManager
                 throw new UserException("Korisnik nije aktivan!");
             }
 
-            await _refreshTokenService.DeleteAllUserRefreshTokensAsync(user.Id);
-
             var accessToken = GenerateToken(user);
 
             var refreshTokenValue = GenerateRefreshToken();
@@ -143,7 +139,7 @@ namespace EasyTab.API.Services.AccessManager
                 ExpiresAt = DateTime.UtcNow.AddDays(7)
             };
 
-            await _refreshTokenService.InsertAsync(token);
+            await _refreshTokenService.ReplaceUserRefreshTokenAsync(user.Id, token);
 
             return new UserLoginResponse
             {
