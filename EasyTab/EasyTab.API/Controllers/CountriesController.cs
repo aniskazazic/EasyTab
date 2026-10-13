@@ -1,5 +1,6 @@
 ﻿using EasyTab.API.Controllers.BaseControllers;
 using EasyTab.API.Filters;
+using EasyTab.Model;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
@@ -16,13 +17,13 @@ namespace EasyTab.API.Controllers
     {
         public CountriesController(ICountryService service) : base(service) { }
 
-        [Authorization("Admin")]
+        [Authorization(RoleNames.Admin)]
         public override Task<Countries> Create([FromBody] CountryUpsertRequest request) => base.Create(request);
 
-        [Authorization("Admin")]
+        [Authorization(RoleNames.Admin)]
         public override Task<Countries?> Update(int id, [FromBody] CountryUpsertRequest request) => base.Update(id, request);
 
-        [Authorization("Admin")]
+        [Authorization(RoleNames.Admin)]
         public override Task<bool> Delete(int id) => base.Delete(id);
     }
 }

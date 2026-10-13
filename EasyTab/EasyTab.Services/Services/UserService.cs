@@ -163,7 +163,7 @@ namespace EasyTab.Services.Services
             }
             else
             {
-                var defaultRole = await Context.Roles.FirstOrDefaultAsync(r => r.Name == "Korisnik");
+                var defaultRole = await Context.Roles.FirstOrDefaultAsync(r => r.Name == RoleNames.Korisnik);
                 if (defaultRole != null)
                 {
                     entity.UserRoles.Add(new UserRole
@@ -182,7 +182,7 @@ namespace EasyTab.Services.Services
         {
             var currentUser = _httpContextAccessor.HttpContext?.User;
             var isAdmin = currentUser?.Claims.Any(claim =>
-                (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == "Admin") == true;
+                (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == RoleNames.Admin) == true;
             var currentUserId = currentUser?.FindFirst("Id")?.Value
                 ?? currentUser?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -401,7 +401,7 @@ namespace EasyTab.Services.Services
         {
             var currentUser = _httpContextAccessor.HttpContext?.User;
             var isAdmin = currentUser?.Claims.Any(claim =>
-                (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == "Admin") == true;
+                (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == RoleNames.Admin) == true;
             var currentUserId = currentUser?.FindFirst("Id")?.Value
                 ?? currentUser?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 

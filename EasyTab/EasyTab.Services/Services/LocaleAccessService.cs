@@ -4,6 +4,7 @@ using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using EasyTab.Model;
 
 namespace EasyTab.Services.Services
 {
@@ -58,13 +59,13 @@ namespace EasyTab.Services.Services
             var role = user?.FindFirst("Role")?.Value
                 ?? user?.FindFirst(ClaimTypes.Role)?.Value;
 
-            if (role == "Admin")
+            if (role == RoleNames.Admin)
                 return;
 
-            var isOwner = role == "Vlasnik" && await _context.Locales
+            var isOwner = role == RoleNames.Vlasnik && await _context.Locales
                 .AnyAsync(locale => locale.Id == localeId && locale.OwnerId == userId);
 
-            var isWorker = allowWorker && role == "Radnik" && await _context.Workers
+            var isWorker = allowWorker && role == RoleNames.Radnik && await _context.Workers
                 .AnyAsync(worker => worker.LocaleId == localeId && worker.UserId == userId && !worker.IsDeleted);
 
             if (!isOwner && !isWorker)

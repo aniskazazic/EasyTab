@@ -5,6 +5,7 @@ using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using EasyTab.Model;
 
 namespace EasyTab.API.Controllers
 {
@@ -19,18 +20,18 @@ namespace EasyTab.API.Controllers
             _service = service; 
         }
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<Zones> Create([FromBody] ZoneInsertRequest request) => base.Create(request);
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<Zones?> Update(int id, [FromBody] ZoneUpdateRequest request) => base.Update(id, request);
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<bool> Delete(int id) => base.Delete(id);
 
 
         [HttpPost("save-layout")]
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public async Task<IActionResult> SaveLayout([FromBody] ZoneLayoutRequest request)
         {
             await _service.SaveLayoutAsync(request);

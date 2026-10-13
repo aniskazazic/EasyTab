@@ -30,7 +30,7 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpGet("All")]
-        [Authorization("Admin")]
+        [Authorization(RoleNames.Admin)]
         public async Task<ActionResult<PagedResult<Notifications>>> GetAll(
             [FromQuery] NotificationSearchObject search)
         {

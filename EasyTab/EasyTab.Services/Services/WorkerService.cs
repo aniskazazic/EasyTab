@@ -1,4 +1,5 @@
 using EasyTab.Common.Services.CryptoService;
+using EasyTab.Model;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
@@ -129,7 +130,7 @@ namespace EasyTab.Services.Services
             }
             else
             {
-                var workerRole = Context.Roles.FirstOrDefault(r => r.Name == "Radnik");
+                var workerRole = Context.Roles.FirstOrDefault(r => r.Name == RoleNames.Radnik);
                 if (workerRole != null)
                 {
                     Context.UserRoles.Add(new UserRole

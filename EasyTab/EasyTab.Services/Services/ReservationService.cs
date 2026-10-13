@@ -1,11 +1,13 @@
 using EasyTab.Model.Models;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
+using EasyTab.Model;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using EasyTab.Services.ReservationStateMachine;
+using EasyTab.Services;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
@@ -44,11 +46,11 @@ namespace EasyTab.Services.Services
                 if (search?.UserId.HasValue == true)
                     query = query.Where(x => x.UserId == search.UserId.Value);
             }
-            else if (_currentUser.Role == "Vlasnik")
+            else if (_currentUser.Role == RoleNames.Vlasnik)
             {
                 query = query.Where(x => x.Table.Locale.OwnerId == _currentUser.UserId);
             }
-            else if (_currentUser.Role == "Radnik")
+            else if (_currentUser.Role == RoleNames.Radnik)
             {
                 query = query.Where(x => x.Table.Locale.Workers.Any(worker =>
                     worker.UserId == _currentUser.UserId && !worker.IsDeleted));
@@ -78,7 +80,7 @@ namespace EasyTab.Services.Services
             // Aktivne rezervacije: samo one koje nisu otkazane/završene i čiji termin još nije prošao
             if (search?.IsUpcoming == true)
             {
-                var now = DateTime.Now;
+                var now = LocalClock.Now;
                 query = query.Where(r =>
                     r.ReservationState != CancelledReservationState.StateName &&
                     r.ReservationState != CompletedReservationState.StateName &&
@@ -88,7 +90,7 @@ namespace EasyTab.Services.Services
             // Prošle / historija rezervacije: otkazane, završene ili one čiji je termin prošao
             else if (search?.IsUpcoming == false)
             {
-                var now = DateTime.Now;
+                var now = LocalClock.Now;
                 query = query.Where(r =>
                     r.ReservationState == CancelledReservationState.StateName ||
                     r.ReservationState == CompletedReservationState.StateName ||
@@ -159,10 +161,10 @@ namespace EasyTab.Services.Services
             if (_currentUser.IsAdmin)
                 return true;
 
-            if (_currentUser.Role == "Vlasnik")
+            if (_currentUser.Role == RoleNames.Vlasnik)
                 return reservation.Table.Locale.OwnerId == _currentUser.UserId;
 
-            if (_currentUser.Role == "Radnik")
+            if (_currentUser.Role == RoleNames.Radnik)
                 return reservation.Table.Locale.Workers.Any(worker =>
                     worker.UserId == _currentUser.UserId && !worker.IsDeleted);
 
@@ -270,7 +272,7 @@ namespace EasyTab.Services.Services
                 .ToListAsync();
             var reservedSlots = await reserved;
 
-            var now = DateTime.Now;
+            var now = LocalClock.Now;
 
             string FormatSlotTime(TimeSpan ts)
             {
@@ -316,7 +318,7 @@ namespace EasyTab.Services.Services
                 throw new UserException("Razlog otkazivanja je obavezan.");
             }
 
-            if (_currentUser.Role == "Vlasnik" || _currentUser.Role == "Radnik" || _currentUser.IsAdmin)
+            if (_currentUser.Role == RoleNames.Vlasnik || _currentUser.Role == RoleNames.Radnik || _currentUser.IsAdmin)
             {
                 await _localeAccessService.EnsureCanManageLocaleAsync(reservation.Table.LocaleId);
             }

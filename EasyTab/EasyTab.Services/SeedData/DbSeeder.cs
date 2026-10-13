@@ -4,6 +4,7 @@ using EasyTab.Services.ReservationStateMachine;
 using EasyTab.Services.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
+using EasyTab.Model;
 
 namespace EasyTab.Services.SeedData
 {
@@ -94,10 +95,10 @@ namespace EasyTab.Services.SeedData
         {
             return new List<Role>
             {
-                new() { Name = "Admin", Description = "Administrator sistema", IsDeleted = false },
-                new() { Name = "Vlasnik", Description = "Vlasnik lokala", IsDeleted = false },
-                new() { Name = "Radnik", Description = "Radnik u lokalu", IsDeleted = false },
-                new() { Name = "Korisnik", Description = "Korisnik aplikacije", IsDeleted = false }
+                new() { Name = RoleNames.Admin, Description = "Administrator sistema", IsDeleted = false },
+                new() { Name = RoleNames.Vlasnik, Description = "Vlasnik lokala", IsDeleted = false },
+                new() { Name = RoleNames.Radnik, Description = "Radnik u lokalu", IsDeleted = false },
+                new() { Name = RoleNames.Korisnik, Description = "Korisnik aplikacije", IsDeleted = false }
             };
         }
 
@@ -217,24 +218,24 @@ namespace EasyTab.Services.SeedData
             var rolesByName = roles.ToDictionary(role => role.Name);
             var assignments = new Dictionary<string, string>
             {
-                ["desktop"] = "Admin",
-                ["mobile"] = "Korisnik",
-                ["admin"] = "Admin",
-                ["vlasnik"] = "Vlasnik",
-                ["vlasnik2"] = "Vlasnik",
-                ["radnik"] = "Radnik",
-                ["radnik2"] = "Radnik",
-                ["radnik3"] = "Radnik",
-                ["radnik4"] = "Radnik",
-                ["radnik5"] = "Radnik",
-                ["radnik6"] = "Radnik",
-                ["radnik7"] = "Radnik",
-                ["radnik8"] = "Radnik",
-                ["korisnik"] = "Korisnik"
+                ["desktop"] = RoleNames.Admin,
+                ["mobile"] = RoleNames.Korisnik,
+                ["admin"] = RoleNames.Admin,
+                ["vlasnik"] = RoleNames.Vlasnik,
+                ["vlasnik2"] = RoleNames.Vlasnik,
+                ["radnik"] = RoleNames.Radnik,
+                ["radnik2"] = RoleNames.Radnik,
+                ["radnik3"] = RoleNames.Radnik,
+                ["radnik4"] = RoleNames.Radnik,
+                ["radnik5"] = RoleNames.Radnik,
+                ["radnik6"] = RoleNames.Radnik,
+                ["radnik7"] = RoleNames.Radnik,
+                ["radnik8"] = RoleNames.Radnik,
+                ["korisnik"] = RoleNames.Korisnik
             };
 
             foreach (var username in users.Keys.Where(username => !assignments.ContainsKey(username)))
-                assignments[username] = "Korisnik";
+                assignments[username] = RoleNames.Korisnik;
 
             return assignments.Select(assignment => new UserRole
             {

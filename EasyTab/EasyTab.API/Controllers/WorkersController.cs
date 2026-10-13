@@ -5,6 +5,7 @@ using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using EasyTab.Model;
 
 namespace EasyTab.API.Controllers
 {
@@ -15,13 +16,13 @@ namespace EasyTab.API.Controllers
     {
         public WorkersController(IWorkerService service) : base(service) {  }
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<Workers> Create([FromBody] WorkerInsertRequest request) => base.Create(request);
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<Workers?> Update(int id, [FromBody] WorkerUpdateRequest request) => base.Update(id, request);
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<bool> Delete(int id) => base.Delete(id);
 
     }

@@ -6,6 +6,7 @@ using EasyTab.Model.SearchObjects;
 using EasyTab.Services.Interfaces;
 using EasyTab.Services.Services;
 using Microsoft.AspNetCore.Mvc;
+using EasyTab.Model;
 
 namespace EasyTab.API.Controllers
 {
@@ -22,10 +23,10 @@ namespace EasyTab.API.Controllers
         [Authorization]
         public override Task<Reservations> Create([FromBody] ReservationInsertRequest request) => base.Create(request);
 
-        [Authorization("Admin", "Vlasnik", "Radnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
         public override Task<Reservations?> Update(int id, [FromBody] ReservationUpdateRequest request) => base.Update(id, request);
 
-        [Authorization("Admin", "Vlasnik", "Radnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
         public override Task<bool> Delete(int id) => base.Delete(id);
 
         [HttpGet("available-slots")]
@@ -43,7 +44,7 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPut("confirm/{id}")]
-        [Authorization("Admin", "Vlasnik", "Radnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
         public async Task<IActionResult> ConfirmReservation(int id)
         {
             var reservation = await _service.ConfirmAsync(id);
@@ -51,7 +52,7 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPut("complete/{id}")]
-        [Authorization("Admin", "Vlasnik", "Radnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
         public async Task<IActionResult> CompleteReservation(int id)
         {
             var reservation = await _service.CompleteAsync(id);
@@ -59,7 +60,7 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpGet("allowed-actions/{id}")]
-        [Authorization("Admin", "Vlasnik", "Radnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
         public async Task<IActionResult> GetAllowedActions(int id)
         {
             var actions = await _service.GetAllowedActionsAsync(id);

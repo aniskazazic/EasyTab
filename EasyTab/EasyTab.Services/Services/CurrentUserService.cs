@@ -1,6 +1,7 @@
 using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
+using EasyTab.Model;
 
 namespace EasyTab.Services.Services
 {
@@ -31,6 +32,6 @@ namespace EasyTab.Services.Services
             ?? _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Role)?.Value;
 
         public bool IsAdmin => _httpContextAccessor.HttpContext?.User.Claims
-            .Any(c => (c.Type == "Role" || c.Type == ClaimTypes.Role) && c.Value == "Admin") ?? false;
+            .Any(c => (c.Type == "Role" || c.Type == ClaimTypes.Role) && c.Value == RoleNames.Admin) ?? false;
     }
 }

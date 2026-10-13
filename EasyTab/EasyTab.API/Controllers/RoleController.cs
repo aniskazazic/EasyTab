@@ -5,12 +5,13 @@ using EasyTab.Model.SearchObject;
 using EasyTab.API.Filters;
 using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using EasyTab.Model;
 
 namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [Authorization("Admin")]
+    [Authorization(RoleNames.Admin)]
     public class RoleController : BaseCRUDController<Roles, RoleSearchObject, RoleInsertRequest, RoleUpdateRequest>
     {
         public RoleController(IRoleService service) : base(service)

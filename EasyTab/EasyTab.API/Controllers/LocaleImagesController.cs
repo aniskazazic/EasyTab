@@ -1,6 +1,7 @@
 ﻿using EasyTab.API.Controllers.BaseControllers;
 using EasyTab.API.Filters;
 using EasyTab.Model.Models;
+using EasyTab.Model;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.Interfaces;
@@ -17,13 +18,13 @@ namespace EasyTab.API.Controllers
         {
         }
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<LocaleImages> Create([FromBody] LocaleImageInsertRequest request) => base.Create(request);
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<LocaleImages?> Update(int id, [FromBody] LocaleImageUpdateRequest request) => base.Update(id, request);
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<bool> Delete(int id) => base.Delete(id);
     }
 }

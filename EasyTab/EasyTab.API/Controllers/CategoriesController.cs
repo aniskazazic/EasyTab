@@ -16,13 +16,13 @@ namespace EasyTab.API.Controllers
     {
         public CategoriesController(ICategoryService service) : base(service) { }
 
-        [Authorization("Admin")]
+        [Authorization(RoleNames.Admin)]
         public override Task<Categories> Create([FromBody] CategoryUpsertRequest request) => base.Create(request);
 
-        [Authorization("Admin")]
+        [Authorization(RoleNames.Admin)]
         public override Task<Categories?> Update(int id, [FromBody] CategoryUpsertRequest request) => base.Update(id, request);
 
-        [Authorization("Admin")]
+        [Authorization(RoleNames.Admin)]
         public override Task<bool> Delete(int id) => base.Delete(id);
 
     }

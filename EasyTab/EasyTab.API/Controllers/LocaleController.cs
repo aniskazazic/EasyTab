@@ -1,6 +1,7 @@
 ﻿using EasyTab.API.Controllers.BaseControllers;
 using EasyTab.API.Filters;
 using EasyTab.Model.Models;
+using EasyTab.Model;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.Interfaces;
@@ -15,13 +16,13 @@ namespace EasyTab.API.Controllers
     {
             public LocaleController(ILocaleService service) : base(service) {  }
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<Locales> Create([FromBody] LocaleInsertRequest request) => base.Create(request);
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<Locales?> Update(int id, [FromBody] LocaleUpdateRequest request) => base.Update(id, request);
 
-        [Authorization("Admin", "Vlasnik")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<bool> Delete(int id) => base.Delete(id);
 
     }

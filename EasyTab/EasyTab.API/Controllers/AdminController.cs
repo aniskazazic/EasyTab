@@ -2,12 +2,13 @@
 using EasyTab.Model.Requests;
 using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
+using EasyTab.Model;
 
 namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    [Authorization("Admin")]
+    [Authorization(RoleNames.Admin)]
     public class AdminController : ControllerBase
     {
         private readonly IAdminService _service;

@@ -3,6 +3,7 @@ using EasyTab.Services.Interfaces;
 using EasyTab.API.Filters;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using EasyTab.Model;
 
 namespace EasyTab.API.Controllers
 {
@@ -31,49 +32,49 @@ namespace EasyTab.API.Controllers
             return parsedUserId;
         }
 
-        [Authorization("Vlasnik")]
+        [Authorization(RoleNames.Vlasnik)]
         [HttpGet("today-reservations")]
         public async Task<IActionResult> GetTodaysReservations(int localeId)
         {
             return Ok(await _ownerService.GetTodaysReservations(localeId));
         }
 
-        [Authorization("Vlasnik")]
+        [Authorization(RoleNames.Vlasnik)]
         [HttpGet("today-guests")]
         public async Task<IActionResult> GetTodaysGuests(int localeId)
         {
             return Ok(await _ownerService.GetTodaysGuests(localeId));
         }
 
-        [Authorization("Vlasnik")]
+        [Authorization(RoleNames.Vlasnik)]
         [HttpGet("active-tables")]
         public async Task<IActionResult> GetActiveTables(int localeId)
         {
             return Ok(await _ownerService.GetActiveTables(localeId));
         }
 
-        [Authorization("Vlasnik")]
+        [Authorization(RoleNames.Vlasnik)]
         [HttpGet("total-tables")]
         public async Task<IActionResult> GetTotalTables(int localeId)
         {
             return Ok(await _ownerService.GetTotalTables(localeId));
         }
 
-        [Authorization("Vlasnik")]
+        [Authorization(RoleNames.Vlasnik)]
         [HttpGet("my-locale/{localeId}")]
         public async Task<IActionResult> GetMyLocale(int localeId)
         {
             return Ok(await _ownerService.GetMyLocale(localeId)); 
         }
 
-        [Authorization("Vlasnik")]
+        [Authorization(RoleNames.Vlasnik)]
         [HttpGet("table-distribution")]
         public async Task<IActionResult> GetTableDistribution(int localeId)
         {
             return Ok(await _ownerService.GetTableDistribution(localeId));
         }
 
-        [Authorization("Vlasnik", "Radnik")]
+        [Authorization(RoleNames.Vlasnik, RoleNames.Radnik)]
         [HttpGet("reservations")]
         public async Task<IActionResult> GetAllReservations(
             [FromQuery] string? q,

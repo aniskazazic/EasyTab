@@ -26,7 +26,7 @@ namespace EasyTab.API.Controllers
             return base.Get(search);
         }
 
-        [Authorization("Admin")]
+        [Authorization(RoleNames.Admin)]
         public override Task<Users> Create([FromBody] UserInsertRequest request)
         {
             return base.Create(request);
@@ -37,7 +37,7 @@ namespace EasyTab.API.Controllers
             return base.Update(id, request);
         }
 
-        [Authorization("Admin")]
+        [Authorization(RoleNames.Admin)]
         public override Task<bool> Delete(int id)
         {
             return base.Delete(id);
