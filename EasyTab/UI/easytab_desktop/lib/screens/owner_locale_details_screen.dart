@@ -213,6 +213,46 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     }
   }
 
+  Future<void> _confirmDeleteLogo() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Brisanje loga'),
+        content: const Text(
+          'Da li ste sigurni da želite obrisati logo lokala?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Otkaži'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true || widget.locale?.id == null) return;
+
+    try {
+      await localeProvider.update(widget.locale!.id!, {'logo': ''});
+      if (!mounted) return;
+
+      setState(() => widget.locale!.logo = null);
+      widget.onSaved?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Logo je uspješno obrisan.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      _showError(e.toString());
+    }
+  }
+
   Future<void> _deleteLocaleImage(LocaleImage image) async {
     final messenger = ScaffoldMessenger.of(context);
     showDialog(
@@ -460,35 +500,51 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                   ),
                 ),
                 Expanded(
-                  child: InkWell(
-                    onTap: _getImage,
-                    borderRadius: BorderRadius.circular(8),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Logo lokala',
-                        border: OutlineInputBorder(),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _image != null
-                                ? 'Nova slika odabrana ✓'
-                                : widget.locale?.logo != null
-                                ? 'Promijeni logo'
-                                : 'Odaberite logo',
-                            style: TextStyle(
-                              color: _image != null
-                                  ? Colors.green
-                                  : widget.locale?.logo != null
-                                  ? Colors.blue
-                                  : Colors.grey,
-                            ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      InkWell(
+                        onTap: _getImage,
+                        borderRadius: BorderRadius.circular(8),
+                        child: InputDecorator(
+                          decoration: const InputDecoration(
+                            labelText: 'Logo lokala',
+                            border: OutlineInputBorder(),
                           ),
-                          const Icon(Icons.file_upload),
-                        ],
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _image != null
+                                    ? 'Nova slika odabrana ✓'
+                                    : widget.locale?.logo != null
+                                    ? 'Promijeni logo'
+                                    : 'Odaberite logo',
+                                style: TextStyle(
+                                  color: _image != null
+                                      ? Colors.green
+                                      : widget.locale?.logo != null
+                                      ? Colors.blue
+                                      : Colors.grey,
+                                ),
+                              ),
+                              const Icon(Icons.file_upload),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      if (!_isInsert &&
+                          widget.locale?.logo != null &&
+                          _image == null)
+                        TextButton.icon(
+                          onPressed: _confirmDeleteLogo,
+                          icon: const Icon(Icons.delete),
+                          label: const Text('Obriši logo'),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],

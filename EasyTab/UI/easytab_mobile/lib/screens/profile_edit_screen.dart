@@ -25,6 +25,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late UserProvider _userProvider;
 
   String? base64ProfileImage;
+  bool _removeProfileImage = false;
 
   @override
   void initState() {
@@ -57,10 +58,39 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
         setState(() {
           base64ProfileImage = base64String;
+          _removeProfileImage = false;
         });
       }
     } catch (e) {
       alertBox(context, "Error", e.toString());
+    }
+  }
+
+  Future<void> _confirmRemoveProfileImage() async {
+    final shouldRemove = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Brisanje slike'),
+        content: const Text('Da li ste sigurni da želite obrisati sliku?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Otkaži'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldRemove == true && mounted) {
+      setState(() {
+        base64ProfileImage = null;
+        _removeProfileImage = true;
+      });
     }
   }
 
@@ -116,6 +146,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
             if (base64ProfileImage != null) {
               request['profilePicture'] = base64ProfileImage;
+            } else if (_removeProfileImage) {
+              request['profilePicture'] = '';
             }
 
             await _userProvider.update(widget.user.id!, request);
@@ -153,6 +185,13 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               radius: 90,
             ),
           ),
+          if (base64ProfileImage != null)
+            TextButton.icon(
+              onPressed: _confirmRemoveProfileImage,
+              icon: const Icon(Icons.delete),
+              label: const Text('Obriši sliku'),
+              style: TextButton.styleFrom(foregroundColor: Colors.red),
+            ),
           FormBuilderTextField(
             name: "firstName",
             decoration: const InputDecoration(labelText: "Ime"),
