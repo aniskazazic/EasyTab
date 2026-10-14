@@ -70,6 +70,9 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             if (value == null || value.isEmpty) {
                               return "Ovo polje je obavezno";
                             }
+                            if (value.length < 6) {
+                              return "Lozinka mora imati najmanje 6 karaktera.";
+                            }
                             return null;
                           },
                         ),

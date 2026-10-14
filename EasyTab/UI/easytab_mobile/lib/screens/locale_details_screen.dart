@@ -28,7 +28,6 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   late FavouriteProvider _favouriteProvider;
   late LocaleImageProvider _localeImageProvider;
 
-  bool _isFavourite = false;
   bool _isLoadingReviews = true;
   bool _isLoadingImages = true;
   List<LocaleImage> _localeImages = [];
@@ -150,10 +149,9 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     setState(() => _isTogglingFav = true);
 
     try {
-      if (_isFavourite) {
+      if (_favouriteProvider.favouriteLocaleIds.contains(locale.id)) {
         // Ukloni
         await _favouriteProvider.removeFavourite(locale.id!);
-        setState(() => _isFavourite = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -166,7 +164,6 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
       } else {
         // Dodaj
         await _favouriteProvider.addFavourite(locale.id!);
-        setState(() => _isFavourite = true);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -188,12 +185,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     try {
       if (_currentUserId == null || locale.id == null) return;
       final isFav = await _favouriteProvider.isFavourited(locale.id!);
-      if (mounted) {
-        setState(() {
-          _isFavourite = isFav;
-          // _currentFavourite više ne koristimo, možemo ga ukloniti iz state-a
-        });
-      }
+      if (mounted) _favouriteProvider.setFavouriteStatus(locale.id!, isFav);
     } catch (e) {
       debugPrint('Error checking favourite: $e');
     }
@@ -247,17 +239,13 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
     );
   }
 
-  int _effectiveUserReaction(Review review) {
-    if (review.id == null) return review.userReaction ?? 0;
-    return _reactionProvider.userReactionFor(review.id!) ??
-        review.userReaction ??
-        0;
-  }
-
   Review _mergeUserReaction(Review review) {
     if (review.id == null) return review;
 
-    final reaction = _effectiveUserReaction(review);
+    final reaction =
+        _reactionProvider.userReactionFor(review.id!) ??
+        review.userReaction ??
+        0;
     if (reaction == (review.userReaction ?? 0)) return review;
 
     return Review(
@@ -279,7 +267,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   Future<void> _handleReaction(Review review, bool isLike) async {
     if (review.userId == _currentUserId || _currentUserId == null) return;
 
-    final currentReaction = _effectiveUserReaction(review);
+    final currentReaction = review.userReaction ?? 0;
     final togglingOff =
         (isLike && currentReaction == 1) || (!isLike && currentReaction == -1);
 
@@ -368,6 +356,11 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final favouriteProvider = context.watch<FavouriteProvider>();
+    final isFavourite =
+        locale.id != null &&
+        favouriteProvider.favouriteLocaleIds.contains(locale.id);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: Stack(
@@ -419,8 +412,8 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                         ),
                       )
                     : _circleButton(
-                        _isFavourite ? Icons.favorite : Icons.favorite_border,
-                        color: _isFavourite ? Colors.red : null,
+                        isFavourite ? Icons.favorite : Icons.favorite_border,
+                        color: isFavourite ? Colors.red : null,
                         onTap: _toggleFavourite,
                       ),
               ],
@@ -962,7 +955,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
 
   Widget _buildReviewCard(Review review) {
     final isMyReview = review.userId == _currentUserId;
-    final userReaction = _effectiveUserReaction(review);
+    final userReaction = review.userReaction ?? 0;
     final rating = review.rating ?? 0;
     final dateStr = review.dateAdded == null
         ? ''

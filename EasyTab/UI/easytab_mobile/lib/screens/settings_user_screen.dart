@@ -1,5 +1,6 @@
 import 'package:easytab_mobile/models/user.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
+import 'package:easytab_mobile/providers/favourite_provider.dart';
 import 'package:easytab_mobile/providers/user_provider.dart';
 import 'package:easytab_mobile/screens/change_password_screen.dart';
 import 'package:easytab_mobile/screens/login_screen.dart';
@@ -173,6 +174,7 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
                   ),
                 );
                 if (leave != true || !mounted) return;
+                context.read<FavouriteProvider>().clear();
                 await context.read<AuthProvider>().logout();
                 globalNavigatorKey.currentState?.pushAndRemoveUntil(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),

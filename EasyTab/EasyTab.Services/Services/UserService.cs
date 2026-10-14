@@ -27,6 +27,7 @@ namespace EasyTab.Services.Services
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IValidator<ForgotPasswordRequest> _forgotPasswordValidator;
         private readonly IValidator<ResetPasswordRequest> _resetPasswordValidator;
+        private readonly IValidator<UserPasswordChangeRequest> _changePasswordValidator;
 
         public UserService(
             _220030Context context,
@@ -38,7 +39,8 @@ namespace EasyTab.Services.Services
             IRabbitMQPublisher rabbitMQPublisher,
             IHttpContextAccessor httpContextAccessor,
             IValidator<ForgotPasswordRequest> forgotPasswordValidator,
-            IValidator<ResetPasswordRequest> resetPasswordValidator)
+            IValidator<ResetPasswordRequest> resetPasswordValidator,
+            IValidator<UserPasswordChangeRequest> changePasswordValidator)
             : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
@@ -47,6 +49,7 @@ namespace EasyTab.Services.Services
             _httpContextAccessor = httpContextAccessor;
             _forgotPasswordValidator = forgotPasswordValidator;
             _resetPasswordValidator = resetPasswordValidator;
+            _changePasswordValidator = changePasswordValidator;
         }
 
         protected override IQueryable<User> ApplyFilter(IQueryable<User> query, UserSearchObject? searchObject)
@@ -399,6 +402,8 @@ namespace EasyTab.Services.Services
 
         public async Task ChangePasswordAsync(UserPasswordChangeRequest request)
         {
+            await _changePasswordValidator.ValidateAndThrowAsync(request);
+
             var currentUser = _httpContextAccessor.HttpContext?.User;
             var isAdmin = currentUser?.Claims.Any(claim =>
                 (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == RoleNames.Admin) == true;

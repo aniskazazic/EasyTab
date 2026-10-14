@@ -106,6 +106,7 @@ builder.Services.AddScoped<IValidator<LocaleImageInsertRequest>, LocaleImageInse
 builder.Services.AddScoped<IValidator<LocaleImageUpdateRequest>, LocaleImageUpdateValidator>();
 builder.Services.AddScoped<IValidator<ForgotPasswordRequest>, ForgotPasswordValidator>();
 builder.Services.AddScoped<IValidator<ResetPasswordRequest>, ResetPasswordValidator>();
+builder.Services.AddScoped<IValidator<UserPasswordChangeRequest>, ChangePasswordValidator>();
 
 
 builder.Services.AddMapster();

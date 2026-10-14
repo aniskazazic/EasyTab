@@ -11,6 +11,19 @@ class FavouriteProvider extends BaseProvider<Favourite> {
   Favourite fromJson(json) => Favourite.fromJson(json);
 
   List<Favourite> myFavourites = [];
+  final Set<int> favouriteLocaleIds = {};
+
+  void clear() {
+    favouriteLocaleIds.clear();
+    notifyListeners();
+  }
+
+  void setFavouriteStatus(int localeId, bool isFavourite) {
+    final changed = isFavourite
+        ? favouriteLocaleIds.add(localeId)
+        : favouriteLocaleIds.remove(localeId);
+    if (changed) notifyListeners();
+  }
 
   // GET /Favourites/by-user
   Future<List<Favourite>> getMyFavourites() async {
@@ -23,6 +36,11 @@ class FavouriteProvider extends BaseProvider<Favourite> {
     if (response.statusCode == 200) {
       final List data = jsonDecode(response.body);
       myFavourites = data.map((json) => Favourite.fromJson(json)).toList();
+      favouriteLocaleIds
+        ..clear()
+        ..addAll(
+          myFavourites.map((favourite) => favourite.localeId).whereType<int>(),
+        );
       notifyListeners();
       return myFavourites;
     } else {
@@ -41,6 +59,7 @@ class FavouriteProvider extends BaseProvider<Favourite> {
     if (response.statusCode == 200) {
       final fav = Favourite.fromJson(jsonDecode(response.body));
       myFavourites.add(fav);
+      favouriteLocaleIds.add(localeId);
       notifyListeners();
       return fav;
     }
@@ -59,6 +78,7 @@ class FavouriteProvider extends BaseProvider<Favourite> {
     }
 
     myFavourites.removeWhere((f) => f.localeId == localeId);
+    favouriteLocaleIds.remove(localeId);
     notifyListeners();
   }
 

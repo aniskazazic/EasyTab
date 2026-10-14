@@ -175,7 +175,7 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
 
         const SizedBox(height: 12),
         SizedBox(
-          height: 248,
+          height: 268,
           child: PageView.builder(
             controller: _pageController,
             itemCount: widget.locales.length,
@@ -270,7 +270,7 @@ class _LocaleCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: SizedBox(
-                height: 68,
+                height: 84,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

@@ -5,6 +5,7 @@ import 'package:easytab_mobile/screens/forgot_password_screen.dart';
 import 'package:easytab_mobile/layout/worker_master_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/providers/favourite_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -41,6 +42,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await authProvider.login(username, password);
+      context.read<FavouriteProvider>().clear();
 
       var role =
           AuthProvider.accessTokenDecoded?['role'] ??

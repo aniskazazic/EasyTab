@@ -191,7 +191,7 @@ class _LocaleCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: SizedBox(
-                height: 68,
+                height: 84,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

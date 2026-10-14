@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:easytab_mobile/main.dart'; // To access globalNavigatorKey
 import 'package:easytab_mobile/providers/auth_provider.dart';
+import 'package:easytab_mobile/providers/favourite_provider.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:provider/provider.dart';
 
@@ -135,6 +136,7 @@ class SessionManager with WidgetsBindingObserver {
     stopSession();
     final context = globalNavigatorKey.currentContext;
     if (context != null) {
+      Provider.of<FavouriteProvider>(context, listen: false).clear();
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       authProvider.logout(notifyServer: false); // Očisti tokene
     }
