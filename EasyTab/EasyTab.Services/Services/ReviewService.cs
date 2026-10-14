@@ -17,6 +17,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using EasyTab.Services.ReservationStateMachine;
 
 namespace EasyTab.Services.Services
 {
@@ -128,7 +129,38 @@ namespace EasyTab.Services.Services
         }
 
         
-        protected override Task BeforeInsert(Review entity, ReviewInsertRequest request)
+        public async Task<CanReviewResponse> CanReviewAsync(int localeId)
+        {
+            var userId = _currentUser.UserId;
+            var hasCompletedReservation = await Context.Reservations.AnyAsync(r =>
+                r.UserId == userId &&
+                r.ReservationState == CompletedReservationState.StateName &&
+                r.Table.LocaleId == localeId);
+
+            if (!hasCompletedReservation)
+            {
+                return new CanReviewResponse
+                {
+                    CanReview = false,
+                    Reason = "Potrebna je najmanje jedna završena rezervacija u ovom lokalu."
+                };
+            }
+
+            var hasReview = await Context.Reviews.AnyAsync(r =>
+                r.UserId == userId &&
+                r.LocaleId == localeId &&
+                !r.IsDeleted);
+
+            return hasReview
+                ? new CanReviewResponse
+                {
+                    CanReview = false,
+                    Reason = "Već ste ostavili recenziju za ovaj lokal."
+                }
+                : new CanReviewResponse { CanReview = true };
+        }
+
+        protected override async Task BeforeInsert(Review entity, ReviewInsertRequest request)
         {
             _logger.LogInformation("Creating review. LocaleId: {LocaleId}, UserId: {UserId}", request.LocaleId, request.UserId);
 
@@ -138,11 +170,19 @@ namespace EasyTab.Services.Services
             if (string.IsNullOrWhiteSpace(request.Description))
                 throw new UserException("Opis recenzije je obavezan!");
 
+            var hasCompletedReservation = await Context.Reservations.AnyAsync(r =>
+                r.UserId == request.UserId &&
+                r.ReservationState == CompletedReservationState.StateName &&
+                r.Table.LocaleId == request.LocaleId);
+
+            if (!hasCompletedReservation)
+                throw new UserException("Recenziju možete ostaviti tek nakon završene rezervacije u ovom lokalu.");
+
             // Provjeri da li korisnik već ima recenziju za ovaj lokal
-            var existingReview = Context.Reviews
-                .FirstOrDefault(r => r.UserId == request.UserId &&
-                                     r.LocaleId == request.LocaleId &&
-                                     !r.IsDeleted);
+            var existingReview = await Context.Reviews
+                .FirstOrDefaultAsync(r => r.UserId == request.UserId &&
+                                          r.LocaleId == request.LocaleId &&
+                                          !r.IsDeleted);
 
             if (existingReview != null)
             {
@@ -152,9 +192,6 @@ namespace EasyTab.Services.Services
 
             entity.DateAdded = DateTime.UtcNow;
             entity.IsDeleted = false;
-
-            return Task.CompletedTask;
-
         }
 
         protected override Task BeforeUpdate(Review entity, ReviewUpdateRequest request)

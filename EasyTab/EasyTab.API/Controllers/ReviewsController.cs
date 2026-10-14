@@ -5,6 +5,7 @@ using EasyTab.Model.SearchObjects;
 using EasyTab.Services.Interfaces;
 using EasyTab.Services.Services;
 using Microsoft.AspNetCore.Mvc;
+using EasyTab.API.Filters;
 
 
 namespace EasyTab.API.Controllers
@@ -17,6 +18,14 @@ namespace EasyTab.API.Controllers
         public ReviewsController(IReviewService service) : base(service) 
         { 
             _service = service;
+        }
+
+        [HttpGet("can-review")]
+        [Authorization]
+        public async Task<IActionResult> CanReview([FromQuery] int localeId)
+        {
+            var result = await _service.CanReviewAsync(localeId);
+            return Ok(result);
         }
 
         [HttpGet("average/{localeId}")]

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:easytab_mobile/models/review.dart';
+import 'package:easytab_mobile/models/review_eligibility.dart';
 import 'package:easytab_mobile/models/search_result.dart';
 import 'package:easytab_mobile/providers/base_provider.dart';
 import 'package:http/http.dart' as http;
@@ -9,6 +10,15 @@ class ReviewProvider extends BaseProvider<Review> {
 
   @override
   Review fromJson(json) => Review.fromJson(json);
+
+  Future<ReviewEligibility> canReview(int localeId) async {
+    final url = '${BaseProvider.baseUrl}/Reviews/can-review?localeId=$localeId';
+    final response = await http.get(Uri.parse(url), headers: createHeaders());
+    validateResponse(response);
+    return ReviewEligibility.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
 
   Future<SearchResult<Review>> getByLocale(
     int localeId, {

@@ -13,6 +13,7 @@ namespace EasyTab.Services.Interfaces
 {
     public interface IReviewService  : ICRUDService<Reviews, ReviewSearchObject, ReviewInsertRequest, ReviewUpdateRequest>
     {
+        Task<CanReviewResponse> CanReviewAsync(int localeId);
         Task<ReviewAverage> GetAverageRatingAsync(int localeId);
         Task<ReviewRatingCount> GetRatingCountsAsync(int localeId);
 

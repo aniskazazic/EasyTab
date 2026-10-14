@@ -29,6 +29,9 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   late LocaleImageProvider _localeImageProvider;
 
   bool _isLoadingReviews = true;
+  bool _isCheckingReviewEligibility = true;
+  bool _canReview = false;
+  String? _reviewEligibilityReason;
   bool _isLoadingImages = true;
   List<LocaleImage> _localeImages = [];
   bool _isTogglingFav = false;
@@ -70,7 +73,46 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   }
 
   Future<void> _loadAll() async {
-    await Future.wait([_loadReviews(), _checkFavourite(), _loadLocaleImages()]);
+    await Future.wait([
+      _loadReviews(),
+      _loadCanReview(),
+      _checkFavourite(),
+      _loadLocaleImages(),
+    ]);
+  }
+
+  Future<void> _loadCanReview() async {
+    if (locale.id == null) return;
+    if (mounted) {
+      setState(() {
+        _isCheckingReviewEligibility = true;
+        _reviewEligibilityReason = null;
+      });
+    }
+
+    try {
+      final eligibility = await _reviewProvider.canReview(locale.id!);
+      if (!mounted) return;
+      setState(() {
+        _canReview = eligibility.canReview;
+        _reviewEligibilityReason = eligibility.reason;
+      });
+    } catch (e) {
+      debugPrint('Error checking review eligibility: $e');
+      if (!mounted) return;
+      setState(() {
+        _canReview = false;
+        _reviewEligibilityReason =
+            'Nije moguće provjeriti uslov za recenziju. Pokušajte ponovo.';
+      });
+    } finally {
+      if (mounted) setState(() => _isCheckingReviewEligibility = false);
+    }
+  }
+
+  void _refreshAfterReviewSave() {
+    _loadReviews();
+    _loadCanReview();
   }
 
   Future<void> _loadLocaleImages() async {
@@ -198,7 +240,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
         builder: (_) => AddReviewScreen(
           localeId: locale.id!,
           existingReview: existingReview,
-          onSaved: _loadReviews,
+          onSaved: _refreshAfterReviewSave,
         ),
       ),
     );
@@ -826,24 +868,52 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 ),
               ),
               if (!_hasUserReview)
-                OutlinedButton.icon(
-                  onPressed: () => _goToAddReview(),
-                  icon: const Icon(Icons.edit_outlined, size: 14),
-                  label: const Text(
-                    'Napiši recenziju',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1E40AF),
-                    side: const BorderSide(color: Color(0xFF1E40AF)),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _canReview ? () => _goToAddReview() : null,
+                      icon: const Icon(Icons.edit_outlined, size: 14),
+                      label: const Text(
+                        'Napiši recenziju',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _canReview
+                            ? const Color(0xFF1E40AF)
+                            : Colors.grey,
+                        side: BorderSide(
+                          color: _canReview
+                              ? const Color(0xFF1E40AF)
+                              : Colors.grey,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+                    if (!_isCheckingReviewEligibility &&
+                        !_canReview &&
+                        _reviewEligibilityReason != null)
+                      SizedBox(
+                        width: 190,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            _reviewEligibilityReason!,
+                            textAlign: TextAlign.end,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
             ],
           ),

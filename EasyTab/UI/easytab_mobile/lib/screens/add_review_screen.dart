@@ -1,4 +1,5 @@
 import 'package:easytab_mobile/models/review.dart';
+import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/review_provider.dart';
 import 'package:flutter/material.dart';
@@ -82,6 +83,8 @@ class _AddReviewScreenState extends State<AddReviewScreen> {
 
       widget.onSaved?.call();
       if (mounted) Navigator.pop(context);
+    } on ApiClientException catch (e) {
+      _showError(e.message);
     } catch (e) {
       _showError(e.toString().replaceAll('Exception: ', ''));
     } finally {
