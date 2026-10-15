@@ -180,6 +180,7 @@ class PaginationUtils {
 class ImageUtils {
   static const int _maxCacheEntries = 80;
   static final Map<String, Uint8List> _decodedImages = {};
+  static final Map<String, MemoryImage> _imageProviders = {};
 
   static Uint8List _decodeCached(String value) {
     final cached = _decodedImages.remove(value);
@@ -196,6 +197,31 @@ class ImageUtils {
     return decoded;
   }
 
+  static MemoryImage? imageProvider(String? imageUrl) {
+    if (imageUrl == null || imageUrl.isEmpty) return null;
+    if (!imageUrl.startsWith('data:image') && !_isBase64(imageUrl)) return null;
+
+    final base64String = imageUrl.startsWith('data:image')
+        ? imageUrl.split(',').last
+        : imageUrl;
+    final cached = _imageProviders.remove(base64String);
+    if (cached != null) {
+      _imageProviders[base64String] = cached;
+      return cached;
+    }
+
+    try {
+      final provider = MemoryImage(_decodeCached(base64String));
+      _imageProviders[base64String] = provider;
+      if (_imageProviders.length > _maxCacheEntries) {
+        _imageProviders.remove(_imageProviders.keys.first);
+      }
+      return provider;
+    } on FormatException {
+      return null;
+    }
+  }
+
   /// Vraća Widget za prikaz slike iz base64 stringa.
   static Widget buildImage(
     String? imageUrl, {
@@ -204,30 +230,16 @@ class ImageUtils {
     BoxFit fit = BoxFit.cover,
     Widget? placeholder,
   }) {
-    if (imageUrl == null || imageUrl.isEmpty) {
-      return placeholder ?? _defaultPlaceholder();
-    }
+    final provider = imageProvider(imageUrl);
+    if (provider == null) return placeholder ?? _defaultPlaceholder();
 
-    // Podržava data:image prefiks i čisti base64 string.
-    if (imageUrl.startsWith('data:image') || _isBase64(imageUrl)) {
-      try {
-        final base64String = imageUrl.startsWith('data:image')
-            ? imageUrl.split(',').last
-            : imageUrl;
-        final bytes = _decodeCached(base64String);
-        return Image.memory(
-          bytes,
-          width: width,
-          height: height,
-          fit: fit,
-          errorBuilder: (_, _, _) => placeholder ?? _defaultPlaceholder(),
-        );
-      } catch (e) {
-        return placeholder ?? _defaultPlaceholder();
-      }
-    }
-
-    return placeholder ?? _defaultPlaceholder();
+    return Image(
+      image: provider,
+      width: width,
+      height: height,
+      fit: fit,
+      errorBuilder: (_, _, _) => placeholder ?? _defaultPlaceholder(),
+    );
   }
 
   static Widget _defaultPlaceholder() {

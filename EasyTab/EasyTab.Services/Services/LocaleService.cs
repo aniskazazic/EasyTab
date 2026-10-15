@@ -149,7 +149,25 @@ namespace EasyTab.Services.Services
             if (search?.OwnerId.HasValue == true)
                 query = query.Where(x => x.OwnerId == search.OwnerId);
 
+            if (string.Equals(search?.SortBy, "rating", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query
+                    .OrderByDescending(locale => locale.Reviews
+                        .Where(review => !review.IsDeleted)
+                        .Select(review => (double?)review.Rating)
+                        .Average() ?? 0)
+                    .ThenBy(locale => locale.Id);
+            }
+
             return query;
+        }
+
+        protected override IQueryable<Locale> ApplySort(IQueryable<Locale> query, LocaleSearchObject search)
+        {
+            if (string.Equals(search?.SortBy, "rating", StringComparison.OrdinalIgnoreCase))
+                return query;
+
+            return base.ApplySort(query, search);
         }
 
         protected override async Task BeforeInsert(Locale entity, LocaleInsertRequest request)

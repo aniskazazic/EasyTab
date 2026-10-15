@@ -1,5 +1,6 @@
 import 'package:easytab_mobile/models/category.dart';
 import 'package:easytab_mobile/models/locale.dart' as model;
+import 'package:easytab_mobile/providers/category_provider.dart';
 import 'package:easytab_mobile/providers/locale_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/category_locales_screen.dart';
@@ -15,45 +16,64 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  late CategoryProvider _categoryProvider;
   late LocaleProvider _localeProvider;
   bool _isLoading = true;
   Map<Category, List<model.Locale>> _groupedLocales = {};
+  Map<int, MemoryImage> _logoImages = {};
 
   @override
   void initState() {
     super.initState();
+    _categoryProvider = context.read<CategoryProvider>();
     _localeProvider = context.read<LocaleProvider>();
     _loadLocales();
   }
 
   Future<void> _loadLocales() async {
     try {
-      final result = await _localeProvider.get(filter: {});
-      final locales = result.items ?? [];
+      final categoriesResult = await _categoryProvider.get(
+        filter: {'PageSize': 100},
+      );
+      final categories = (categoriesResult.items ?? [])
+          .where((category) => category.id != null)
+          .toList();
+      final localeResults = await Future.wait(
+        categories.map(
+          (category) => _localeProvider.get(
+            filter: {
+              'CategoryId': category.id,
+              'SortBy': 'rating',
+              'PageSize': 3,
+            },
+          ),
+        ),
+      );
 
-      // Grupiranje po kategoriji (Category objekt)
-      final Map<int, Category> categoryMap = {};
-      final Map<int, List<model.Locale>> tempGroup = {};
-
-      for (final locale in locales) {
-        final catId = locale.categoryId ?? -1;
-        final catName = locale.categoryName ?? 'Ostalo';
-        if (!categoryMap.containsKey(catId)) {
-          categoryMap[catId] = Category(id: catId, name: catName);
+      final Map<Category, List<model.Locale>> grouped = {};
+      final Map<int, MemoryImage> logoImages = {};
+      for (var index = 0; index < categories.length; index++) {
+        final locales = localeResults[index].items ?? [];
+        if (locales.isEmpty) continue;
+        grouped[categories[index]] = locales;
+        for (final locale in locales) {
+          final localeId = locale.id;
+          final logoImage = ImageUtils.imageProvider(locale.logo);
+          if (localeId != null && logoImage != null) {
+            logoImages[localeId] = logoImage;
+          }
         }
-        tempGroup.putIfAbsent(catId, () => []).add(locale);
       }
 
-      // Ograniči na max 3 lokala po kategoriji
-      final Map<Category, List<model.Locale>> trimmed = {};
-      tempGroup.forEach((catId, list) {
-        final category = categoryMap[catId]!;
-        trimmed[category] = list.take(3).toList();
-      });
+      if (!mounted) return;
+      await Future.wait(
+        logoImages.values.toSet().map((image) => precacheImage(image, context)),
+      );
 
       if (mounted) {
         setState(() {
-          _groupedLocales = trimmed;
+          _groupedLocales = grouped;
+          _logoImages = logoImages;
           _isLoading = false;
         });
       }
@@ -80,6 +100,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     return _CategoryCarousel(
                       category: entry.key,
                       locales: entry.value,
+                      logoImages: _logoImages,
                       onLocaleOpened: _loadLocales,
                     );
                   }).toList(),
@@ -109,11 +130,13 @@ class _HomeScreenState extends State<HomeScreen> {
 class _CategoryCarousel extends StatefulWidget {
   final Category category;
   final List<model.Locale> locales;
+  final Map<int, MemoryImage> logoImages;
   final Future<void> Function() onLocaleOpened;
 
   const _CategoryCarousel({
     required this.category,
     required this.locales,
+    required this.logoImages,
     required this.onLocaleOpened,
   });
 
@@ -183,6 +206,7 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
             itemBuilder: (context, index) {
               return _LocaleCard(
                 locale: widget.locales[index],
+                logoImage: widget.logoImages[widget.locales[index].id],
                 onLocaleOpened: widget.onLocaleOpened,
               );
             },
@@ -223,8 +247,13 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
 
 class _LocaleCard extends StatelessWidget {
   final model.Locale locale;
+  final MemoryImage? logoImage;
   final Future<void> Function() onLocaleOpened;
-  const _LocaleCard({required this.locale, required this.onLocaleOpened});
+  const _LocaleCard({
+    required this.locale,
+    required this.logoImage,
+    required this.onLocaleOpened,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -260,11 +289,13 @@ class _LocaleCard extends StatelessWidget {
               child: SizedBox(
                 height: 148,
                 width: double.infinity,
-                child: ImageUtils.buildImage(
-                  locale.logo,
-                  fit: BoxFit.cover,
-                  placeholder: _placeholder(),
-                ),
+                child: logoImage == null
+                    ? _placeholder()
+                    : Image(
+                        image: logoImage!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _placeholder(),
+                      ),
               ),
             ),
             Padding(
@@ -289,8 +320,7 @@ class _LocaleCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (locale.averageRating != null &&
-                            locale.averageRating! > 0) ...[
+                        if (locale.averageRating != null) ...[
                           const SizedBox(width: 12),
                           Row(
                             mainAxisSize: MainAxisSize.min,

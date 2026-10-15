@@ -55,18 +55,7 @@ namespace EasyTab.Services.BaseServices.Implementation
             if (search.IncludeTotalCount ?? false)
                 totalCount = await query.CountAsync();
 
-            var sortColumn = AllowedSortColumns.Contains(search.SortBy ?? string.Empty) &&
-                             typeof(TDbEntity).GetProperty(
-                                 search.SortBy!,
-                                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase) != null
-                ? search.SortBy!
-                : "Id";
-
-            if (!string.IsNullOrWhiteSpace(search.SortBy) ||
-                !ContainsOrdering(query.Expression))
-            {
-                query = query.OrderBy(sortColumn);
-            }
+            query = ApplySort(query, search);
 
             query = query
                 .Skip((page - 1) * pageSize)
@@ -84,6 +73,24 @@ namespace EasyTab.Services.BaseServices.Implementation
 
         protected virtual IQueryable<TDbEntity> ApplyFilter(IQueryable<TDbEntity> query, TSearch? search)
         {
+            return query;
+        }
+
+        protected virtual IQueryable<TDbEntity> ApplySort(IQueryable<TDbEntity> query, TSearch search)
+        {
+            var sortColumn = AllowedSortColumns.Contains(search.SortBy ?? string.Empty) &&
+                             typeof(TDbEntity).GetProperty(
+                                 search.SortBy!,
+                                 BindingFlags.Instance | BindingFlags.Public | BindingFlags.IgnoreCase) != null
+                ? search.SortBy!
+                : "Id";
+
+            if (!string.IsNullOrWhiteSpace(search.SortBy) ||
+                !ContainsOrdering(query.Expression))
+            {
+                query = query.OrderBy(sortColumn);
+            }
+
             return query;
         }
 

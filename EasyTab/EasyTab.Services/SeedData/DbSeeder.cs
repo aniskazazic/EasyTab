@@ -267,8 +267,23 @@ namespace EasyTab.Services.SeedData
                 (Name: "Zenica Pizza", Address: "Maršala Tita 31, Zenica", Phone: "+387 61 525 626", CityIndex: 4, CategoryIndex: 3, Image: null),
                 (Name: "Zagreb Table", Address: "Tkalčićeva 18, Zagreb", Phone: "+385 91 727 828", CityIndex: 5, CategoryIndex: 0, Image: null),
                 (Name: "Split Sunset Bar", Address: "Marmontova 7, Split", Phone: "+385 91 929 303", CityIndex: 6, CategoryIndex: 4, Image: null),
-                (Name: "Novi Sad Bistro", Address: "Zmaj Jovina 16, Novi Sad", Phone: "+381 64 131 424", CityIndex: 8, CategoryIndex: 1, Image: null)
+                (Name: "Novi Sad Bistro", Address: "Zmaj Jovina 16, Novi Sad", Phone: "+381 64 131 424", CityIndex: 8, CategoryIndex: 1, Image: null),
+                (Name: "Kafa Kutak", Address: "Zmaja od Bosne 7, Sarajevo", Phone: "+387 61 616 717", CityIndex: 1, CategoryIndex: 1, Image: null),
+                (Name: "Burger Point", Address: "Kneza Domagoja 4, Mostar", Phone: "+387 61 727 828", CityIndex: 0, CategoryIndex: 2, Image: null),
+                (Name: "Kod Nane", Address: "Obala Kulina bana 12, Sarajevo", Phone: "+387 61 838 939", CityIndex: 1, CategoryIndex: 2, Image: null),
+                (Name: "Taco Corner", Address: "Gospodska 18, Banja Luka", Phone: "+387 65 949 040", CityIndex: 2, CategoryIndex: 2, Image: null),
+                (Name: "Pizzeria Napoli", Address: "Ilica 42, Zagreb", Phone: "+385 91 151 626", CityIndex: 5, CategoryIndex: 3, Image: null),
+                (Name: "Pizza Mostar", Address: "Bulevar narodne revolucije 9, Mostar", Phone: "+387 61 262 737", CityIndex: 0, CategoryIndex: 3, Image: null),
+                (Name: "Skyline Lounge", Address: "Maršala Tita 20, Sarajevo", Phone: "+387 61 373 848", CityIndex: 1, CategoryIndex: 4, Image: null),
+                (Name: "Adriatic Lounge", Address: "Riva 5, Split", Phone: "+385 91 484 959", CityIndex: 6, CategoryIndex: 4, Image: null)
             };
+
+            var logoNames = new[]
+            {
+                "tima-irma.jpg", "hindin-han.jpg", "restaurant-divan.jpg",
+                "megu.jpg", "urban-cafe.jpg", "lounge-bar.jpg"
+            };
+            var logos = logoNames.ToDictionary(name => name, ReadImage);
 
             return definitions.Select((definition, index) => new Locale
             {
@@ -278,7 +293,7 @@ namespace EasyTab.Services.SeedData
                 StartOfWorkingHours = new TimeOnly(8, 0),
                 EndOfWorkingHours = new TimeOnly(23, 0),
                 LengthOfReservation = 2,
-                Logo = definition.Image == null ? null : ReadImage(definition.Image),
+                Logo = logos[definition.Image ?? logoNames[index % logoNames.Length]],
                 CityId = cities[definition.CityIndex].Id,
                 CategoryId = categories[definition.CategoryIndex].Id,
                 OwnerId = index < 9 ? users["vlasnik"].Id : users["vlasnik2"].Id,
@@ -400,7 +415,10 @@ namespace EasyTab.Services.SeedData
                         _ => DateTime.UtcNow.Date.AddDays(-(25 + itemIndex))
                     };
                     var user = reservationUsers[(stateIndex * 30 + itemIndex) % reservationUsers.Count];
-                    var table = tables[(stateIndex * 30 + itemIndex) % tables.Count];
+                    var tableIndex = stateIndex == 3 && itemIndex == 0
+                        ? 6
+                        : (stateIndex * 30 + itemIndex) % tables.Count;
+                    var table = tables[tableIndex];
                     var approver = localeOwnersById[table.LocaleId];
                     var start = new TimeOnly(12 + itemIndex % 6, 0);
                     var reservation = new Reservation
@@ -437,35 +455,44 @@ namespace EasyTab.Services.SeedData
         private static List<Review> CreateReviews(IReadOnlyDictionary<string, User> users, IReadOnlyList<Locale> locales)
         {
             var authors = RegularUserUsernames.Select(username => users[username]).ToList();
-            var ratingsByLocale = new[]
+            var ratingsByCategoryRank = new[]
             {
                 new[] { 5, 5, 5, 5, 4, 5 },
                 new[] { 5, 5, 4, 5, 4, 5 },
                 new[] { 5, 4, 5, 4, 4, 5 },
                 new[] { 4, 4, 5, 4, 3, 4 },
-                new[] { 4, 3, 4, 4, 3, 4 },
-                new[] { 4, 3, 3, 4, 3, 4 }
+                new[] { 4, 3, 2, 4, 1, 3 }
             };
-
-            return Enumerable.Range(0, locales.Count * 6).Select(index => new Review
-            {
-                Description = new[]
+            var ratingsByLocaleId = locales
+                .GroupBy(locale => locale.CategoryId)
+                .SelectMany(category => category.Select((locale, rank) => new
                 {
-                    "Odlična usluga i vrlo ukusna hrana. Ambijent je posebno lijep.",
-                    "Porcije su obilne, osoblje ljubazno, a čekanje kratko.",
-                    "Prijatno mjesto za ručak sa porodicom. Sigurno ćemo se vratiti.",
-                    "Hrana je svježa i lijepo servirana, posebno preporučujem domaće specijalitete.",
-                    "Lijep ambijent u starom gradu i korektne cijene.",
-                    "Kafa je odlična, a terasa je ugodna za duži razgovor."
-                }[index % 6],
-                Rating = index < ratingsByLocale.Length * 6
-                    ? ratingsByLocale[index / 6][index % 6]
-                    : 3 + index % 3,
-                UserId = authors[index % authors.Count].Id,
-                LocaleId = locales[index / 6].Id,
-                DateAdded = DateTime.UtcNow.AddDays(-(index + 1)),
-                IsDeleted = false
-            }).ToList();
+                    locale.Id,
+                    Ratings = ratingsByCategoryRank[Math.Min(rank, ratingsByCategoryRank.Length - 1)]
+                }))
+                .ToDictionary(item => item.Id, item => item.Ratings);
+
+            return locales.SelectMany((locale, localeIndex) => Enumerable.Range(0, 6).Select(reviewIndex =>
+            {
+                var index = localeIndex * 6 + reviewIndex;
+                return new Review
+                {
+                    Description = new[]
+                    {
+                        "Odlična usluga i vrlo ukusna hrana. Ambijent je posebno lijep.",
+                        "Porcije su obilne, osoblje ljubazno, a čekanje kratko.",
+                        "Prijatno mjesto za ručak sa porodicom. Sigurno ćemo se vratiti.",
+                        "Hrana je svježa i lijepo servirana, posebno preporučujem domaće specijalitete.",
+                        "Lijep ambijent u starom gradu i korektne cijene.",
+                        "Kafa je odlična, a terasa je ugodna za duži razgovor."
+                    }[reviewIndex],
+                    Rating = ratingsByLocaleId[locale.Id][reviewIndex],
+                    UserId = authors[index % authors.Count].Id,
+                    LocaleId = locale.Id,
+                    DateAdded = DateTime.UtcNow.AddDays(-(index + 1)),
+                    IsDeleted = false
+                };
+            })).ToList();
         }
 
         private static List<Reaction> CreateReactions(IReadOnlyDictionary<string, User> users, IReadOnlyList<Review> reviews)
