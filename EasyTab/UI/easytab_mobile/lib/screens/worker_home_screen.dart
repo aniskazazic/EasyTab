@@ -202,8 +202,10 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 32),
       itemCount: _reservations.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (_, index) =>
-          _ReservationCard(reservation: _reservations[index]),
+      itemBuilder: (_, index) => _ReservationCard(
+        reservation: _reservations[index],
+        onReservationChanged: () => _loadReservations(page: _currentPage),
+      ),
     );
   }
 
@@ -216,112 +218,246 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
 
 class _ReservationCard extends StatelessWidget {
   final Reservation reservation;
+  final Future<void> Function() onReservationChanged;
 
-  const _ReservationCard({required this.reservation});
+  const _ReservationCard({
+    required this.reservation,
+    required this.onReservationChanged,
+  });
+
+  Color _stateColor(String state) {
+    switch (state) {
+      case 'Na čekanju':
+        return Colors.orange.shade800;
+      case 'Potvrđena':
+        return Colors.green.shade700;
+      case 'Otkazana':
+        return Colors.red.shade700;
+      case 'Završena':
+        return Colors.blueGrey.shade700;
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
+  String _stateDescription(String state) {
+    switch (state) {
+      case 'Na čekanju':
+        return 'Čeka se potvrda lokala.';
+      case 'Potvrđena':
+        return 'Lokal je potvrdio rezervaciju.';
+      case 'Otkazana':
+        return 'Rezervacija je otkazana.';
+      case 'Završena':
+        return 'Termin rezervacije je završen.';
+      default:
+        return 'Status rezervacije nije dostupan.';
+    }
+  }
+
+  IconData _stateIcon(String state) {
+    switch (state) {
+      case 'Na čekanju':
+        return Icons.hourglass_top_rounded;
+      case 'Potvrđena':
+        return Icons.check_circle_rounded;
+      case 'Otkazana':
+        return Icons.cancel_rounded;
+      case 'Završena':
+        return Icons.task_alt_rounded;
+      default:
+        return Icons.info_outline;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final state = reservation.reservationState ?? '';
+    final stateColor = _stateColor(state);
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 14, 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.black54),
-        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFFCFDFE),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: const [
-          BoxShadow(color: Colors.black26, offset: Offset(3, 4), blurRadius: 3),
+          BoxShadow(
+            color: Color(0x120F172A),
+            offset: Offset(0, 3),
+            blurRadius: 10,
+          ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            reservation.customerName,
-            style: const TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 9),
           Row(
-            children: [
-              const Icon(Icons.access_time, size: 20),
-              const SizedBox(width: 10),
-              Text(
-                '${_formatTime(reservation.startTime)} - ${_formatTime(reservation.endTime)}',
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.group_outlined, size: 20),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '${reservation.numberOfGuests ?? 0} osoba',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      reservation.customerName,
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.table_restaurant_outlined, size: 20),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: Text(
-                              reservation.tableName ?? 'Stol',
-                              overflow: TextOverflow.ellipsis,
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.store_outlined,
+                          size: 15,
+                          color: Color(0xFF64748B),
+                        ),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            reservation.localeName ?? 'Lokal',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF475569),
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(width: 8),
-              InkWell(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => WorkerReservationDetailsScreen(
-                        reservation: reservation,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                decoration: BoxDecoration(
+                  color: stateColor.withAlpha(24),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(_stateIcon(state), size: 14, color: stateColor),
+                    const SizedBox(width: 4),
+                    Text(
+                      state.isEmpty ? 'Nepoznato' : state,
+                      style: TextStyle(
+                        color: stateColor,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(8),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Detalji',
-                        style: TextStyle(
-                          color: Color(0xFF1E40AF),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      SizedBox(width: 4),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: Color(0xFF1E40AF),
-                        size: 21,
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _stateDescription(state),
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 11.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 5,
+                      child: _ReservationInfo(
+                        icon: Icons.access_time_rounded,
+                        label: 'Termin',
+                        value:
+                            '${_formatTime(reservation.startTime)} - ${_formatTime(reservation.endTime)}',
+                        alignment: MainAxisAlignment.start,
+                        textAlign: TextAlign.left,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 4,
+                      child: _ReservationInfo(
+                        icon: Icons.table_restaurant_outlined,
+                        label: 'Stol',
+                        value: reservation.tableName ?? 'Stol',
+                        alignment: MainAxisAlignment.center,
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: _ReservationInfo(
+                        icon: Icons.people_outline,
+                        label: 'Gosti',
+                        value: '${reservation.numberOfGuests ?? 0}',
+                        alignment: MainAxisAlignment.end,
+                        textAlign: TextAlign.right,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: InkWell(
+              onTap: () async {
+                final cancelled = await Navigator.push<bool>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => WorkerReservationDetailsScreen(
+                      reservation: reservation,
+                    ),
+                  ),
+                );
+                if (cancelled == true && context.mounted) {
+                  await onReservationChanged();
+                }
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Detalji rezervacije',
+                      style: TextStyle(
+                        color: Color(0xFF1E40AF),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(width: 3),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Color(0xFF1E40AF),
+                      size: 19,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -331,5 +467,55 @@ class _ReservationCard extends StatelessWidget {
   String _formatTime(String? value) {
     if (value == null || value.isEmpty) return '--:--';
     return value.length >= 5 ? value.substring(0, 5) : value;
+  }
+}
+
+class _ReservationInfo extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final MainAxisAlignment alignment;
+  final TextAlign textAlign;
+
+  const _ReservationInfo({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.alignment,
+    required this.textAlign,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: alignment,
+      children: [
+        Icon(icon, size: 16, color: const Color(0xFF1E40AF)),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                textAlign: textAlign,
+                style: const TextStyle(color: Color(0xFF64748B), fontSize: 10),
+              ),
+              Text(
+                value,
+                textAlign: textAlign,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

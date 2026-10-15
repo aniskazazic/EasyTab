@@ -61,6 +61,11 @@ namespace EasyTab.Services.ReservationStateMachine
             return _mapper.Map<Reservations>(entity);
         }
 
+        public override Task<Reservations> CompleteBySystemAsync(int id)
+        {
+            return CompleteAsync(id);
+        }
+
         public override async Task<Reservations> CancelAsync(int id, string reason, int cancelledById)
         {
             var entity = await GetReservationOrThrowAsync(id);

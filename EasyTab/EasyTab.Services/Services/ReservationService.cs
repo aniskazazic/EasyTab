@@ -390,6 +390,71 @@ namespace EasyTab.Services.Services
             return state.GetAllowedActions();
         }
 
+        public async Task ProcessAutomaticTransitionsAsync(DateTime localNow)
+        {
+            var date = localNow.Date;
+            var time = TimeOnly.FromDateTime(localNow);
+            var overduePendingIds = await Context.Reservations
+                .AsNoTracking()
+                .Where(r =>
+                    r.ReservationState == PendingReservationState.StateName &&
+                    (r.ReservationDate.Date < date ||
+                     (r.ReservationDate.Date == date && r.StartTime <= time)))
+                .OrderBy(r => r.Id)
+                .Select(r => r.Id)
+                .ToListAsync();
+
+            foreach (var id in overduePendingIds)
+            {
+                try
+                {
+                    var state = GetStateMachine(PendingReservationState.StateName);
+                    await state.CancelBySystemAsync(
+                        id,
+                        "Automatski otkazana: nije potvrđena do termina");
+                    _logger.LogInformation(
+                        "Automatically cancelled overdue pending reservation {ReservationId}.",
+                        id);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    _logger.LogInformation(
+                        ex,
+                        "Skipped automatic cancellation for reservation {ReservationId} because its state changed.",
+                        id);
+                }
+            }
+
+            var overdueConfirmedIds = await Context.Reservations
+                .AsNoTracking()
+                .Where(r =>
+                    r.ReservationState == ConfirmedReservationState.StateName &&
+                    (r.ReservationDate.Date < date ||
+                     (r.ReservationDate.Date == date && r.EndTime <= time)))
+                .OrderBy(r => r.Id)
+                .Select(r => r.Id)
+                .ToListAsync();
+
+            foreach (var id in overdueConfirmedIds)
+            {
+                try
+                {
+                    var state = GetStateMachine(ConfirmedReservationState.StateName);
+                    await state.CompleteBySystemAsync(id);
+                    _logger.LogInformation(
+                        "Automatically completed overdue confirmed reservation {ReservationId}.",
+                        id);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    _logger.LogInformation(
+                        ex,
+                        "Skipped automatic completion for reservation {ReservationId} because its state changed.",
+                        id);
+                }
+            }
+        }
+
         private BaseReservationState GetStateMachine(string stateName)
         {
             return new BaseReservationState(Context, _mapper, _serviceProvider).GetReservationState(stateName);

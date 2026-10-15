@@ -17,6 +17,8 @@ class _WorkerReservationDetailsScreenState
     extends State<WorkerReservationDetailsScreen> {
   static const _blue = Color(0xFF1E40AF);
   late final Future<Reservation> _reservationFuture;
+  late final Future<List<String>> _allowedActionsFuture;
+  bool _isCancelling = false;
 
   @override
   void initState() {
@@ -25,6 +27,9 @@ class _WorkerReservationDetailsScreenState
     _reservationFuture = reservationId == null
         ? Future.value(widget.reservation)
         : ReservationProvider().getById(reservationId);
+    _allowedActionsFuture = reservationId == null
+        ? Future.value([])
+        : ReservationProvider().getAllowedActions(reservationId);
   }
 
   String _formatDate(DateTime? date) {
@@ -40,6 +45,84 @@ class _WorkerReservationDetailsScreenState
   String _guestName(Reservation reservation) {
     final name = reservation.customerName;
     return name.isEmpty ? 'Gost' : name;
+  }
+
+  Color _stateColor(String state) {
+    switch (state) {
+      case 'Na čekanju':
+        return Colors.orange.shade800;
+      case 'Potvrđena':
+        return Colors.green.shade700;
+      case 'Otkazana':
+        return Colors.red.shade700;
+      case 'Završena':
+        return Colors.blueGrey.shade700;
+      default:
+        return Colors.grey.shade700;
+    }
+  }
+
+  String _cancellationDisabledReason(String state) {
+    switch (state) {
+      case 'Otkazana':
+        return 'Rezervacija je već otkazana.';
+      case 'Završena':
+        return 'Završena rezervacija se ne može otkazati.';
+      case 'Na čekanju':
+      case 'Potvrđena':
+        return 'Otkazivanje trenutno nije dozvoljeno za ovu rezervaciju.';
+      default:
+        return 'Otkazivanje nije dozvoljeno za trenutno stanje rezervacije.';
+    }
+  }
+
+  Future<String?> _askCancellationReason() async {
+    return showDialog<String>(
+      context: context,
+      builder: (_) => const _CancellationReasonDialog(),
+    );
+  }
+
+  Future<void> _cancelReservation(Reservation details) async {
+    final reason = await _askCancellationReason();
+    if (reason == null || !mounted) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Potvrda otkazivanja'),
+        content: Text('Da li želite otkazati rezervaciju?\n\nRazlog: $reason'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Ne'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Da, otkaži'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted || details.id == null) return;
+
+    setState(() => _isCancelling = true);
+    try {
+      await ReservationProvider().cancelReservation(details.id!, reason);
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isCancelling = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Greška pri otkazivanju: $error')));
+    }
   }
 
   @override
@@ -99,6 +182,8 @@ class _WorkerReservationDetailsScreenState
                 style: TextStyle(color: Colors.orange),
               ),
             ),
+          _buildReservationStatus(details),
+          const SizedBox(height: 18),
           _InfoCard(
             title: 'Informacije o gostu',
             children: [
@@ -150,31 +235,156 @@ class _WorkerReservationDetailsScreenState
                 value: details.tableName ?? 'Stol',
                 color: Colors.black,
               ),
+              _InfoRow(
+                icon: Icons.store_outlined,
+                label: 'Lokal',
+                value: details.localeName ?? 'Lokal nije dostupan',
+                color: Colors.black,
+              ),
+              if (details.localeAddress?.isNotEmpty == true)
+                _InfoRow(
+                  icon: Icons.location_on_outlined,
+                  label: 'Adresa lokala',
+                  value: details.localeAddress!,
+                  color: Colors.black,
+                ),
             ],
           ),
           const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                disabledBackgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-                disabledForegroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(22),
-                ),
-              ),
-              child: const Text(
-                'Otkaži rezervaciju',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+          _buildCancellationAction(details),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReservationStatus(Reservation details) {
+    final state = details.reservationState ?? '';
+    final color = _stateColor(state);
+    final background = switch (state) {
+      'Na čekanju' => const Color(0xFFFEF3C7),
+      'Potvrđena' => const Color(0xFFDCFCE7),
+      'Otkazana' => const Color(0xFFFFE4E6),
+      'Završena' => const Color(0xFFDBEAFE),
+      _ => const Color(0xFFF1F5F9),
+    };
+    final icon = switch (state) {
+      'Na čekanju' => Icons.hourglass_top_rounded,
+      'Potvrđena' => Icons.check_circle_rounded,
+      'Otkazana' => Icons.cancel_rounded,
+      'Završena' => Icons.task_alt_rounded,
+      _ => Icons.info_outline,
+    };
+    final description = switch (state) {
+      'Na čekanju' => 'Čeka se da lokal potvrdi rezervaciju.',
+      'Potvrđena' => 'Lokal je potvrdio ovu rezervaciju.',
+      'Otkazana' =>
+        details.cancellationReason?.isNotEmpty == true
+            ? 'Rezervacija je otkazana. Razlog: ${details.cancellationReason}'
+            : 'Rezervacija je otkazana.',
+      'Završena' => 'Termin rezervacije je završen.',
+      _ => 'Status rezervacije nije dostupan.',
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: background,
+              borderRadius: BorderRadius.circular(20),
             ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: color),
+                const SizedBox(width: 5),
+                Text(
+                  state.isEmpty ? 'Nepoznato stanje' : state,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            description,
+            style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCancellationAction(Reservation details) {
+    return FutureBuilder<List<String>>(
+      future: _allowedActionsFuture,
+      builder: (context, snapshot) {
+        final canCancel =
+            snapshot.hasData && snapshot.data!.contains('CancelAsync');
+        final state = details.reservationState ?? '';
+        final disabledReason = snapshot.hasError
+            ? 'Dozvoljene akcije nisu dostupne. Pokušajte ponovo kasnije.'
+            : snapshot.connectionState != ConnectionState.done
+            ? 'Provjeravaju se dozvoljene akcije...'
+            : _cancellationDisabledReason(state);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: canCancel && !_isCancelling
+                    ? () => _cancelReservation(details)
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  disabledBackgroundColor: Colors.red.shade100,
+                  foregroundColor: Colors.white,
+                  disabledForegroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                ),
+                child: _isCancelling
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        'Otkaži rezervaciju',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+              ),
+            ),
+            if (!canCancel) ...[
+              const SizedBox(height: 8),
+              Text(
+                disabledReason,
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 
@@ -228,6 +438,59 @@ class _WorkerReservationDetailsScreenState
           ),
         ],
       ),
+    );
+  }
+}
+
+class _CancellationReasonDialog extends StatefulWidget {
+  const _CancellationReasonDialog();
+
+  @override
+  State<_CancellationReasonDialog> createState() =>
+      _CancellationReasonDialogState();
+}
+
+class _CancellationReasonDialogState extends State<_CancellationReasonDialog> {
+  final _controller = TextEditingController();
+  String? _validationMessage;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _continue() {
+    final reason = _controller.text.trim();
+    if (reason.isEmpty) {
+      setState(() => _validationMessage = 'Razlog je obavezan.');
+      return;
+    }
+    Navigator.pop(context, reason);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Razlog otkazivanja'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        maxLength: 1000,
+        maxLines: 3,
+        decoration: InputDecoration(
+          hintText: 'Unesite razlog',
+          errorText: _validationMessage,
+          border: const OutlineInputBorder(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Nazad'),
+        ),
+        FilledButton(onPressed: _continue, child: const Text('Nastavi')),
+      ],
     );
   }
 }

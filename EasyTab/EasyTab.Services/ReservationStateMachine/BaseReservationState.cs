@@ -45,7 +45,17 @@ namespace EasyTab.Services.ReservationStateMachine
             throw new InvalidOperationException("Cannot cancel a reservation in its current state.");
         }
 
+        public virtual Task<Reservations> CancelBySystemAsync(int id, string reason)
+        {
+            throw new InvalidOperationException("Cannot cancel a reservation in its current state.");
+        }
+
         public virtual Task<Reservations> CompleteAsync(int id)
+        {
+            throw new InvalidOperationException("Cannot complete a reservation in its current state.");
+        }
+
+        public virtual Task<Reservations> CompleteBySystemAsync(int id)
         {
             throw new InvalidOperationException("Cannot complete a reservation in its current state.");
         }

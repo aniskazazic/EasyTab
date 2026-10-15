@@ -43,5 +43,7 @@ public sealed class OwnerReservationListItemResponse
     public TimeOnly EndTime { get; set; }
     public int NumberOfGuests { get; set; }
     public string TableName { get; set; } = null!;
+    public string ReservationState { get; set; } = null!;
+    public string LocaleName { get; set; } = null!;
     public bool IsCancelled { get; set; }
 }

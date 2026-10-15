@@ -176,6 +176,8 @@ namespace EasyTab.Services.Services
                     EndTime = s.EndTime,
                     NumberOfGuests = s.Table.NumberOfGuests,
                     TableName = s.Table.Name,
+                    ReservationState = s.ReservationState,
+                    LocaleName = s.Table.Locale.Name,
                     IsCancelled = s.ReservationState == "Otkazana"
                 })
                 .ToListAsync();

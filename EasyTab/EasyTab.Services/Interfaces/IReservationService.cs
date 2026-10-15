@@ -18,5 +18,6 @@ namespace EasyTab.Services.Interfaces
         Task<Reservations> ConfirmAsync(int id);
         Task<Reservations> CompleteAsync(int id);
         Task<List<string>> GetAllowedActionsAsync(int id);
+        Task ProcessAutomaticTransitionsAsync(DateTime localNow);
     }
 }

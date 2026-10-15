@@ -122,4 +122,13 @@ class ReservationProvider extends BaseProvider<Reservation> {
       await loadAll(userId);
     }
   }
+
+  Future<List<String>> getAllowedActions(int id) async {
+    final url = '${BaseProvider.baseUrl}/Reservations/allowed-actions/$id';
+    final response = await http.get(Uri.parse(url), headers: createHeaders());
+    validateResponse(response);
+
+    final data = jsonDecode(response.body) as List<dynamic>;
+    return data.cast<String>();
+  }
 }

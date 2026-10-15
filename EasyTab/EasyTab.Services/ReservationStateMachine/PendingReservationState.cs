@@ -89,6 +89,16 @@ namespace EasyTab.Services.ReservationStateMachine
 
         public override async Task<Reservations> CancelAsync(int id, string reason, int cancelledById)
         {
+            return await CancelCoreAsync(id, reason, cancelledById);
+        }
+
+        public override async Task<Reservations> CancelBySystemAsync(int id, string reason)
+        {
+            return await CancelCoreAsync(id, reason, null);
+        }
+
+        private async Task<Reservations> CancelCoreAsync(int id, string reason, int? cancelledById)
+        {
             var entity = await GetReservationOrThrowAsync(id);
 
             if (!string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
