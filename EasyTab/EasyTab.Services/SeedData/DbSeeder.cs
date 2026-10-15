@@ -59,7 +59,7 @@ namespace EasyTab.Services.SeedData
             var localeImages = CreateLocaleImages(locales);
             _context.LocaleImages.AddRange(localeImages);
 
-            var zones = CreateZones(locales);
+            var zones = CreateZones(locales, categories);
             var tables = CreateTables(locales);
             _context.Zones.AddRange(zones);
             _context.Tables.AddRange(tables);
@@ -321,12 +321,30 @@ namespace EasyTab.Services.SeedData
             return images;
         }
 
-        private static List<Zone> CreateZones(IReadOnlyList<Locale> locales)
+        private static List<Zone> CreateZones(IReadOnlyList<Locale> locales, IReadOnlyList<Category> categories)
         {
-            return locales.SelectMany((locale, localeIndex) => new[]
+            var categoriesById = categories.ToDictionary(category => category.Id);
+
+            return locales.SelectMany(locale =>
             {
-                new Zone { Name = "Sala", LocaleId = locale.Id, Xcoordinate = 10, Ycoordinate = 10, Width = 280, Height = 180 },
-                new Zone { Name = "Terasa", LocaleId = locale.Id, Xcoordinate = 320, Ycoordinate = 10, Width = 280, Height = 180 }
+                var categoryName = categoriesById[locale.CategoryId].Name;
+                var zoneNames = categoryName switch
+                {
+                    "Restoran" or "Pizzeria" => new[] { "Terasa", "Kuhinja", "WC" },
+                    "Kafić" or "Lounge bar" => new[] { "Terasa", "Šank", "WC" },
+                    "Fast food" => new[] { "Kuhinja", "WC" },
+                    _ => throw new InvalidOperationException($"Nepodržana kategorija lokala: {categoryName}")
+                };
+
+                return zoneNames.Select((name, index) => new Zone
+                {
+                    Name = name,
+                    LocaleId = locale.Id,
+                    Xcoordinate = 620,
+                    Ycoordinate = 10 + index * 200,
+                    Width = 270,
+                    Height = 170
+                });
             }).ToList();
         }
 
@@ -336,8 +354,8 @@ namespace EasyTab.Services.SeedData
             {
                 Name = $"Stol {tableNumber}",
                 LocaleId = locale.Id,
-                Xcoordinate = 30 + (tableNumber - 1) % 3 * 90,
-                Ycoordinate = 40 + (tableNumber - 1) / 3 * 80,
+                Xcoordinate = 40 + (tableNumber - 1) % 3 * 160,
+                Ycoordinate = 120 + (tableNumber - 1) / 3 * 220,
                 NumberOfGuests = tableNumber % 2 == 0 ? 4 : 2
             })).ToList();
         }

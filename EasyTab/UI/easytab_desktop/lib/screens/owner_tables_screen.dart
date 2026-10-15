@@ -58,14 +58,6 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
       final loadedTables = results[0] as List<Tables>;
       final loadedZones = results[1] as List<Zone>;
 
-      // DEBUG — vidi šta dolazi
-      for (var t in loadedTables) {
-        print("Table: ${t.name}, X: ${t.xCoordinate}, Y: ${t.yCoordinate}");
-      }
-      for (var z in loadedZones) {
-        print("Zone: ${z.name}, X: ${z.xCoordinate}, Y: ${z.yCoordinate}");
-      }
-
       setState(() {
         tables = loadedTables;
         zones = loadedZones;
@@ -113,10 +105,42 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
     );
   }
 
+  Offset? _findFreePosition({required double width, required double height}) {
+    bool overlapsExisting(double left, double top) {
+      final overlapsTable = tables.any((table) {
+        final x = table.xCoordinate ?? 0;
+        final y = table.yCoordinate ?? 0;
+        return left <= x + tableSize &&
+            left + width >= x &&
+            top <= y + tableSize &&
+            top + height >= y;
+      });
+      final overlapsZone = zones.any((zone) {
+        final x = zone.xCoordinate ?? 0;
+        final y = zone.yCoordinate ?? 0;
+        final zoneWidth = zone.width ?? 160;
+        final zoneHeight = zone.height ?? 80;
+        return left <= x + zoneWidth &&
+            left + width >= x &&
+            top <= y + zoneHeight &&
+            top + height >= y;
+      });
+      return overlapsTable || overlapsZone;
+    }
+
+    for (double y = 10; y + height <= canvasHeight; y += 20) {
+      for (double x = 10; x + width <= canvasWidth; x += 20) {
+        if (!overlapsExisting(x, y)) return Offset(x, y);
+      }
+    }
+    return null;
+  }
+
   void _showTableDialog({Tables? table, int? index}) {
     final nameController = TextEditingController(text: table?.name ?? '');
     int guests = table?.numberOfGuests ?? 2;
     final isEdit = table != null;
+    final messenger = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
@@ -189,6 +213,9 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
               ),
               onPressed: () {
                 if (nameController.text.isEmpty) return;
+                final position = isEdit
+                    ? null
+                    : _findFreePosition(width: tableSize, height: tableSize);
                 setState(() {
                   if (isEdit) {
                     tables[index!] = tables[index].copyWith(
@@ -201,14 +228,23 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                         id: 0,
                         name: nameController.text,
                         localeId: widget.localeId,
-                        xCoordinate: 10,
-                        yCoordinate: 10,
+                        xCoordinate: position?.dx ?? 10,
+                        yCoordinate: position?.dy ?? 10,
                         numberOfGuests: guests,
                       ),
                     );
                   }
                 });
                 Navigator.pop(context);
+                if (!isEdit && position == null) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Nema slobodnog mjesta na platnu. Element je postavljen u gornji lijevi ugao (10, 10).',
+                      ),
+                    ),
+                  );
+                }
               },
               child: Text(
                 isEdit ? 'Spremi' : 'Dodaj',
@@ -226,6 +262,7 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
     double width = zone?.width ?? 160;
     double height = zone?.height ?? 80;
     final isEdit = zone != null;
+    final messenger = ScaffoldMessenger.of(context);
 
     showDialog(
       context: context,
@@ -299,6 +336,9 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
               ),
               onPressed: () {
                 if (nameController.text.isEmpty) return;
+                final position = isEdit
+                    ? null
+                    : _findFreePosition(width: width, height: height);
                 setState(() {
                   if (isEdit) {
                     zones[index!] = zones[index].copyWith(
@@ -312,8 +352,8 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                         id: 0,
                         name: nameController.text,
                         localeId: widget.localeId,
-                        xCoordinate: 10,
-                        yCoordinate: 10,
+                        xCoordinate: position?.dx ?? 10,
+                        yCoordinate: position?.dy ?? 10,
                         width: width,
                         height: height,
                       ),
@@ -321,6 +361,15 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                   }
                 });
                 Navigator.pop(context);
+                if (!isEdit && position == null) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Nema slobodnog mjesta na platnu. Element je postavljen na (10, 10).',
+                      ),
+                    ),
+                  );
+                }
               },
               child: Text(
                 isEdit ? 'Spremi' : 'Dodaj',
