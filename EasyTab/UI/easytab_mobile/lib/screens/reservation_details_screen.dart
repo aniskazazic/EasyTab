@@ -58,16 +58,12 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
         tableId,
         _selectedDate,
       );
-      print(
-        '[Slots] tableId=$tableId date=$_selectedDate count=${slots.length}',
-      );
       if (!mounted) return;
       setState(() {
         _slots = slots;
         _slotsLoading = false;
       });
-    } catch (e) {
-      print('[Slots] ERROR: $e');
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _slotsError = 'Greška pri učitavanju termina.';
@@ -134,18 +130,20 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
     }
 
     final slot = _slots[_selectedSlotIndex!];
-    final startTimeFormatted =
-        slot.start.length == 5 ? '${slot.start}:00' : slot.start;
-    final endTimeFormatted =
-        slot.end.length == 5 ? '${slot.end}:00' : slot.end;
+    final startTimeFormatted = slot.start.length == 5
+        ? '${slot.start}:00'
+        : slot.start;
+    final endTimeFormatted = slot.end.length == 5 ? '${slot.end}:00' : slot.end;
 
     final request = {
       'userId': userId,
       'tableId': table.id,
       'numberOfGuests': table.numberOfGuests ?? 2,
-      'reservationDate':
-          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day)
-              .toIso8601String(),
+      'reservationDate': DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day,
+      ).toIso8601String(),
       'startTime': startTimeFormatted,
       'endTime': endTimeFormatted,
     };
@@ -219,7 +217,10 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
               ),
               const SizedBox(height: 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFEF3C7),
                   borderRadius: BorderRadius.circular(20),

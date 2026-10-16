@@ -61,7 +61,7 @@ class SessionManager with WidgetsBindingObserver {
       }
     } catch (e) {
       // Ako dekodiranje ne uspije, ne radimo nista (fallback na interceptor)
-      print("Greška pri dekodiranju tokena u SessionManager: $e");
+      debugPrint("Greška pri dekodiranju tokena u SessionManager: $e");
     }
   }
 

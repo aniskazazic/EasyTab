@@ -1,5 +1,4 @@
-﻿using Azure.Core;
-using EasyTab.Common.Services.CryptoService;
+﻿using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Access;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
@@ -29,10 +28,14 @@ namespace EasyTab.API.Services.AccessManager
         }
         public async Task<UserLoginResponse> LoginAsync(UserLoginRequest request)
         {
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password))
+            {
+                throw new UserException("Pogrešno korisničko ime ili lozinka.");
+            }
+
             var user = await _userService.GetByUsernameAsync(request.Username);
 
-            if (user == null
-                || !_cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password))
+            if (user == null || !_cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password))
             {
                 throw new UserException("Pogrešno korisničko ime ili lozinka.");
             }

@@ -36,7 +36,6 @@ class AuthProvider extends ChangeNotifier {
 
   Future login(String username, String password) async {
     var url = "$_baseUrl/Access/Login";
-    print("Login url: $url");
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
@@ -46,15 +45,11 @@ class AuthProvider extends ChangeNotifier {
 
     validateLoginResponse(response);
 
-    print("Response body: ${response.body}");
     var data = jsonDecode(response.body);
-    print("Decoded data: $data");
     _accessToken = data['accessToken'];
     _refreshToken = data['refreshToken'];
     _isAuthenticated = true;
     _accessTokenDecoded = JwtDecoder.decode(_accessToken ?? "");
-    print("AccessToken: $_accessToken");
-    print("AccessTokenDecoded: $_accessTokenDecoded");
     notifyListeners();
   }
 
@@ -160,21 +155,3 @@ class AuthProvider extends ChangeNotifier {
     currentUser = null;
   }
 }
-
-/*
-  static String? username;
-  static String? password;
-  static User? currentUser;
-
-  static bool get isAdmin =>
-      currentUser?.userRoles?.any((r) => r.role?.name == 'Admin') ?? false;
-
-  static bool get isOwner =>
-      currentUser?.userRoles?.any((r) => r.role?.name == 'Vlasnik') ?? false;
-
-  static void clear() {
-    username = null;
-    password = null;
-    currentUser = null;
-  }
-  */

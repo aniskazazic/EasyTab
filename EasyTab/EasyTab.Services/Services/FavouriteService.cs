@@ -23,7 +23,7 @@ namespace EasyTab.Services.Services
             _currentUser = currentUser;
         }
 
-        protected override IQueryable<Favourite> ApplyFilter(IQueryable<Favourite> query, FavouriteSearchObject search)
+        protected override IQueryable<Favourite> ApplyFilter(IQueryable<Favourite> query, FavouriteSearchObject? search)
         {
             query = query.Include(x => x.Locale)
                         .Include(x => x.User);
@@ -184,7 +184,7 @@ namespace EasyTab.Services.Services
 
             fav.IsActive = false;
             await Context.SaveChangesAsync();
-            _logger.LogWarning("Favourite removed. UserId: {UserId}, LocaleId: {LocaleId}", userId, localeId);
+            _logger.LogInformation("Favourite removed. UserId: {UserId}, LocaleId: {LocaleId}", userId, localeId);
         }
     }
 }

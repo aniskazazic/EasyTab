@@ -20,7 +20,6 @@ class SettingsUserScreen extends StatefulWidget {
 
 class _SettingsUserScreenState extends State<SettingsUserScreen> {
   late UserProvider _userProvider;
-  late AuthProvider _authProvider;
   late User user;
   bool isLoading = true;
   String? errorMessage;
@@ -29,17 +28,12 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
   void initState() {
     super.initState();
     _userProvider = context.read<UserProvider>();
-    _authProvider = context.read<AuthProvider>();
     initData();
   }
 
   Future<void> initData() async {
     try {
-      print(
-        "AuthProvider.accessTokenDecoded: ${AuthProvider.accessTokenDecoded}",
-      );
       var id = AuthProvider.accessTokenDecoded?['Id'];
-      print("User ID: $id");
       if (id == null) {
         throw Exception("User ID not found in token");
       }
@@ -49,9 +43,7 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
         user = result;
         isLoading = false;
       });
-      print("user: ${user.firstName}, ${user.lastName}, ${user.email}");
     } catch (e) {
-      print("Error loading user: $e");
       setState(() {
         errorMessage = e.toString();
         isLoading = false;

@@ -228,14 +228,10 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var response = await _sendRequestWithRefresh(
       () => http.get(uri, headers: headers),
     );
-    // throw new Exception("Greška");
     validateResponse(response);
     var data = jsonDecode(response.body);
 
-    // var result = data as T;
     return fromJson(data);
-    // return result;
-    // print("response: ${response.request} ${response.statusCode}, ${response.body}");
   }
 
   Future<Response> _sendRequestWithRefresh(

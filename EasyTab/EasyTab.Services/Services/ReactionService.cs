@@ -7,13 +7,9 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
-using Microsoft.AspNetCore.Mvc.ApplicationModels;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 
@@ -30,7 +26,7 @@ namespace EasyTab.Services.Services
             _currentUser = currentUser;
         }
 
-        protected override IQueryable<Reaction> ApplyFilter(IQueryable<Reaction> query, ReactionSearchObject search)
+        protected override IQueryable<Reaction> ApplyFilter(IQueryable<Reaction> query, ReactionSearchObject? search)
         {
             if (search?.ReviewId.HasValue == true)
                 query = query.Where(x => x.ReviewId == search.ReviewId);
@@ -103,7 +99,7 @@ namespace EasyTab.Services.Services
 
             Context.Reactions.Remove(reaction);
             await Context.SaveChangesAsync();
-            _logger.LogWarning("Reaction removed. UserId: {UserId}, ReviewId: {ReviewId}", userId, reviewId);
+            _logger.LogInformation("Reaction removed. UserId: {UserId}, ReviewId: {ReviewId}", userId, reviewId);
         }
 
         public async Task<ReactionsCount> GetReactionCountsAsync(int reviewId)

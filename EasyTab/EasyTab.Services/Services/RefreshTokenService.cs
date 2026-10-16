@@ -1,10 +1,7 @@
-﻿using EasyTab.Services.Database;
+using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace EasyTab.Services.Services
@@ -21,10 +18,14 @@ namespace EasyTab.Services.Services
         }
 
 
-        public Task DeleteAllUserRefreshTokensAsync(int userId)
+        public async Task DeleteAllUserRefreshTokensAsync(int userId)
         {
-            _refreshTokens.RemoveRange(_refreshTokens.Where(rt => rt.UserId == userId));
-            return _context.SaveChangesAsync(); ;
+            var userTokens = await _refreshTokens
+                .Where(rt => rt.UserId == userId)
+                .ToListAsync();
+
+            _refreshTokens.RemoveRange(userTokens);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<RefreshToken?> GetStoredTokenAsync(string refreshToken)

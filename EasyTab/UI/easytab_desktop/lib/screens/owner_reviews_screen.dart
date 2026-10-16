@@ -30,7 +30,6 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   int _totalCount = 0;
   int _currentPage = 0;
   final int _pageSize = 10;
-  List<Review> _allReviews = [];
   List<Review> _reviews = [];
   bool _initialized = false;
   DateTime? _selectedDate;
@@ -58,11 +57,6 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   }
 
   @override
-  void initState() {
-    super.initState();
-  }
-
-  @override
   void dispose() {
     searchController.dispose();
     super.dispose();
@@ -82,7 +76,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
             isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _buildTable(),
-            if (!isLoading && !_isFiltering)
+            if (!isLoading)
               PaginationUtils.buildPageControls(
                 currentPage: _currentPage,
                 totalCount: _totalCount,
@@ -118,6 +112,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
                   vertical: 10,
                 ),
               ),
+              onSubmitted: (_) => _onSearchPressed(),
             ),
           ),
           const SizedBox(width: 12),
@@ -144,6 +139,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
               onChanged: (value) {
                 setState(() {
                   _selectedRating = value == 0 ? null : value;
+                  _currentPage = 0;
                 });
               },
             ),
@@ -195,58 +191,37 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   Future<void> _loadReviews() async {
     setState(() => isLoading = true);
     try {
-      final reviews = await _reviewProvider.getByLocaleId(widget.localeId);
-      _allReviews = reviews;
-
-      _applyFilters(_allReviews.length);
+      final selectedDate = _selectedDate;
+      final dateFrom = selectedDate == null
+          ? null
+          : DateTime(
+              selectedDate.year,
+              selectedDate.month,
+              selectedDate.day,
+            ).toUtc();
+      final filter = <String, dynamic>{
+        'Page': _currentPage + 1,
+        'PageSize': _pageSize,
+        'IncludeTotalCount': true,
+        'LocaleId': widget.localeId,
+        if (searchController.text.trim().isNotEmpty)
+          'Text': searchController.text.trim(),
+        if (_selectedRating != null) 'Rating': _selectedRating,
+        if (dateFrom != null) 'DateFrom': dateFrom.toIso8601String(),
+        if (dateFrom != null)
+          'DateTo': dateFrom.add(const Duration(days: 1)).toIso8601String(),
+      };
+      final result = await _reviewProvider.get(filter: filter);
       setState(() {
+        _reviews = result.items ?? [];
+        _totalCount = result.totalCount ?? _reviews.length;
         isLoading = false;
       });
     } catch (e) {
       setState(() => isLoading = false);
       _showError(e.toString());
     }
-    print('Loaded ${_reviews.length} reviews, total count: $_totalCount');
   }
-
-  void _applyFilters(int serverTotalCount) {
-    final query = searchController.text.toLowerCase();
-    final selectedDate = _selectedDate;
-    final selectedRating = _selectedRating;
-
-    _reviews = _allReviews.where((review) {
-      final combinedText =
-          '${review.userFullName ?? ''} ${review.description ?? ''}'
-              .toLowerCase();
-      final matchesQuery = query.isEmpty || combinedText.contains(query);
-      final matchesDate =
-          selectedDate == null ||
-          (review.dateAdded != null &&
-              _isSameDay(toLocalDateTime(review.dateAdded!), selectedDate));
-      final matchesRating =
-          selectedRating == null || review.rating == selectedRating;
-      return matchesQuery && matchesDate && matchesRating;
-    }).toList();
-
-    if (_isFiltering) {
-      _totalCount = _reviews.length;
-    } else {
-      _totalCount = serverTotalCount;
-    }
-  }
-
-  bool _isSameDay(DateTime first, DateTime second) {
-    final localFirst = toLocalDateTime(first);
-    final localSecond = toLocalDateTime(second);
-    return localFirst.year == localSecond.year &&
-        localFirst.month == localSecond.month &&
-        localFirst.day == localSecond.day;
-  }
-
-  bool get _isFiltering =>
-      searchController.text.isNotEmpty ||
-      _selectedDate != null ||
-      _selectedRating != null;
 
   String _formatDate(DateTime date) {
     return formatSystemDateOnly(date);
@@ -273,9 +248,8 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
       _selectedDate = null;
       _currentPage = 0;
     });
+    _loadReviews();
   }
-
-
 
   void _showError(String message) {
     showDialog(

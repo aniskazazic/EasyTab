@@ -37,15 +37,11 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
       final localeProvider = context.read<LocaleProvider>();
       final ownerId =
           int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
-      ;
       if (ownerId == 0) return;
 
       final locales = await localeProvider.getByOwner(ownerId);
       setState(() {
         _locales = locales;
-        /*if (locales.isNotEmpty && expandedLocales.isEmpty) {
-          expandedLocales.add(locales.first.id!);
-        }*/
       });
     } catch (e) {
       debugPrint('Error loading locales: $e');

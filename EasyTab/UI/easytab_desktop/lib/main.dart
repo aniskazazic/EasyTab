@@ -7,7 +7,6 @@ import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/providers/review_provider.dart';
 import 'package:easytab_desktop/providers/table_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
-import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
 import 'package:easytab_desktop/providers/zone_provider.dart';
 import 'package:easytab_desktop/screens/admin_add_user_screen.dart';

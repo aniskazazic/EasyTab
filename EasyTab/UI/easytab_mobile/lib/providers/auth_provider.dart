@@ -50,7 +50,6 @@ class AuthProvider extends ChangeNotifier {
 
   Future login(String username, String password) async {
     var url = "$_baseUrl/Access/Login";
-    print("Login url: $url");
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
@@ -60,9 +59,7 @@ class AuthProvider extends ChangeNotifier {
 
     validateLoginResponse(response);
 
-    print("Response body: ${response.body}");
     var data = jsonDecode(response.body);
-    print("Decoded data: $data");
     _accessToken = data['accessToken'];
     _refreshToken = data['refreshToken'];
     _isAuthenticated = true;
@@ -81,8 +78,6 @@ class AuthProvider extends ChangeNotifier {
       );
     }
 
-    print("AccessToken: $_accessToken");
-    print("AccessTokenDecoded: $_accessTokenDecoded");
     notifyListeners();
     if (_accessToken != null) {
       SessionManager().startSession(_accessToken!);

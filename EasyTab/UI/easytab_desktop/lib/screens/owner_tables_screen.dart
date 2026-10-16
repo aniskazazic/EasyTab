@@ -449,12 +449,6 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
     }
   }
 
-  Offset _getCanvasOffset() {
-    final RenderBox? box =
-        _canvasKey.currentContext?.findRenderObject() as RenderBox?;
-    return box?.localToGlobal(Offset.zero) ?? Offset.zero;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
