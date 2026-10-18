@@ -18,8 +18,8 @@ namespace EasyTab.API.Controllers
     [Authorization]
     public class UsersController : BaseCRUDController<Users, UserSearchObject, UserInsertRequest, UserUpdateRequest>
     {
-        private readonly IUserService _service;
-        public UsersController(IUserService service) : base(service) { _service = service; }
+        private readonly IUserService _userService;
+        public UsersController(IUserService service) : base(service) { _userService = service; }
 
         public override Task<PagedResult<Users>> Get([FromQuery] UserSearchObject? search = null)
         {
@@ -46,7 +46,7 @@ namespace EasyTab.API.Controllers
         [HttpPut("ChangePassword")]
         public async Task<IActionResult> ChangePassword([FromBody] UserPasswordChangeRequest request)
         {
-            await _service.ChangePasswordAsync(request);
+            await _userService.ChangePasswordAsync(request);
             return Ok();
         }
     }

@@ -15,10 +15,10 @@ namespace EasyTab.API.Controllers
     [Authorization]
     public class TablesController : BaseCRUDController<Tables, TableSearchObject, TableInsertRequest, TableUpdateRequest>
     {
-        public ITableService _service;
+        private readonly ITableService _tableService;
         public TablesController(ITableService service) : base(service)
         {
-            _service = service;
+            _tableService = service;
         }
 
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
@@ -34,7 +34,7 @@ namespace EasyTab.API.Controllers
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public async Task<IActionResult> SaveLayout([FromBody] TableLayoutRequest request)
         {
-            await _service.SaveLayoutAsync(request);
+            await _tableService.SaveLayoutAsync(request);
             return Ok(new { Message = "Tables saved" });
         }
     }

@@ -14,10 +14,10 @@ namespace EasyTab.API.Controllers
     [Authorization]
     public class ZonesController : BaseCRUDController<Zones, ZoneSearchObject, ZoneInsertRequest, ZoneUpdateRequest>
     {
-        public IZoneService _service;
+        private readonly IZoneService _zoneService;
         public ZonesController(IZoneService service) : base(service) 
         { 
-            _service = service; 
+            _zoneService = service;
         }
 
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
@@ -34,7 +34,7 @@ namespace EasyTab.API.Controllers
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public async Task<IActionResult> SaveLayout([FromBody] ZoneLayoutRequest request)
         {
-            await _service.SaveLayoutAsync(request);
+            await _zoneService.SaveLayoutAsync(request);
             return Ok(new { Message = "Zones saved" });
         }
 

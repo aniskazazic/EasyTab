@@ -132,10 +132,7 @@ namespace EasyTab.Services.Services
         public async Task<CanReviewResponse> CanReviewAsync(int localeId)
         {
             var userId = _currentUser.UserId;
-            var hasCompletedReservation = await Context.Reservations.AnyAsync(r =>
-                r.UserId == userId &&
-                r.ReservationState == CompletedReservationState.StateName &&
-                r.Table.LocaleId == localeId);
+            var hasCompletedReservation = await HasCompletedReservationAsync(userId, localeId);
 
             if (!hasCompletedReservation)
             {
@@ -170,10 +167,9 @@ namespace EasyTab.Services.Services
             if (string.IsNullOrWhiteSpace(request.Description))
                 throw new UserException("Opis recenzije je obavezan!");
 
-            var hasCompletedReservation = await Context.Reservations.AnyAsync(r =>
-                r.UserId == request.UserId &&
-                r.ReservationState == CompletedReservationState.StateName &&
-                r.Table.LocaleId == request.LocaleId);
+            var hasCompletedReservation = await HasCompletedReservationAsync(
+                request.UserId,
+                request.LocaleId);
 
             if (!hasCompletedReservation)
                 throw new UserException("Recenziju možete ostaviti tek nakon završene rezervacije u ovom lokalu.");
@@ -222,6 +218,14 @@ namespace EasyTab.Services.Services
         {
             if (!_currentUser.IsAdmin && entity.UserId != _currentUser.UserId)
                 throw new UnauthorizedAccessException("Nemate dozvolu za ovu akciju.");
+        }
+
+        private Task<bool> HasCompletedReservationAsync(int userId, int localeId)
+        {
+            return Context.Reservations.AnyAsync(r =>
+                r.UserId == userId &&
+                r.ReservationState == CompletedReservationState.StateName &&
+                r.Table.LocaleId == localeId);
         }
 
         public async Task<ReviewAverage> GetAverageRatingAsync(int localeId)

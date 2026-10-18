@@ -14,10 +14,10 @@ namespace EasyTab.API.Controllers
     [Route("[controller]")]
     public class ReservationsController : BaseCRUDController<Reservations, ReservationSearchObject, ReservationInsertRequest, ReservationUpdateRequest>
     {
-        public IReservationService _service;
+        private readonly IReservationService _reservationService;
         public ReservationsController(IReservationService service) : base(service)
         {
-            _service = service;
+            _reservationService = service;
         }
 
         [Authorization]
@@ -32,14 +32,14 @@ namespace EasyTab.API.Controllers
         [HttpGet("available-slots")]
         public async Task<IActionResult> GetAvailableSlots([FromQuery] int tableId, [FromQuery] DateTime date)
         {
-            var slots = await _service.GetAvailableSlotsAsync(tableId, date);
+            var slots = await _reservationService.GetAvailableSlotsAsync(tableId, date);
             return Ok(slots);
         }
 
         [HttpPut("cancel/{id}")]
         public async Task<IActionResult> CancelReservation(int id, [FromBody] CancelReservationRequest request)
         {
-            await _service.CancelReservationAsync(id, request.Reason);
+            await _reservationService.CancelReservationAsync(id, request.Reason);
             return Ok(new { Message = "Rezervacija otkazana!" });
         }
 
@@ -47,7 +47,7 @@ namespace EasyTab.API.Controllers
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
         public async Task<IActionResult> ConfirmReservation(int id)
         {
-            var reservation = await _service.ConfirmAsync(id);
+            var reservation = await _reservationService.ConfirmAsync(id);
             return Ok(reservation);
         }
 
@@ -55,7 +55,7 @@ namespace EasyTab.API.Controllers
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
         public async Task<IActionResult> CompleteReservation(int id)
         {
-            var reservation = await _service.CompleteAsync(id);
+            var reservation = await _reservationService.CompleteAsync(id);
             return Ok(reservation);
         }
 
@@ -63,7 +63,7 @@ namespace EasyTab.API.Controllers
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
         public async Task<IActionResult> GetAllowedActions(int id)
         {
-            var actions = await _service.GetAllowedActionsAsync(id);
+            var actions = await _reservationService.GetAllowedActionsAsync(id);
             return Ok(actions);
         }
     }

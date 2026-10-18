@@ -25,6 +25,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   late UserProvider userProvider;
   bool isLoading = true;
   File? _imageFile;
+  bool _removeProfilePicture = false;
   bool _changePassword = false;
 
   @override
@@ -104,7 +105,10 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   Future<void> _pickImage() async {
     final result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
-      setState(() => _imageFile = File(result.files.single.path!));
+      setState(() {
+        _imageFile = File(result.files.single.path!);
+        _removeProfilePicture = false;
+      });
     }
   }
 
@@ -128,6 +132,9 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       request.removeWhere(
         (key, value) => value == null || value.toString().isEmpty,
       );
+      if (_removeProfilePicture && _imageFile == null) {
+        request['profilePicture'] = '';
+      }
       final currentPassword = request.remove('currentPassword');
       final newPassword = request.remove('password');
       final passwordConfirmation = request.remove('passwordConfirmation');
@@ -162,7 +169,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
 
   Future<void> _confirmDeleteImage() async {
     final user = AuthProvider.currentUser;
-    if (user?.profilePicture == null) return;
+    if (user?.profilePicture == null || _removeProfilePicture) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -175,21 +182,12 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
+            onPressed: () {
               Navigator.pop(context);
-              try {
-                await userProvider.update(user!.id!, {'profilePicture': ''});
-                if (!mounted) return;
-                setState(() => AuthProvider.currentUser?.profilePicture = null);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Slika uspjesno obrisana!'),
-                    backgroundColor: Colors.green,
-                  ),
-                );
-              } catch (e) {
-                _showError(e.toString());
-              }
+              setState(() {
+                _removeProfilePicture = true;
+                _imageFile = null;
+              });
             },
             child: const Text('Obrisi', style: TextStyle(color: Colors.white)),
           ),
@@ -236,9 +234,13 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                           radius: 60,
                           backgroundImage: _imageFile != null
                               ? FileImage(_imageFile!)
+                              : _removeProfilePicture
+                              ? null
                               : imageProviderFromString(user?.profilePicture),
                           child:
-                              user?.profilePicture == null && _imageFile == null
+                              (_removeProfilePicture ||
+                                      user?.profilePicture == null) &&
+                                  _imageFile == null
                               ? const Icon(
                                   Icons.person,
                                   size: 60,
@@ -256,13 +258,15 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                                 : 'Promijeni sliku',
                           ),
                         ),
-                        if (user?.profilePicture != null && _imageFile == null)
+                        if (user?.profilePicture != null &&
+                            _imageFile == null &&
+                            !_removeProfilePicture)
                           TextButton.icon(
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.red,
                             ),
                             icon: const Icon(Icons.delete, size: 18),
-                            label: const Text('Obrisi sliku'),
+                            label: const Text('Obriši sliku'),
                             onPressed: _confirmDeleteImage,
                           ),
                       ],
