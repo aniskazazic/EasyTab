@@ -7,6 +7,7 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.Validators;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.AspNetCore.Identity;
@@ -73,8 +74,21 @@ namespace EasyTab.Services.Services
             };
         }
 
+        public override async Task<PagedResult<Workers>> GetAsync(WorkerSearchObject search)
+        {
+            var result = await base.GetAsync(search);
+            foreach (var worker in result.Items)
+                worker.ProfilePicture = null;
+
+            return result;
+        }
+
         public override async Task<Workers> CreateAsync(WorkerInsertRequest request)
         {
+            ImageContentValidator.ValidateOptionalImage(
+                request.ProfilePicture,
+                nameof(request.ProfilePicture));
+
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
 
             var existingUser = Context.Users
@@ -162,6 +176,9 @@ namespace EasyTab.Services.Services
 
         public override async Task<Workers?> UpdateAsync(int id, WorkerUpdateRequest request)
         {
+            ImageContentValidator.ValidateOptionalImage(
+                request.ProfilePicture,
+                nameof(request.ProfilePicture));
 
             var worker = await Context.Workers
                 .Include(x => x.User)
@@ -207,6 +224,17 @@ namespace EasyTab.Services.Services
             await Context.SaveChangesAsync();
 
             return MapToResponse(worker);
+        }
+
+        public override async Task<Workers?> GetByIdAsync(int id)
+        {
+            var worker = await Context.Workers
+                .Include(x => x.User)
+                .Include(x => x.Locale)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            return worker == null ? null : MapToResponse(worker);
         }
 
         protected override async Task BeforeInsert(Worker entity, WorkerInsertRequest request)

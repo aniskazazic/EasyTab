@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'dart:io';
 import 'package:easytab_desktop/models/worker.dart';
 import 'package:easytab_desktop/providers/utils.dart';
@@ -34,8 +35,11 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   late WorkerProvider workerProvider;
   late UserProvider userProvider;
   bool isLoading = false;
+  bool _isLoadingWorker = false;
   bool _changePassword = false;
   File? _image;
+  String? _profilePictureError;
+  Worker? _worker;
   bool get _isInsert => widget.worker == null;
 
   @override
@@ -43,6 +47,20 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
     super.initState();
     workerProvider = Provider.of<WorkerProvider>(context, listen: false);
     userProvider = Provider.of<UserProvider>(context, listen: false);
+    _worker = widget.worker;
+    if (_worker?.id != null) _loadWorker(_worker!.id!);
+  }
+
+  Future<void> _loadWorker(int id) async {
+    setState(() => _isLoadingWorker = true);
+    try {
+      final worker = await workerProvider.getById(id);
+      if (mounted) setState(() => _worker = worker);
+    } catch (e) {
+      if (mounted) _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoadingWorker = false);
+    }
   }
 
   void _showError(String message) {
@@ -84,7 +102,10 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   void _getImage() async {
     var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
-      setState(() => _image = File(result.files.single.path!));
+      setState(() {
+        _image = File(result.files.single.path!);
+        _profilePictureError = null;
+      });
     }
   }
 
@@ -124,12 +145,12 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
         final currentPassword = request.remove('currentPassword');
         final newPassword = request.remove('password');
         final passwordConfirmation = request.remove('passwordConfirmation');
-        await workerProvider.update(widget.worker!.id!, request);
+        await workerProvider.update(_worker!.id!, request);
         profileUpdated = true;
 
-        if (_changePassword && widget.worker!.userId != null) {
+        if (_changePassword && _worker!.userId != null) {
           await userProvider.changePassword({
-            'id': widget.worker!.userId,
+            'id': _worker!.userId,
             'password': currentPassword,
             'newPassword': newPassword,
             'confirmNewPassword': passwordConfirmation,
@@ -139,11 +160,18 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
       }
     } catch (e) {
       final message = e.toString().replaceAll("Exception: ", "");
-      _showError(
-        profileUpdated
-            ? 'Profil je sačuvan, ali lozinka nije promijenjena: $message'
-            : message,
-      );
+      final imageError = e is ApiClientException
+          ? e.imageValidationErrors['profilePicture']
+          : null;
+      if (imageError != null) {
+        setState(() => _profilePictureError = imageError);
+      } else {
+        _showError(
+          profileUpdated
+              ? 'Profil je sačuvan, ali lozinka nije promijenjena: $message'
+              : message,
+        );
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -180,7 +208,11 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  Expanded(child: _buildForm()),
+                  Expanded(
+                    child: _isLoadingWorker
+                        ? const Center(child: CircularProgressIndicator())
+                        : _buildForm(),
+                  ),
                   _buildSaveButton(),
                 ],
               ),
@@ -201,7 +233,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
             backgroundColor: const Color(0xFF1E40AF),
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
-          onPressed: isLoading ? null : _handleSave,
+          onPressed: isLoading || _isLoadingWorker ? null : _handleSave,
           child: isLoading
               ? const CircularProgressIndicator(color: Colors.white)
               : Text(
@@ -217,14 +249,14 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
     return FormBuilder(
       key: formKey,
       initialValue: {
-        'firstName': widget.worker?.firstName ?? '',
-        'lastName': widget.worker?.lastName ?? '',
-        'username': widget.worker?.username ?? '',
-        'email': widget.worker?.email ?? '',
-        'phoneNumber': widget.worker?.phoneNumber ?? '',
+        'firstName': _worker?.firstName ?? '',
+        'lastName': _worker?.lastName ?? '',
+        'username': _worker?.username ?? '',
+        'email': _worker?.email ?? '',
+        'phoneNumber': _worker?.phoneNumber ?? '',
         'password': '',
         'passwordConfirmation': '',
-        'birthDate': widget.worker?.birthDate,
+        'birthDate': _worker?.birthDate,
       },
       child: SingleChildScrollView(
         child: Column(
@@ -245,13 +277,11 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                   child: ClipOval(
                     child: _image != null
                         ? Image.file(_image!, fit: BoxFit.cover)
-                        : imageProviderFromString(
-                                widget.worker?.profilePicture,
-                              ) !=
+                        : imageProviderFromString(_worker?.profilePicture) !=
                               null
                         ? Image(
                             image: imageProviderFromString(
-                              widget.worker?.profilePicture,
+                              _worker?.profilePicture,
                             )!,
                             fit: BoxFit.cover,
                             errorBuilder: (_, __, ___) => const Icon(
@@ -285,13 +315,13 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                               Text(
                                 _image != null
                                     ? 'Nova slika odabrana ✓'
-                                    : widget.worker?.profilePicture != null
+                                    : _worker?.profilePicture != null
                                     ? 'Promijeni sliku'
                                     : 'Odaberite sliku',
                                 style: TextStyle(
                                   color: _image != null
                                       ? Colors.green
-                                      : widget.worker?.profilePicture != null
+                                      : _worker?.profilePicture != null
                                       ? Colors.blue
                                       : Colors.grey,
                                 ),
@@ -301,9 +331,19 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                           ),
                         ),
                       ),
+                      if (_profilePictureError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _profilePictureError!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       // Dugme za brisanje — prikazuje se samo ako ima sliku
                       if (!_isInsert &&
-                          widget.worker?.profilePicture != null &&
+                          _worker?.profilePicture != null &&
                           _image == null)
                         TextButton.icon(
                           style: TextButton.styleFrom(
@@ -312,13 +352,13 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                           icon: const Icon(Icons.delete, size: 18),
                           label: const Text('Obriši sliku'),
                           onPressed: () => _deleteImage(
-                            fileUrl: widget.worker!.profilePicture!,
+                            fileUrl: _worker!.profilePicture!,
                             subfolder: 'ImageFolder/ProfilePictures',
                             onDeleted: () async {
                               // Postavi sliku na null u bazi
-                              await workerProvider.update(widget.worker!.id!, {
-                                'firstName': widget.worker!.firstName,
-                                'lastName': widget.worker!.lastName,
+                              await workerProvider.update(_worker!.id!, {
+                                'firstName': _worker!.firstName,
+                                'lastName': _worker!.lastName,
                                 'profilePicture': '',
                               });
                               widget.onSaved?.call();

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
@@ -25,6 +26,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   late UserProvider userProvider;
   bool isLoading = true;
   File? _imageFile;
+  String? _profilePictureError;
   bool _removeProfilePicture = false;
   bool _changePassword = false;
 
@@ -108,6 +110,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       setState(() {
         _imageFile = File(result.files.single.path!);
         _removeProfilePicture = false;
+        _profilePictureError = null;
       });
     }
   }
@@ -157,11 +160,18 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       if (mounted) _showSuccess('Podaci uspjesno azurirani!');
     } catch (e) {
       final message = e.toString().replaceAll('Exception: ', '');
-      _showError(
-        profileUpdated
-            ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
-            : message,
-      );
+      final imageError = e is ApiClientException
+          ? e.imageValidationErrors['profilePicture']
+          : null;
+      if (imageError != null) {
+        setState(() => _profilePictureError = imageError);
+      } else {
+        _showError(
+          profileUpdated
+              ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
+              : message,
+        );
+      }
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -258,6 +268,16 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                                 : 'Promijeni sliku',
                           ),
                         ),
+                        if (_profilePictureError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _profilePictureError!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
                         if (user?.profilePicture != null &&
                             _imageFile == null &&
                             !_removeProfilePicture)

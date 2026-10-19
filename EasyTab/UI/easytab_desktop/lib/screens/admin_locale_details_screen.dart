@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/category.dart';
 import 'package:easytab_desktop/models/city.dart';
@@ -175,7 +176,14 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         _showSuccess('Lokal uspješno ažuriran!');
       }
     } catch (e) {
-      _showError(e.toString());
+      final imageError = e is ApiClientException
+          ? e.imageValidationErrors['logo']
+          : null;
+      if (imageError != null) {
+        setState(() => _logoError = imageError);
+      } else {
+        _showError(e.toString());
+      }
     }
   }
 
@@ -314,6 +322,16 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                           ),
                         ),
                       ),
+                      if (_logoError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _logoError!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       if (!_isInsert &&
                           widget.locale?.logo != null &&
                           _image == null)
@@ -617,12 +635,14 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   }
 
   File? _image;
+  String? _logoError;
 
   void getImage() async {
     var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       setState(() {
         _image = File(result.files.single.path!);
+        _logoError = null;
       });
     }
   }

@@ -3,9 +3,30 @@ import 'dart:convert';
 /// Thrown when the API returns an error body we can show to the user
 /// (e.g. [ClinetException] → HTTP 400 with `message` / `errors` from ExceptionFilter).
 class ApiClientException implements Exception {
-  ApiClientException(this.message);
+  ApiClientException(this.message, {this.validationErrors = const {}});
 
+  static const imageValidationMessage =
+      'Slika mora biti JPG, JPEG ili PNG i manja od 300 KB.';
   final String message;
+  final Map<String, List<String>> validationErrors;
+
+  Map<String, String> get imageValidationErrors {
+    final result = <String, String>{};
+    for (final entry in validationErrors.entries) {
+      if (!entry.value.contains(imageValidationMessage)) continue;
+
+      final key = entry.key.toLowerCase();
+      final field = key.contains('profilepicture')
+          ? 'profilePicture'
+          : key.contains('logo')
+          ? 'logo'
+          : key.contains('images') || key.contains('base64content')
+          ? 'images'
+          : null;
+      if (field != null) result[field] = imageValidationMessage;
+    }
+    return result;
+  }
 
   @override
   String toString() => message;
@@ -21,6 +42,7 @@ class ApiErrorParser {
     if (trimmed.isEmpty) {
       return null;
     }
+
     try {
       final decoded = jsonDecode(trimmed);
       if (decoded is! Map) {
@@ -63,6 +85,27 @@ class ApiErrorParser {
       return null;
     } catch (_) {
       return null;
+    }
+  }
+
+  static Map<String, List<String>> validationErrorsFromBody(String body) {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return const {};
+
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is! Map || decoded['errors'] is! Map) return const {};
+
+      final errors = Map<String, dynamic>.from(decoded['errors'] as Map);
+      return {
+        for (final entry in errors.entries)
+          if (entry.value is List && (entry.value as List).isNotEmpty)
+            entry.key: (entry.value as List)
+                .map((value) => value.toString())
+                .toList(),
+      };
+    } on FormatException {
+      return const {};
     }
   }
 

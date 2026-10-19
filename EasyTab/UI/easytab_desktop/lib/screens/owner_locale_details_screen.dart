@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/models/category.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/models/country.dart';
@@ -53,6 +54,8 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   int? selectedCountryId;
   bool isLoading = true;
   File? _image;
+  String? _logoError;
+  String? _galleryError;
 
   bool get _isInsert => widget.locale == null;
 
@@ -202,14 +205,27 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         _showSuccess('Postavke uspješno sačuvane!');
       }
     } catch (e) {
-      _showError(e.toString());
+      final imageErrors = e is ApiClientException
+          ? e.imageValidationErrors
+          : const <String, String>{};
+      if (imageErrors.isNotEmpty) {
+        setState(() {
+          _logoError = imageErrors['logo'];
+          _galleryError = imageErrors['images'];
+        });
+      } else {
+        _showError(e.toString());
+      }
     }
   }
 
   void _getImage() async {
     var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
-      setState(() => _image = File(result.files.single.path!));
+      setState(() {
+        _image = File(result.files.single.path!);
+        _logoError = null;
+      });
     }
   }
 
@@ -282,6 +298,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 } else {
                   setState(() {
                     newImages.remove(image);
+                    _galleryError = null;
                   });
                 }
 
@@ -533,6 +550,16 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                           ),
                         ),
                       ),
+                      if (_logoError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _logoError!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       if (!_isInsert &&
                           widget.locale?.logo != null &&
                           _image == null)
@@ -786,6 +813,19 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 ],
               ),
             ),
+            if (_galleryError != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    _galleryError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -800,18 +840,26 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       );
 
       if (result != null) {
+        setState(() => _galleryError = null);
         for (var file in result.files) {
           var bytes = await file.xFile.readAsBytes();
           final base64String = base64Encode(bytes);
+          final extension = file.extension?.toLowerCase().replaceFirst(
+            RegExp(r'^\.'),
+            '',
+          );
+          final contentType = extension == 'jpg' || extension == 'jpeg'
+              ? 'image/jpeg'
+              : extension == 'png'
+              ? 'image/png'
+              : 'image/${extension ?? ''}';
 
           setState(() {
             newImages.add(
               LocaleImage(
                 id: 0,
                 fileName: file.name,
-                contentType: file.extension != null
-                    ? 'image/${file.extension}'
-                    : 'image/png',
+                contentType: contentType,
                 base64Content: base64String,
                 localeId: 0,
               ),

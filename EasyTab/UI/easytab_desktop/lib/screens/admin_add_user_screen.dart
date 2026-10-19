@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as models;
 import 'package:easytab_desktop/providers/locale_provider.dart';
@@ -36,6 +37,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
   File? _userImage;
   File? _ownerImage;
   File? _workerImage;
+  final Map<String, String> _imageErrors = {};
 
   List<models.Locale> _locales = [];
   bool isLoading = false;
@@ -107,6 +109,18 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
     }
   }
 
+  void _showImageOrFormError(Object error, String imageKey) {
+    final imageError = error is ApiClientException
+        ? error.imageValidationErrors['profilePicture']
+        : null;
+    if (imageError != null) {
+      setState(() => _imageErrors[imageKey] = imageError);
+      return;
+    }
+
+    _showError(error.toString());
+  }
+
   Future<Map<String, dynamic>> _buildRequest(
     GlobalKey<FormBuilderState> formKey,
     File? image,
@@ -148,7 +162,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
       await userProvider.insert(request);
       _showSuccess('Korisnik uspješno dodan!');
     } catch (e) {
-      _showError(e.toString());
+      _showImageOrFormError(e, 'user');
     } finally {
       setState(() => isLoading = false);
     }
@@ -170,7 +184,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
       await userProvider.insert(request);
       _showSuccess('Vlasnik uspješno dodan!');
     } catch (e) {
-      _showError(e.toString());
+      _showImageOrFormError(e, 'owner');
     } finally {
       setState(() => isLoading = false);
     }
@@ -195,7 +209,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
       await workerProvider.insert(request);
       _showSuccess('Radnik uspješno dodan!');
     } catch (e) {
-      _showError(e.toString());
+      _showImageOrFormError(e, 'worker');
     } finally {
       setState(() => isLoading = false);
     }
@@ -255,9 +269,14 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
               child: Column(
                 children: [
                   _buildImagePicker(
-                    image: _workerImage,
-                    onPick: () =>
-                        _pickImage((f) => setState(() => _workerImage = f)),
+                    image: _userImage,
+                    error: _imageErrors['user'],
+                    onPick: () => _pickImage((file) {
+                      setState(() {
+                        _userImage = file;
+                        _imageErrors.remove('user');
+                      });
+                    }),
                   ),
                   const SizedBox(height: 16),
                   _buildNameRow(_userFormKey),
@@ -312,9 +331,14 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
               child: Column(
                 children: [
                   _buildImagePicker(
-                    image: _workerImage,
-                    onPick: () =>
-                        _pickImage((f) => setState(() => _workerImage = f)),
+                    image: _ownerImage,
+                    error: _imageErrors['owner'],
+                    onPick: () => _pickImage((file) {
+                      setState(() {
+                        _ownerImage = file;
+                        _imageErrors.remove('owner');
+                      });
+                    }),
                   ),
                   const SizedBox(height: 16),
                   _buildNameRow(_ownerFormKey),
@@ -370,8 +394,13 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
                 children: [
                   _buildImagePicker(
                     image: _workerImage,
-                    onPick: () =>
-                        _pickImage((f) => setState(() => _workerImage = f)),
+                    error: _imageErrors['worker'],
+                    onPick: () => _pickImage((file) {
+                      setState(() {
+                        _workerImage = file;
+                        _imageErrors.remove('worker');
+                      });
+                    }),
                   ),
                   const SizedBox(height: 16),
                   _buildNameRow(_workerFormKey),
@@ -535,50 +564,64 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
   Widget _buildImagePicker({
     required File? image,
+    required String? error,
     required VoidCallback onPick,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: 80,
-          height: 80,
-          margin: const EdgeInsets.only(right: 16),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.grey.shade300),
-            color: Colors.grey.shade100,
-          ),
-          child: ClipOval(
-            child: image != null
-                ? Image.file(image, fit: BoxFit.cover)
-                : const Icon(Icons.person, size: 40, color: Colors.grey),
-          ),
-        ),
-        Expanded(
-          child: InkWell(
-            onTap: onPick,
-            borderRadius: BorderRadius.circular(8),
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Profilna slika',
-                border: OutlineInputBorder(),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300),
+                color: Colors.grey.shade100,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    image != null ? 'Slika odabrana ✓' : 'Odaberite sliku',
-                    style: TextStyle(
-                      color: image != null ? Colors.green : Colors.grey,
-                    ),
-                  ),
-                  const Icon(Icons.file_upload),
-                ],
+              child: ClipOval(
+                child: image != null
+                    ? Image.file(image, fit: BoxFit.cover)
+                    : const Icon(Icons.person, size: 40, color: Colors.grey),
               ),
             ),
-          ),
+            Expanded(
+              child: InkWell(
+                onTap: onPick,
+                borderRadius: BorderRadius.circular(8),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Profilna slika',
+                    border: OutlineInputBorder(),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        image != null ? 'Slika odabrana ✓' : 'Odaberite sliku',
+                        style: TextStyle(
+                          color: image != null ? Colors.green : Colors.grey,
+                        ),
+                      ),
+                      const Icon(Icons.file_upload),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              error,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
       ],
     );
   }
