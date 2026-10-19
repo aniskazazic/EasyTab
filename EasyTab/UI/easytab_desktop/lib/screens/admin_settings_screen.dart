@@ -61,7 +61,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         });
       });
     } catch (e) {
-      debugPrint('Greska pri ucitavanju korisnika: $e');
+      if (mounted) _showError(e.toString());
       if (mounted) setState(() => isLoading = false);
     }
   }
@@ -152,7 +152,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           'confirmNewPassword': passwordConfirmation,
         });
       }
-      if (mounted) _showSuccess('Podaci uspjesno azurirani!');
+      if (mounted) _showSuccess('Podaci su uspješno ažurirani.');
     } catch (e) {
       final message = e.toString().replaceAll('Exception: ', '');
       final imageError = e is ApiClientException
@@ -216,6 +216,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     return MasterScreen(
       title: 'Postavke',
       sidebar: const AdminSidebar(),
+      showCloseButton: true,
       child: isLoading && user == null
           ? const Center(child: CircularProgressIndicator())
           : _buildSettings(user),
@@ -361,6 +362,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                             labelText: 'Broj telefona',
                             border: OutlineInputBorder(),
                           ),
+                          validator: validatePhone,
                         ),
                       ),
                     ],

@@ -20,6 +20,7 @@ class AdminDashboardScreen extends StatefulWidget {
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   bool isLoading = true;
   bool isGeneratingReport = false;
+  String? _loadError;
 
   int countLocales = 0;
   int countCountries = 0;
@@ -35,6 +36,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _loadStats() async {
+    if (!isLoading && mounted) {
+      setState(() {
+        isLoading = true;
+        _loadError = null;
+      });
+    }
     try {
       final localeProvider = context.read<LocaleProvider>();
       final countryProvider = context.read<CountryProvider>();
@@ -52,6 +59,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         reviewProvider.get(filter: {"IncludeTotalCount": true}),
       ]);
 
+      if (!mounted) return;
       setState(() {
         countLocales = results[0].totalCount ?? results[0].items?.length ?? 0;
         countCountries = results[1].totalCount ?? results[1].items?.length ?? 0;
@@ -60,15 +68,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             results[3].totalCount ?? results[3].items?.length ?? 0;
         countUsers = results[4].totalCount ?? results[4].items?.length ?? 0;
         countReviews = results[5].totalCount ?? results[5].items?.length ?? 0;
+        _loadError = null;
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        countLocales = 0;
-        countCountries = 0;
-        countCities = 0;
-        countCategories = 0;
-        countUsers = 0;
+        _loadError = 'Nije moguće učitati statistiku: $e';
         isLoading = false;
       });
     }
@@ -109,6 +115,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       title: 'Dashboard',
       child: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _loadError != null
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(_loadError!, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  ElevatedButton(
+                    onPressed: _loadStats,
+                    child: const Text('Pokušaj ponovo'),
+                  ),
+                ],
+              ),
+            )
           : Stack(
               children: [
                 Column(

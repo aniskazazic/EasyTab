@@ -197,6 +197,10 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     }
 
     try {
+      request['lengthOfReservation'] = double.parse(
+        request['lengthOfReservation'] as String,
+      );
+
       if (_isInsert) {
         await localeProvider.insert(request);
         _showSuccess('Lokal uspješno dodan!');
@@ -626,13 +630,19 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: "lengthOfReservation",
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: "Dužina rezervacije (sati)",
                       border: OutlineInputBorder(),
                     ),
-                    validator: FormBuilderValidators.required(
-                      errorText: 'Dužina rezervacije je obavezna',
-                    ),
+                    validator: FormBuilderValidators.compose([
+                      FormBuilderValidators.required(
+                        errorText: 'Dužina rezervacije je obavezna',
+                      ),
+                      validateReservationLength,
+                    ]),
                   ),
                 ),
               ],

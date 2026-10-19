@@ -1,4 +1,5 @@
 using EasyTab.Model.Requests;
+using EasyTab.Model.Serialization;
 using FluentValidation;
 
 namespace EasyTab.Services.Validators
@@ -29,8 +30,9 @@ namespace EasyTab.Services.Validators
                 .When(x => x.CategoryId.HasValue);
 
             RuleFor(x => x.LengthOfReservation)
-                .GreaterThan(0).WithMessage("Trajanje rezervacije mora biti veće od 0.")
-                .LessThanOrEqualTo(24).WithMessage("Trajanje rezervacije ne može biti duže od 24 sata.")
+                .GreaterThan(0)
+                .LessThanOrEqualTo(24)
+                .WithMessage(ReservationDurationMessages.InvalidValue)
                 .When(x => x.LengthOfReservation.HasValue);
         }
     }

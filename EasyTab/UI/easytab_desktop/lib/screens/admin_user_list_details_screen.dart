@@ -168,6 +168,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   Widget build(BuildContext context) {
     return MasterScreen(
       title: _isInsert ? 'Novi korisnik' : 'Uredi korisnika',
+      showCloseButton: true,
       child: Column(
         children: [
           Expanded(
@@ -356,7 +357,6 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                       labelText: "Korisničko ime",
                       border: OutlineInputBorder(),
                     ),
-                    enabled: _isInsert,
                     validator: _isInsert
                         ? FormBuilderValidators.required(
                             errorText: 'Korisničko ime je obavezno',
@@ -373,12 +373,15 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      if (_isInsert && (value == null || value.isEmpty))
+                      final email = value ?? '';
+                      if (_isInsert && email.isEmpty) {
                         return 'Email je obavezan';
-                      if (value != null &&
-                          value.isNotEmpty &&
-                          !value.contains('@'))
-                        return 'Unesite validan email';
+                      }
+                      if (email.isNotEmpty) {
+                        return FormBuilderValidators.email(
+                          errorText: 'Unesite validan email',
+                        )(email);
+                      }
                       return null;
                     },
                   ),
@@ -396,6 +399,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                       labelText: "Broj telefona",
                       border: OutlineInputBorder(),
                     ),
+                    validator: validatePhone,
                   ),
                 ),
                 const SizedBox(width: 16),

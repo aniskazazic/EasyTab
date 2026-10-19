@@ -1,4 +1,5 @@
 using EasyTab.Model;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
@@ -8,12 +9,10 @@ using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace EasyTab.Services.Services
@@ -62,6 +61,9 @@ namespace EasyTab.Services.Services
 
         public override async Task<bool> DeleteAsync(int id)
         {
+            if (await _context.Locales.AnyAsync(locale => locale.CityId == id))
+                throw new UserException("Grad se ne može obrisati jer je povezan s lokalima.");
+
             _logger.LogWarning("Deleting city. CityId: {CityId}", id);
             var result = await base.DeleteAsync(id);
             _cacheVersions.Invalidate(CacheGroup);

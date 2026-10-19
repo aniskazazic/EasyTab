@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:easytab_desktop/models/search_result.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -29,6 +30,70 @@ String formatSystemDateOnly(DateTime date) =>
     dateOnlyFormatter.format(date.toLocal());
 
 DateTime toLocalDateTime(DateTime date) => date.toLocal();
+
+String? validatePhone(String? value) {
+  final phone = value?.trim() ?? '';
+  if (phone.isEmpty) return null;
+
+  final cleaned = phone.replaceAll(RegExp(r'[\s\-().]'), '');
+
+  if (RegExp(r'^\+?[1-9]\d{6,14}$').hasMatch(cleaned)) {
+    return null;
+  }
+
+  return 'Unesite ispravan broj (npr. +387 61 123 456 ili +49 30 12345678)';
+}
+
+String? validateReservationLength(String? value) {
+  final length = value?.trim() ?? '';
+  if (length.isEmpty) return null;
+
+  if (length.contains(',')) {
+    return 'Koristite tačku kao decimalni separator, npr. 1.5 (ne 1,5).';
+  }
+
+  if (!RegExp(r'^\d+(?:\.\d+)?$').hasMatch(length)) {
+    return 'Unesite dužinu rezervacije kao broj sati, npr. 1.5.';
+  }
+
+  final hours = double.tryParse(length);
+  if (hours == null) {
+    return 'Unesite dužinu rezervacije kao broj sati, npr. 1.5.';
+  }
+  if (hours <= 0) {
+    return 'Dužina rezervacije mora biti veća od 0 sati.';
+  }
+  if (hours > 24) {
+    return 'Dužina rezervacije ne može biti duža od 24 sata.';
+  }
+
+  return null;
+}
+
+Future<List<T>> fetchAllPages<T>(
+  Future<SearchResult<T>> Function(Map<String, dynamic> filter) fetch,
+) async {
+  const pageSize = 100;
+  final items = <T>[];
+  var page = 1;
+
+  while (true) {
+    final result = await fetch({
+      'Page': page,
+      'PageSize': pageSize,
+      'IncludeTotalCount': true,
+    });
+    final pageItems = result.items ?? <T>[];
+    items.addAll(pageItems);
+
+    if (pageItems.length < pageSize ||
+        (result.totalCount != null && items.length >= result.totalCount!)) {
+      return items;
+    }
+
+    page++;
+  }
+}
 
 String formatNumber(dynamic number) {
   var f = NumberFormat("#.##0.00", "en_US");

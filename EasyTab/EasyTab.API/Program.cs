@@ -6,6 +6,7 @@ using EasyTab.API.Services.AccessManager;
 using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
+using EasyTab.Model.Serialization;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using EasyTab.Services.ReservationStateMachine;
@@ -16,6 +17,7 @@ using FluentValidation;
 using Mapster;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -138,6 +140,26 @@ builder.Services.AddControllers(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
     });
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        if (context.ModelState.Keys.Any(key =>
+            key.EndsWith("LengthOfReservation", StringComparison.OrdinalIgnoreCase)))
+        {
+            return new BadRequestObjectResult(new
+            {
+                message = ReservationDurationMessages.InvalidValue,
+                errors = new Dictionary<string, string[]>
+                {
+                    ["lengthOfReservation"] = [ReservationDurationMessages.InvalidValue]
+                }
+            });
+        }
+
+        return new BadRequestObjectResult(new ValidationProblemDetails(context.ModelState));
+    };
+});
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")

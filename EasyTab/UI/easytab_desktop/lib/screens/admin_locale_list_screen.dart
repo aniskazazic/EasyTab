@@ -2,8 +2,6 @@ import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/models/locale.dart';
-import 'package:easytab_desktop/models/search_result.dart';
-import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
@@ -23,7 +21,6 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   late LocaleProvider localeProvider;
   late CountryProvider countryProvider;
   late CityProvider cityProvider;
-  late CategoryProvider categoryProvider;
 
   // Lokali — server-side
   List<Locale> _locales = [];
@@ -48,7 +45,6 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
     localeProvider = context.read<LocaleProvider>();
     countryProvider = context.read<CountryProvider>();
     cityProvider = context.read<CityProvider>();
-    categoryProvider = context.read<CategoryProvider>();
     _loadDropdowns();
   }
 
@@ -71,14 +67,19 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   // Učitaj dropdownove samo jednom
   Future<void> _loadDropdowns() async {
     try {
-      final results = await Future.wait([
-        countryProvider.get(filter: {"RetrieveAll": true}),
-        cityProvider.get(filter: {"RetrieveAll": true}),
-      ]);
+      final countriesFuture = fetchAllPages(
+        (filter) => countryProvider.get(filter: filter),
+      );
+      final citiesFuture = fetchAllPages(
+        (filter) => cityProvider.get(filter: filter),
+      );
+      final countries = await countriesFuture;
+      final cities = await citiesFuture;
 
+      if (!mounted) return;
       setState(() {
-        _countries = (results[0] as SearchResult<Country>).items ?? [];
-        _allCities = (results[1] as SearchResult<City>).items ?? [];
+        _countries = countries;
+        _allCities = cities;
         _filteredCities = _allCities;
       });
 
