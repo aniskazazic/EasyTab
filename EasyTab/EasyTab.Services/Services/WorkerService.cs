@@ -10,13 +10,10 @@ using EasyTab.Services.Interfaces;
 using EasyTab.Services.Validators;
 using FluentValidation;
 using MapsterMapper;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 
@@ -35,7 +32,7 @@ namespace EasyTab.Services.Services
             _localeAccessService = localeAccessService;
         }
 
-        protected override IQueryable<Worker> ApplyFilter(IQueryable<Worker> query, WorkerSearchObject search)
+        protected override IQueryable<Worker> ApplyFilter(IQueryable<Worker> query, WorkerSearchObject? search)
         {
             query = query.Include(x => x.User)
                          .Include(x => x.Locale);
@@ -52,6 +49,13 @@ namespace EasyTab.Services.Services
                     x.User.Username.Contains(search.Q));
 
             return query;
+        }
+
+        protected override IQueryable<Worker> ApplySort(IQueryable<Worker> query, WorkerSearchObject search)
+        {
+            return string.IsNullOrWhiteSpace(search?.SortBy)
+                ? query.OrderByDescending(x => x.Id)
+                : base.ApplySort(query, search);
         }
 
         protected override Workers MapToResponse(Worker entity)

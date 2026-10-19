@@ -1,17 +1,17 @@
 ﻿using EasyTab.Model.Models;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.ReservationStateMachine;
 using FluentValidation;
 using MapsterMapper;
-using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace EasyTab.Services.Services
@@ -48,12 +48,33 @@ namespace EasyTab.Services.Services
         {
             var table = await Context.Tables.FindAsync(id);
             if (table != null)
+            {
                 await _localeAccessService.EnsureCanManageLocaleAsync(table.LocaleId);
+                await EnsureNoUpcomingReservationsAsync(new[] { id });
+            }
             _logger.LogWarning("Deleting table. TableId: {TableId}", id);
             return await base.DeleteAsync(id);
         }
 
-        protected override IQueryable<Table> ApplyFilter(IQueryable<Table> query, TableSearchObject search)
+        private async Task EnsureNoUpcomingReservationsAsync(int[] tableIds)
+        {
+            if (tableIds.Length == 0)
+                return;
+
+            var now = LocalClock.Now;
+            var currentTime = TimeOnly.FromDateTime(now);
+            var hasUpcomingReservation = await Context.Reservations.AnyAsync(r =>
+                tableIds.Contains(r.TableId) &&
+                r.ReservationState != CancelledReservationState.StateName &&
+                r.ReservationState != CompletedReservationState.StateName &&
+                (r.ReservationDate.Date > now.Date ||
+                 (r.ReservationDate.Date == now.Date && r.StartTime >= currentTime)));
+
+            if (hasUpcomingReservation)
+                throw new UserException("Stol se ne može obrisati jer ima aktivnu rezervaciju.");
+        }
+
+        protected override IQueryable<Table> ApplyFilter(IQueryable<Table> query, TableSearchObject? search)
         {
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.LocaleId == search.LocaleId);
@@ -86,6 +107,8 @@ namespace EasyTab.Services.Services
             // Obriši stolove koji nisu poslani s frontenda
             var sentIds = request.Tables.Select(t => t.Id).ToList();
             var toDelete = existingTables.Where(x => !sentIds.Contains(x.Id)).ToList();
+            await EnsureNoUpcomingReservationsAsync(
+                toDelete.Select(table => table.Id).ToArray());
             Context.Tables.RemoveRange(toDelete);
 
             foreach (var table in request.Tables)

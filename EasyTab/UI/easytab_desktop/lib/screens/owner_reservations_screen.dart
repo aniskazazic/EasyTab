@@ -167,7 +167,16 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Potvrda rezervacije'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Potvrda rezervacije')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(ctx, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: Text(
           'Želite li potvrditi rezervaciju za stol "${reservation.tableName ?? 'Stol'}"?',
         ),
@@ -218,7 +227,16 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Završi rezervaciju'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Završi rezervaciju')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(ctx, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: Text(
           'Želite li označiti rezervaciju za stol "${reservation.tableName ?? 'Stol'}" kao završenu?',
         ),
@@ -268,7 +286,16 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Otkaži rezervaciju'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Otkaži rezervaciju')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(ctx, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -304,7 +331,10 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      reasonController.dispose();
+      return;
+    }
 
     final reason = reasonController.text.trim().isNotEmpty
         ? reasonController.text.trim()
@@ -312,6 +342,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
 
     try {
       await _reservationProvider.cancelReservation(reservation.id!, reason);
+      reasonController.dispose();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -322,6 +353,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
         _loadReservations();
       }
     } catch (e) {
+      reasonController.dispose();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

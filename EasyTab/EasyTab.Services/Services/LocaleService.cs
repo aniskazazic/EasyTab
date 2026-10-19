@@ -13,7 +13,6 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 
@@ -24,11 +23,13 @@ namespace EasyTab.Services.Services
 
         private readonly ILogger<LocaleService> _logger;
         private readonly ILocaleAccessService _localeAccessService;
+        private readonly ICurrentUserService _currentUser;
 
-        public LocaleService(_220030Context context, IMapper mapper, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper, insertValidator, updateValidator)
+        public LocaleService(_220030Context context, IMapper mapper, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser) : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
             _localeAccessService = localeAccessService;
+            _currentUser = currentUser;
         }
 
         public override async Task<Locales> CreateAsync(LocaleInsertRequest request)
@@ -148,7 +149,7 @@ namespace EasyTab.Services.Services
             return await base.DeleteAsync(id);
         }
 
-        protected override IQueryable<Locale> ApplyFilter(IQueryable<Locale> query, LocaleSearchObject search)
+        protected override IQueryable<Locale> ApplyFilter(IQueryable<Locale> query, LocaleSearchObject? search)
         {
             query = query.Include(x => x.City).ThenInclude(x => x.Country)
                          .Include(x => x.Category)
@@ -178,7 +179,9 @@ namespace EasyTab.Services.Services
                     .Where(r => !r.IsDeleted)
                     .Average(r => r.Rating) >= search.Rating.Value);
 
-            if (search?.OwnerId.HasValue == true)
+            if (_currentUser.Role == RoleNames.Vlasnik)
+                query = query.Where(x => x.OwnerId == _currentUser.UserId);
+            else if (search?.OwnerId.HasValue == true)
                 query = query.Where(x => x.OwnerId == search.OwnerId);
 
             if (string.Equals(search?.SortBy, "rating", StringComparison.OrdinalIgnoreCase))
@@ -204,6 +207,9 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeInsert(Locale entity, LocaleInsertRequest request)
         {
+            if (_currentUser.Role == RoleNames.Vlasnik)
+                entity.OwnerId = _currentUser.UserId;
+
             entity.Logo = string.IsNullOrWhiteSpace(request.Logo) ? null : request.Logo;
 
             // Obrada slika

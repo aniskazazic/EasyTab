@@ -25,6 +25,14 @@ class OwnerSidebar extends StatefulWidget {
 class _OwnerSidebarState extends State<OwnerSidebar> {
   List<models.Locale> _locales = [];
   Set<int> expandedLocales = {};
+  final TextEditingController _localeSearchController = TextEditingController();
+  String? _loadError;
+
+  @override
+  void dispose() {
+    _localeSearchController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -35,16 +43,16 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
   Future<void> _loadLocales() async {
     try {
       final localeProvider = context.read<LocaleProvider>();
-      final ownerId =
-          int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
-      if (ownerId == 0) return;
-
-      final locales = await localeProvider.getByOwner(ownerId);
+      final locales = await localeProvider.getForCurrentOwner();
+      if (!mounted) return;
       setState(() {
         _locales = locales;
+        _loadError = null;
       });
     } catch (e) {
-      debugPrint('Error loading locales: $e');
+      if (mounted) {
+        setState(() => _loadError = 'Greška pri učitavanju lokala: $e');
+      }
     }
   }
 
@@ -52,7 +60,16 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Odjava'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Odjava')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: const Text('Da li ste sigurni da se želite odjaviti?'),
         actions: [
           TextButton(
@@ -149,7 +166,46 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                ..._locales.map((locale) => _buildLocaleItem(locale)),
+                if (_loadError != null)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      _loadError!,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                if (_locales.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                    child: TextField(
+                      controller: _localeSearchController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Pretraži lokale',
+                        hintStyle: const TextStyle(color: Colors.white70),
+                        prefixIcon: const Icon(
+                          Icons.search,
+                          color: Colors.white70,
+                        ),
+                        suffixIcon: IconButton(
+                          tooltip: 'Očisti pretragu',
+                          onPressed: () {
+                            _localeSearchController.clear();
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.clear, color: Colors.white70),
+                        ),
+                        enabledBorder: const OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white54),
+                        ),
+                        focusedBorder: const OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white),
+                        ),
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                ..._visibleLocales.map((locale) => _buildLocaleItem(locale)),
                 const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(
@@ -207,6 +263,14 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
     );
   }
 
+  List<models.Locale> get _visibleLocales {
+    final query = _localeSearchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _locales;
+    return _locales
+        .where((locale) => (locale.name ?? '').toLowerCase().contains(query))
+        .toList();
+  }
+
   Widget _buildLocaleItem(models.Locale locale) {
     final isExpanded = expandedLocales.contains(locale.id);
 
@@ -251,9 +315,12 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
               if (isExpanded) {
                 expandedLocales.remove(locale.id);
               } else {
-                expandedLocales.add(locale.id!);
+                if (locale.id != null) expandedLocales.add(locale.id!);
               }
             });
+            if (locale.id != null) {
+              widget.onSectionTap?.call(locale.id!, 'Dashboard');
+            }
           },
         ),
 

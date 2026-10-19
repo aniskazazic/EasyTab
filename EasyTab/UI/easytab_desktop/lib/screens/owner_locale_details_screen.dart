@@ -8,7 +8,6 @@ import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
 import 'package:easytab_desktop/models/localeimage.dart';
 import 'package:easytab_desktop/models/search_result.dart';
-import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
@@ -53,6 +52,8 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
 
   int? selectedCountryId;
   bool isLoading = true;
+  bool _isSaving = false;
+  String? _loadError;
   File? _image;
   String? _logoError;
   String? _galleryError;
@@ -113,9 +114,14 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         }
 
         isLoading = false;
+        _loadError = null;
       });
     } catch (e) {
-      setState(() => isLoading = false);
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
       _showError(e.toString());
     }
   }
@@ -188,14 +194,9 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       (key, value) => value == null || value.toString().isEmpty,
     );
 
-    // Automatski dodaj ownerId od logiranog usera
-    if (_isInsert) {
-      request['ownerId'] =
-          int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
-    } else {
-      request.remove('ownerId');
-    }
+    request.remove('ownerId');
 
+    setState(() => _isSaving = true);
     try {
       request['lengthOfReservation'] = double.parse(
         request['lengthOfReservation'] as String,
@@ -220,10 +221,12 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       } else {
         _showError(e.toString());
       }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  void _getImage() async {
+  Future<void> _getImage() async {
     var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       setState(() {
@@ -237,7 +240,16 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Brisanje loga'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje loga')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(dialogContext, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: const Text(
           'Da li ste sigurni da želite obrisati logo lokala?',
         ),
@@ -278,7 +290,16 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Brisanje slike'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje slike')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(dialogContext, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: const Text('Da li ste sigurni da želite obrisati ovu sliku?'),
         actions: [
           TextButton(
@@ -359,12 +380,21 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                   const SizedBox(height: 15),
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
+                      : _loadError != null
+                      ? Expanded(
+                          child: Center(
+                            child: Text(
+                              _loadError!,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
                       : Expanded(child: _buildForm()),
                   if (!isLoading &&
                       ((localeImagesResult?.items?.isNotEmpty ?? false) ||
                           newImages.isNotEmpty))
                     _buildImageList(),
-                  if (!isLoading) _buildSaveButton(),
+                  if (!isLoading && _loadError == null) _buildSaveButton(),
                 ],
               ),
             ),
@@ -451,11 +481,13 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
             backgroundColor: const Color(0xFF1E40AF),
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
-          onPressed: _handleSave,
-          child: Text(
-            _isInsert ? 'Dodaj lokal' : 'Spremi postavke',
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-          ),
+          onPressed: _isSaving ? null : _handleSave,
+          child: _isSaving
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Text(
+                  _isInsert ? 'Dodaj lokal' : 'Spremi postavke',
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
         ),
       ),
     );
@@ -624,6 +656,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                       labelText: "Broj telefona",
                       border: OutlineInputBorder(),
                     ),
+                    validator: validatePhone,
                   ),
                 ),
                 const SizedBox(width: 16),

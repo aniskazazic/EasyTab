@@ -3,7 +3,6 @@ import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'dart:io';
 import 'package:easytab_desktop/models/worker.dart';
 import 'package:easytab_desktop/providers/utils.dart';
-import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
 import 'package:easytab_desktop/widgets/desktop_password_section.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
@@ -16,7 +15,7 @@ import 'package:provider/provider.dart';
 class OwnerWorkerDetailsScreen extends StatefulWidget {
   final int localeId;
   final Worker? worker;
-  final VoidCallback? onSaved;
+  final Future<void> Function()? onSaved;
 
   const OwnerWorkerDetailsScreen({
     super.key,
@@ -33,7 +32,6 @@ class OwnerWorkerDetailsScreen extends StatefulWidget {
 class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
   late WorkerProvider workerProvider;
-  late UserProvider userProvider;
   bool isLoading = false;
   bool _isLoadingWorker = false;
   bool _changePassword = false;
@@ -46,7 +44,6 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   void initState() {
     super.initState();
     workerProvider = Provider.of<WorkerProvider>(context, listen: false);
-    userProvider = Provider.of<UserProvider>(context, listen: false);
     _worker = widget.worker;
     if (_worker?.id != null) _loadWorker(_worker!.id!);
   }
@@ -64,6 +61,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -80,6 +78,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   }
 
   void _showSuccess(String message) {
+    final navigator = Navigator.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -87,10 +86,11 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
         content: Text(message),
         actions: [
           TextButton(
-            onPressed: () {
-              widget.onSaved?.call();
-              Navigator.pop(context);
-              Navigator.pop(context);
+            onPressed: () async {
+              await widget.onSaved?.call();
+              if (!mounted) return;
+              navigator.pop();
+              navigator.pop();
             },
             child: const Text('OK'),
           ),
@@ -99,7 +99,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
     );
   }
 
-  void _getImage() async {
+  Future<void> _getImage() async {
     var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       setState(() {
@@ -115,9 +115,8 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
 
     setState(() => isLoading = true);
 
-    var profileUpdated = false;
     try {
-      var request = Map<String, dynamic>.from(
+      final request = Map<String, dynamic>.from(
         formKey.currentState?.value ?? {},
       );
 
@@ -142,20 +141,16 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
         await workerProvider.insert(request);
         _showSuccess('Radnik uspješno dodan!');
       } else {
-        final currentPassword = request.remove('currentPassword');
         final newPassword = request.remove('password');
         final passwordConfirmation = request.remove('passwordConfirmation');
-        await workerProvider.update(_worker!.id!, request);
-        profileUpdated = true;
-
-        if (_changePassword && _worker!.userId != null) {
-          await userProvider.changePassword({
-            'id': _worker!.userId,
-            'password': currentPassword,
-            'newPassword': newPassword,
-            'confirmNewPassword': passwordConfirmation,
-          });
+        if (!_changePassword) {
+          request.remove('password');
+        } else if (newPassword != passwordConfirmation) {
+          _showError('Lozinke se ne podudaraju.');
+          return;
         }
+        await workerProvider.update(_worker!.id!, request);
+
         _showSuccess('Radnik uspješno ažuriran!');
       }
     } catch (e) {
@@ -166,11 +161,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
       if (imageError != null) {
         setState(() => _profilePictureError = imageError);
       } else {
-        _showError(
-          profileUpdated
-              ? 'Profil je sačuvan, ali lozinka nije promijenjena: $message'
-              : message,
-        );
+        _showError(message);
       }
     } finally {
       setState(() => isLoading = false);
@@ -351,20 +342,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                           ),
                           icon: const Icon(Icons.delete, size: 18),
                           label: const Text('Obriši sliku'),
-                          onPressed: () => _deleteImage(
-                            fileUrl: _worker!.profilePicture!,
-                            subfolder: 'ImageFolder/ProfilePictures',
-                            onDeleted: () async {
-                              // Postavi sliku na null u bazi
-                              await workerProvider.update(_worker!.id!, {
-                                'firstName': _worker!.firstName,
-                                'lastName': _worker!.lastName,
-                                'profilePicture': '',
-                              });
-                              widget.onSaved?.call();
-                              if (mounted) Navigator.pop(context);
-                            },
-                          ),
+                          onPressed: _confirmDeleteProfilePicture,
                         ),
                     ],
                   ),
@@ -452,6 +430,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                       labelText: 'Broj telefona',
                       border: OutlineInputBorder(),
                     ),
+                    validator: validatePhone,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -496,7 +475,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
 
             DesktopPasswordSection(
               formKey: formKey,
-              isSelf: !_isInsert,
+              isSelf: false,
               isRequired: _isInsert,
               showSwitch: !_isInsert,
               onChanged: (value) => _changePassword = value,
@@ -508,43 +487,53 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
     );
   }
 
-  Future<void> _deleteImage({
-    required String fileUrl,
-    required String subfolder,
-    required VoidCallback onDeleted,
-  }) async {
-    showDialog(
+  Future<void> _confirmDeleteProfilePicture() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Brisanje slike'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje slike')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(context, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: const Text('Da li ste sigurni da želite obrisati sliku?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Otkaži'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                onDeleted();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Slika uspješno obrisana!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                _showError(e.toString());
-              }
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
+    if (confirmed != true || _worker?.id == null) return;
+
+    try {
+      await workerProvider.update(_worker!.id!, {
+        'firstName': _worker!.firstName,
+        'lastName': _worker!.lastName,
+        'profilePicture': '',
+      });
+      await widget.onSaved?.call();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Slika uspješno obrisana.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (mounted) _showError(e.toString());
+    }
   }
 }

@@ -189,6 +189,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   }
 
   Future<void> _loadReviews() async {
+    if (!mounted) return;
     setState(() => isLoading = true);
     try {
       final selectedDate = _selectedDate;
@@ -212,12 +213,14 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
           'DateTo': dateFrom.add(const Duration(days: 1)).toIso8601String(),
       };
       final result = await _reviewProvider.get(filter: filter);
+      if (!mounted) return;
       setState(() {
         _reviews = result.items ?? [];
         _totalCount = result.totalCount ?? _reviews.length;
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
       _showError(e.toString());
     }
@@ -375,36 +378,54 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
     );
   }
 
-  void _confirmDelete(Review review) {
-    showDialog(
+  Future<void> _confirmDelete(Review review) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Brisanje recenzije'),
-        content: Text('Da li ste sigurni da želite obrisati ovu recenziju ?'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje recenzije')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(context, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
+        content: const Text(
+          'Da li ste sigurni da želite obrisati ovu recenziju?',
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('Otkaži'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteReview(review.id!);
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
+    if (confirmed == true && review.id != null) {
+      await _deleteReview(review.id!);
+    }
   }
 
   Future<void> _deleteReview(int id) async {
     try {
       await _reviewProvider.delete(id);
       await _loadReviews();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Recenzija je uspješno obrisana.'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
-      _showError(e.toString());
+      if (mounted) _showError(e.toString());
     }
   }
 }
