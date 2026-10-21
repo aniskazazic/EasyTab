@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using EasyTab.Services.Database;
 using EasyTab.Model.Models;
 using EasyTab.Model.Responses;
 
@@ -9,6 +10,7 @@ namespace EasyTab.Services.Interfaces
     {
         Task<CreateOrderResponse> CreateOrderAsync(int reservationId);
         Task<PaymentResponse> CaptureOrderAsync(string orderId);
+        Task<Notification?> RefundCompletedPaymentAsync(int reservationId);
         Task<List<PaymentResponse>> GetByReservationIdAsync(int reservationId);
     }
 }

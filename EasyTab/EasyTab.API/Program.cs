@@ -70,7 +70,19 @@ builder.Services.AddScoped<INotificationPushService, SignalRNotificationPushServ
 builder.Services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
 builder.Services.AddHostedService<ReservationStatusBackgroundService>();
 
-builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection(PayPalOptions.SectionName));
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .Validate(
+        options =>
+            !string.IsNullOrWhiteSpace(options.ClientId) &&
+            !string.IsNullOrWhiteSpace(options.Secret) &&
+            !string.IsNullOrWhiteSpace(options.BaseUrl) &&
+            !string.IsNullOrWhiteSpace(options.ReturnUrl) &&
+            !string.IsNullOrWhiteSpace(options.CancelUrl) &&
+            !string.IsNullOrWhiteSpace(options.Currency) &&
+            options.BamToEurRate > 0,
+        "PayPal konfiguracija nije potpuna. Popunite ClientId, Secret, BaseUrl, ReturnUrl, CancelUrl i Currency, te postavite BamToEurRate na vrijednost veću od 0.")
+    .ValidateOnStart();
 builder.Services.AddHttpClient<IPayPalService, PayPalService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 

@@ -1,6 +1,5 @@
 using EasyTab.Model.Messages;
 using EasyTab.Model.Models;
-using EasyTab.Model.Requests;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using MapsterMapper;
@@ -85,11 +84,6 @@ namespace EasyTab.Services.ReservationStateMachine
                 throw new InvalidOperationException("Rezervacija mora biti potvrđena da bi bila otkazana.");
             }
 
-            entity.ReservationState = CancelledReservationState.StateName;
-            entity.CancelledById = cancelledById;
-            entity.CancelledAt = DateTime.UtcNow;
-            entity.CancellationReason = reason;
-
             await using var transaction = await _context.Database.BeginTransactionAsync();
             var user = await _context.Users.FindAsync(entity.UserId);
             var table = await _context.Tables
@@ -109,34 +103,18 @@ namespace EasyTab.Services.ReservationStateMachine
                 }
             };
 
-            // Refund plaćanja ako postoji Completed uplata (prije promjene stanja / commita)
-            var completedPayment = await _context.Payments
-                .FirstOrDefaultAsync(p => p.ReservationId == id && p.Status == PaymentStatus.Completed);
-
-            if (completedPayment != null && !string.IsNullOrEmpty(completedPayment.PayPalCaptureId))
+            var refundNotification = await _serviceProvider
+                .GetRequiredService<IPaymentService>()
+                .RefundCompletedPaymentAsync(id);
+            if (refundNotification != null)
             {
-                var payPalService = _serviceProvider.GetRequiredService<EasyTab.Services.PayPal.IPayPalService>();
-                var requestId = $"refund-{completedPayment.Id}";
-                var refundResult = await payPalService.RefundCaptureAsync(
-                    completedPayment.PayPalCaptureId,
-                    completedPayment.Amount,
-                    completedPayment.Currency,
-                    requestId);
-
-                completedPayment.Status = PaymentStatus.Refunded;
-                completedPayment.PayPalRefundId = refundResult.RefundId ?? completedPayment.PayPalRefundId;
-                completedPayment.RefundedAmount = completedPayment.Amount;
-                completedPayment.RefundedAt = DateTime.UtcNow;
-
-                notifications.Add(new Notification
-                {
-                    UserId = entity.UserId,
-                    Title = "Povrat uplate",
-                    Message = $"Izvršen je povrat uplate u iznosu od {completedPayment.AmountKm:F2} KM ({completedPayment.Amount:F2} {completedPayment.Currency}) za rezervaciju u {localeName}.",
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
-                });
+                notifications.Add(refundNotification);
             }
+
+            entity.ReservationState = CancelledReservationState.StateName;
+            entity.CancelledById = cancelledById;
+            entity.CancelledAt = DateTime.UtcNow;
+            entity.CancellationReason = reason;
 
             if (cancelledById == entity.UserId && table?.Locale != null)
             {

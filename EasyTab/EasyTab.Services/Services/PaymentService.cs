@@ -123,16 +123,19 @@ namespace EasyTab.Services.Services
                 await _context.SaveChangesAsync();
             }
 
-            var amountKm = reservation.Table?.Locale?.ReservationPrice ?? 5.00m;
-            var rate = _payPalOptions.Value.BamToEurRate > 0 ? _payPalOptions.Value.BamToEurRate : 1.95583m;
-            var currency = !string.IsNullOrEmpty(_payPalOptions.Value.Currency) ? _payPalOptions.Value.Currency : "EUR";
-            var amountEur = Math.Round(amountKm / rate, 2);
+            var amountKm = reservation.Table?.Locale?.ReservationPrice ?? 0m;
+            if (amountKm <= 0)
+            {
+                throw new UserException("Iznos za plaćanje mora biti veći od 0.");
+            }
 
+            var amountEur = Math.Round(amountKm / _payPalOptions.Value.BamToEurRate, 2);
             if (amountEur <= 0)
             {
                 throw new UserException("Iznos za plaćanje mora biti veći od 0.");
             }
 
+            var currency = _payPalOptions.Value.Currency;
             var localeName = reservation.Table?.Locale?.Name ?? "Lokal";
             var (orderId, approvalUrl) = await _payPalService.CreateOrderAsync(
                 amountEur,
@@ -206,6 +209,20 @@ namespace EasyTab.Services.Services
                 return _mapper.Map<PaymentResponse>(payment);
             }
 
+            if (payment.Status != PaymentStatus.Created)
+            {
+                throw new UserException("Ova narudzba vise nije vazeca. Pokrenite placanje ponovo.");
+            }
+
+            var hasCompletedPayment = await _context.Payments
+                .AnyAsync(p => p.ReservationId == payment.ReservationId &&
+                               p.Id != payment.Id &&
+                               p.Status == PaymentStatus.Completed);
+            if (hasCompletedPayment)
+            {
+                throw new UserException("Rezervacija je vec placena.");
+            }
+
             var isAllowedState = payment.Reservation.ReservationState == PendingReservationState.StateName ||
                                  payment.Reservation.ReservationState == ConfirmedReservationState.StateName;
             if (!isAllowedState)
@@ -261,12 +278,10 @@ namespace EasyTab.Services.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 _context.Notifications.Add(notification);
                 await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
             }
             catch (DbUpdateException ex)
             {
@@ -285,6 +300,43 @@ namespace EasyTab.Services.Services
             }
 
             return _mapper.Map<PaymentResponse>(payment);
+        }
+
+        public async Task<Notification?> RefundCompletedPaymentAsync(int reservationId)
+        {
+            var completedPayment = await _context.Payments
+                .Include(p => p.Reservation)
+                .ThenInclude(r => r.Table)
+                .ThenInclude(t => t.Locale)
+                .FirstOrDefaultAsync(p => p.ReservationId == reservationId &&
+                                          p.Status == PaymentStatus.Completed);
+
+            if (completedPayment == null || string.IsNullOrEmpty(completedPayment.PayPalCaptureId))
+            {
+                return null;
+            }
+
+            var requestId = $"refund-{completedPayment.Id}";
+            var refundResult = await _payPalService.RefundCaptureAsync(
+                completedPayment.PayPalCaptureId,
+                completedPayment.Amount,
+                completedPayment.Currency,
+                requestId);
+
+            completedPayment.Status = PaymentStatus.Refunded;
+            completedPayment.PayPalRefundId = refundResult.RefundId ?? completedPayment.PayPalRefundId;
+            completedPayment.RefundedAmount = completedPayment.Amount;
+            completedPayment.RefundedAt = DateTime.UtcNow;
+
+            var localeName = completedPayment.Reservation.Table?.Locale?.Name ?? "Lokal";
+            return new Notification
+            {
+                UserId = completedPayment.Reservation.UserId,
+                Title = "Povrat uplate",
+                Message = $"Izvršen je povrat uplate u iznosu od {completedPayment.AmountKm:F2} KM ({completedPayment.Amount:F2} {completedPayment.Currency}) za rezervaciju u {localeName}.",
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
         }
 
         public async Task<List<PaymentResponse>> GetByReservationIdAsync(int reservationId)
