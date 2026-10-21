@@ -9,6 +9,7 @@ using EasyTab.Model.Requests;
 using EasyTab.Model.Serialization;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.PayPal;
 using EasyTab.Services.ReservationStateMachine;
 using EasyTab.Services.SeedData;
 using EasyTab.Services.Services;
@@ -68,6 +69,10 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationPushService, SignalRNotificationPushService>();
 builder.Services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
 builder.Services.AddHostedService<ReservationStatusBackgroundService>();
+
+builder.Services.Configure<PayPalOptions>(builder.Configuration.GetSection(PayPalOptions.SectionName));
+builder.Services.AddHttpClient<IPayPalService, PayPalService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, UserIdProvider>();

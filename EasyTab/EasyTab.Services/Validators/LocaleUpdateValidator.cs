@@ -34,6 +34,11 @@ namespace EasyTab.Services.Validators
                 .LessThanOrEqualTo(24)
                 .WithMessage(ReservationDurationMessages.InvalidValue)
                 .When(x => x.LengthOfReservation.HasValue);
+
+            RuleFor(x => x.ReservationPrice!.Value)
+                .GreaterThan(0).WithMessage("Cijena rezervacije mora biti veća od 0.")
+                .Must(price => decimal.Round(price, 2) == price).WithMessage("Cijena rezervacije može imati najviše 2 decimale.")
+                .When(x => x.ReservationPrice.HasValue);
         }
     }
 }

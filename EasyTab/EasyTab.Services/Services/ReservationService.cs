@@ -138,6 +138,42 @@ namespace EasyTab.Services.Services
             return dto;
         }
 
+        public override async Task<PagedResult<Reservations>> GetAsync(ReservationSearchObject search)
+        {
+            var pagedResult = await base.GetAsync(search);
+
+            if (pagedResult.Items != null && pagedResult.Items.Count > 0)
+            {
+                var reservationIds = pagedResult.Items.Select(r => r.Id).ToList();
+                var completedPayments = await Context.Payments
+                    .AsNoTracking()
+                    .Where(p => reservationIds.Contains(p.ReservationId) && p.Status == PaymentStatus.Completed)
+                    .GroupBy(p => p.ReservationId)
+                    .Select(g => new
+                    {
+                        ReservationId = g.Key,
+                        PaidAmountKm = g.Max(p => p.AmountKm)
+                    })
+                    .ToDictionaryAsync(x => x.ReservationId, x => x.PaidAmountKm);
+
+                foreach (var item in pagedResult.Items)
+                {
+                    if (completedPayments.TryGetValue(item.Id, out var amountKm))
+                    {
+                        item.IsPaid = true;
+                        item.PaidAmountKm = amountKm;
+                    }
+                    else
+                    {
+                        item.IsPaid = false;
+                        item.PaidAmountKm = null;
+                    }
+                }
+            }
+
+            return pagedResult;
+        }
+
         public override async Task<Reservations?> GetByIdAsync(int id)
         {
             var entity = await Context.Reservations
@@ -153,7 +189,25 @@ namespace EasyTab.Services.Services
             if (!CanAccessReservation(entity))
                 return null;
 
-            return MapToResponse(entity);
+            var dto = MapToResponse(entity);
+            var payment = await Context.Payments
+                .AsNoTracking()
+                .Where(p => p.ReservationId == id && p.Status == PaymentStatus.Completed)
+                .OrderByDescending(p => p.CompletedAt ?? p.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (payment != null)
+            {
+                dto.IsPaid = true;
+                dto.PaidAmountKm = payment.AmountKm;
+            }
+            else
+            {
+                dto.IsPaid = false;
+                dto.PaidAmountKm = null;
+            }
+
+            return dto;
         }
 
         private bool CanAccessReservation(Reservation reservation)
@@ -423,6 +477,13 @@ namespace EasyTab.Services.Services
                         "Skipped automatic cancellation for reservation {ReservationId} because its state changed.",
                         id);
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Error automatically cancelling reservation {ReservationId}. Skipping until next cycle.",
+                        id);
+                }
             }
 
             var overdueConfirmedIds = await Context.Reservations
@@ -450,6 +511,13 @@ namespace EasyTab.Services.Services
                     _logger.LogInformation(
                         ex,
                         "Skipped automatic completion for reservation {ReservationId} because its state changed.",
+                        id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Error automatically completing reservation {ReservationId}. Skipping until next cycle.",
                         id);
                 }
             }

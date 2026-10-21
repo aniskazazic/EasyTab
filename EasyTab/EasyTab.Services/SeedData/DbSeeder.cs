@@ -76,6 +76,10 @@ namespace EasyTab.Services.SeedData
             _context.Reservations.AddRange(reservations);
             await _context.SaveChangesAsync();
 
+            var payments = CreatePayments(reservations, tables, locales);
+            _context.Payments.AddRange(payments);
+            await _context.SaveChangesAsync();
+
             var reviews = CreateReviews(users, locales);
             _context.Reviews.AddRange(reviews);
             await _context.SaveChangesAsync();
@@ -297,6 +301,7 @@ namespace EasyTab.Services.SeedData
                 CityId = cities[definition.CityIndex].Id,
                 CategoryId = categories[definition.CategoryIndex].Id,
                 OwnerId = index < 9 ? users["vlasnik"].Id : users["vlasnik2"].Id,
+                ReservationPrice = 10.00m + (index % 5) * 5.00m,
                 IsDeleted = false
             }).ToList();
         }
@@ -450,6 +455,44 @@ namespace EasyTab.Services.SeedData
             }
 
             return reservations;
+        }
+
+        private static List<Payment> CreatePayments(
+            IReadOnlyList<Reservation> reservations,
+            IReadOnlyList<Table> tables,
+            IReadOnlyList<Locale> locales)
+        {
+            var localesById = locales.ToDictionary(l => l.Id);
+            var tablesById = tables.ToDictionary(t => t.Id);
+            var completedReservations = reservations
+                .Where(r => r.ReservationState == CompletedReservationState.StateName)
+                .ToList();
+
+            var payments = new List<Payment>();
+            const decimal rate = 1.95583m;
+
+            foreach (var res in completedReservations)
+            {
+                var localeId = tablesById.TryGetValue(res.TableId, out var table) ? table.LocaleId : 0;
+                var priceKm = localesById.TryGetValue(localeId, out var loc) ? loc.ReservationPrice : 15.00m;
+                var priceEur = Math.Round(priceKm / rate, 2);
+
+                payments.Add(new Payment
+                {
+                    ReservationId = res.Id,
+                    AmountKm = priceKm,
+                    Amount = priceEur,
+                    Currency = "EUR",
+                    ApprovalUrl = null,
+                    PayPalOrderId = $"SEED-ORDER-{res.Id:D6}",
+                    PayPalCaptureId = $"SEED-CAPTURE-{res.Id:D6}",
+                    Status = PaymentStatus.Completed,
+                    CreatedAt = res.CreatedAt,
+                    CompletedAt = res.CreatedAt.AddMinutes(5)
+                });
+            }
+
+            return payments;
         }
 
         private static List<Review> CreateReviews(IReadOnlyDictionary<string, User> users, IReadOnlyList<Locale> locales)

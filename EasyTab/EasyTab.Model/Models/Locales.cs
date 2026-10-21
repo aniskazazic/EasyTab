@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -24,6 +24,7 @@ namespace EasyTab.Model.Models
         public string? CountryName { get; set; }
         public string? OwnerName { get; set; }
         public double? AverageRating { get; set; }
+        public decimal ReservationPrice { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public List<LocaleImages>? Images { get; set; } = new List<LocaleImages>();
     }

@@ -33,6 +33,13 @@ services:
       - RabbitMQ__Host=easytab-rabbitmq
       - RabbitMQ__Username=${RABBITMQ_DEFAULT_USER}
       - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
+      - PayPal__ClientId=${PayPal__ClientId}
+      - PayPal__Secret=${PayPal__Secret}
+      - PayPal__BaseUrl=${PayPal__BaseUrl}
+      - PayPal__ReturnUrl=${PayPal__ReturnUrl}
+      - PayPal__CancelUrl=${PayPal__CancelUrl}
+      - PayPal__Currency=${PayPal__Currency}
+      - PayPal__BamToEurRate=${PayPal__BamToEurRate}
     ports:
       - "5241:5241"
     expose:

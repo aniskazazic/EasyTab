@@ -49,6 +49,7 @@ public partial class _220030Context : DbContext
 
     public virtual DbSet<Notification> Notifications { get; set; }
     public virtual DbSet<PasswordResetToken> PasswordResetTokens { get; set; }
+    public virtual DbSet<Payment> Payments { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
@@ -40,4 +40,6 @@ public partial class Reservation
 
     [MaxLength(1000)]
     public string ReservationState { get; set; } = string.Empty;
+
+    public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
 }

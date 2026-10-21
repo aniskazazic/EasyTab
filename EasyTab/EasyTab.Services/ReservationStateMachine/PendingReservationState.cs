@@ -130,6 +130,35 @@ namespace EasyTab.Services.ReservationStateMachine
                 }
             };
 
+            // Refund plaćanja ako postoji Completed uplata (prije promjene stanja / commita)
+            var completedPayment = await _context.Payments
+                .FirstOrDefaultAsync(p => p.ReservationId == id && p.Status == PaymentStatus.Completed);
+
+            if (completedPayment != null && !string.IsNullOrEmpty(completedPayment.PayPalCaptureId))
+            {
+                var payPalService = _serviceProvider.GetRequiredService<EasyTab.Services.PayPal.IPayPalService>();
+                var requestId = $"refund-{completedPayment.Id}";
+                var refundResult = await payPalService.RefundCaptureAsync(
+                    completedPayment.PayPalCaptureId,
+                    completedPayment.Amount,
+                    completedPayment.Currency,
+                    requestId);
+
+                completedPayment.Status = PaymentStatus.Refunded;
+                completedPayment.PayPalRefundId = refundResult.RefundId ?? completedPayment.PayPalRefundId;
+                completedPayment.RefundedAmount = completedPayment.Amount;
+                completedPayment.RefundedAt = DateTime.UtcNow;
+
+                notifications.Add(new Notification
+                {
+                    UserId = entity.UserId,
+                    Title = "Povrat uplate",
+                    Message = $"Izvršen je povrat uplate u iznosu od {completedPayment.AmountKm:F2} KM ({completedPayment.Amount:F2} {completedPayment.Currency}) za rezervaciju u {localeName}.",
+                    IsRead = false,
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+
             if (cancelledById == entity.UserId && table?.Locale != null)
             {
                 var localeAccessService = _serviceProvider.GetRequiredService<ILocaleAccessService>();
