@@ -1,4 +1,5 @@
-using System.Collections.Generic;
+using EasyTab.Model;
+using EasyTab.Model.SearchObject;
 using System.Threading.Tasks;
 using EasyTab.API.Filters;
 using EasyTab.Model.Models;
@@ -35,9 +36,9 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpGet("by-reservation/{id}")]
-        public async Task<ActionResult<List<PaymentResponse>>> GetByReservation(int id)
+        public async Task<ActionResult<PagedResult<PaymentResponse>>> GetByReservation(int id, [FromQuery] BaseSearchObject search)
         {
-            var result = await _paymentService.GetByReservationIdAsync(id);
+            var result = await _paymentService.GetByReservationIdAsync(id, search);
             return Ok(result);
         }
     }

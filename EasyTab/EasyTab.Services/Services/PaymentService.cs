@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Globalization;
+using EasyTab.Model;
+using EasyTab.Model.SearchObject;
 using System.Threading.Tasks;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
@@ -52,7 +55,7 @@ namespace EasyTab.Services.Services
             var currentUserId = _currentUser.UserId;
             if (currentUserId <= 0)
             {
-                throw new UnauthorizedAccessException("Korisnički identitet nije pronađen.");
+                throw new ForbiddenException("Korisnički identitet nije pronađen.");
             }
 
             var reservation = await _context.Reservations
@@ -63,7 +66,7 @@ namespace EasyTab.Services.Services
 
             if (reservation == null)
             {
-                throw new KeyNotFoundException($"Rezervacija sa ID {reservationId} nije pronađena.");
+                throw new NotFoundException($"Rezervacija sa ID {reservationId} nije pronađena.");
             }
 
             // Samo za prijavljenog vlasnika rezervacije, bez admin izuzetka
@@ -87,40 +90,51 @@ namespace EasyTab.Services.Services
 
             if (reservation.Payments.Any(p => p.Status == PaymentStatus.Completed))
             {
-                throw new UserException("Rezervacija je vec placena.");
+                throw new UserException("Rezervacija je već plaćena.");
             }
 
             // Ako postoji Created payment, provjeri kod PayPala
             var existingCreated = reservation.Payments.FirstOrDefault(p => p.Status == PaymentStatus.Created);
             if (existingCreated != null)
             {
-                bool isOrderReusable = false;
+                PayPalOrderResponse? existingOrder = null;
                 try
                 {
-                    var existingOrder = await _payPalService.GetOrderAsync(existingCreated.PayPalOrderId);
-                    if (existingOrder.Status == "CREATED" || existingOrder.Status == "APPROVED")
+                    existingOrder = await _payPalService.GetOrderAsync(existingCreated.PayPalOrderId);
+                }
+                catch (NotFoundException)
+                {
+                    _logger.LogInformation("PayPal order {OrderId} no longer exists.", existingCreated.PayPalOrderId);
+                }
+
+                if (existingOrder != null && string.Equals(existingOrder.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase))
+                {
+                    var capture = existingOrder.PurchaseUnits?.FirstOrDefault()?.Payments?.Captures?.FirstOrDefault();
+                    await CompletePaymentAsync(existingCreated, new PayPalCaptureResult
                     {
-                        isOrderReusable = true;
+                        CaptureId = capture?.Id ?? string.Empty,
+                        Status = capture?.Status ?? string.Empty,
+                        Amount = decimal.TryParse(capture?.Amount?.Value, NumberStyles.Number,
+                            CultureInfo.InvariantCulture, out var amount) ? amount : 0m,
+                        Currency = capture?.Amount?.CurrencyCode ?? string.Empty
+                    });
+                    throw new UserException("Rezervacija je već plaćena.");
+                }
+
+                if (existingOrder != null &&
+                    !string.Equals(existingOrder.Status, "VOIDED", StringComparison.OrdinalIgnoreCase))
+                {
+                    if ((existingOrder.Status == "CREATED" || existingOrder.Status == "APPROVED") &&
+                        !string.IsNullOrWhiteSpace(existingCreated.ApprovalUrl))
+                    {
+                        return new CreateOrderResponse
+                        {
+                            OrderId = existingCreated.PayPalOrderId,
+                            ApprovalUrl = existingCreated.ApprovalUrl
+                        };
                     }
+                    throw new UserException("Postojeća narudžba još nije završena. Pokušajte ponovo kasnije.");
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogInformation(ex, "Existing PayPal order {OrderId} is not reusable.", existingCreated.PayPalOrderId);
-                    isOrderReusable = false;
-                }
-
-                if (isOrderReusable && !string.IsNullOrEmpty(existingCreated.ApprovalUrl))
-                {
-                    return new CreateOrderResponse
-                    {
-                        OrderId = existingCreated.PayPalOrderId,
-                        ApprovalUrl = existingCreated.ApprovalUrl
-                    };
-                }
-
-                // Zamjena isteklog ordera: prvo SaveChangesAsync sa starim redom označenim Failed
-                existingCreated.Status = PaymentStatus.Failed;
-                await _context.SaveChangesAsync();
             }
 
             var amountKm = reservation.Table?.Locale?.ReservationPrice ?? 0m;
@@ -155,11 +169,21 @@ namespace EasyTab.Services.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            _context.Payments.Add(payment);
-
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                if (existingCreated != null)
+                {
+                    var replaced = await _context.Payments
+                        .Where(p => p.Id == existingCreated.Id && p.Status == PaymentStatus.Created)
+                        .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.Status, PaymentStatus.Failed));
+                    if (replaced == 0)
+                        throw new UserException("Plaćanje je već pokrenuto za ovu rezervaciju.");
+                    await _context.Entry(existingCreated).ReloadAsync();
+                }
+                _context.Payments.Add(payment);
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
             }
             catch (DbUpdateException ex)
             {
@@ -179,7 +203,7 @@ namespace EasyTab.Services.Services
             var currentUserId = _currentUser.UserId;
             if (currentUserId <= 0)
             {
-                throw new UnauthorizedAccessException("Korisnički identitet nije pronađen.");
+                throw new ForbiddenException("Korisnički identitet nije pronađen.");
             }
 
             var payment = await _context.Payments
@@ -190,7 +214,7 @@ namespace EasyTab.Services.Services
 
             if (payment == null)
             {
-                throw new KeyNotFoundException($"Plaćanje sa narudžbom {orderId} nije pronađeno.");
+                throw new NotFoundException($"Plaćanje sa narudžbom {orderId} nije pronađeno.");
             }
 
             // Samo za prijavljenog vlasnika rezervacije, bez admin izuzetka
@@ -220,7 +244,7 @@ namespace EasyTab.Services.Services
                                p.Status == PaymentStatus.Completed);
             if (hasCompletedPayment)
             {
-                throw new UserException("Rezervacija je vec placena.");
+                throw new UserException("Rezervacija je već plaćena.");
             }
 
             var isAllowedState = payment.Reservation.ReservationState == PendingReservationState.StateName ||
@@ -246,6 +270,14 @@ namespace EasyTab.Services.Services
             var requestId = $"capture-{payment.Id}";
             var captureResult = await _payPalService.CaptureOrderAsync(orderId, requestId);
 
+            return await CompletePaymentAsync(payment, captureResult);
+        }
+
+        private async Task<PaymentResponse> CompletePaymentAsync(Payment payment, PayPalCaptureResult captureResult)
+        {
+            if (string.IsNullOrWhiteSpace(captureResult.CaptureId))
+                throw new UserException("Odgovor servisa za plaćanje ne sadrži podatke o naplati.");
+
             if (!string.Equals(captureResult.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase))
             {
                 _logger.LogError("CaptureOrder failed: PayPal capture status is '{Status}', expected 'COMPLETED'.", captureResult.Status);
@@ -264,10 +296,6 @@ namespace EasyTab.Services.Services
                 throw new UserException("Iznos ili valuta naplate ne odgovara podacima rezervacije.");
             }
 
-            payment.Status = PaymentStatus.Completed;
-            payment.PayPalCaptureId = captureResult.CaptureId;
-            payment.CompletedAt = DateTime.UtcNow;
-
             var localeName = payment.Reservation.Table?.Locale?.Name ?? "Lokal";
             var notification = new Notification
             {
@@ -278,15 +306,34 @@ namespace EasyTab.Services.Services
                 CreatedAt = DateTime.UtcNow
             };
 
-            try
+            await using (var transaction = await _context.Database.BeginTransactionAsync())
             {
-                _context.Notifications.Add(notification);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException ex)
-            {
-                _logger.LogError(ex, "Database update error during payment capture commit for payment {PaymentId}", payment.Id);
-                throw new UserException("Greška pri evidentiranju plaćanja u bazi podataka.");
+                try
+                {
+                    var completedAt = DateTime.UtcNow;
+                    var updated = await _context.Payments
+                        .Where(p => p.Id == payment.Id && p.Status == PaymentStatus.Created)
+                        .ExecuteUpdateAsync(setters => setters
+                            .SetProperty(p => p.Status, PaymentStatus.Completed)
+                            .SetProperty(p => p.PayPalCaptureId, captureResult.CaptureId)
+                            .SetProperty(p => p.CompletedAt, completedAt));
+                    await _context.Entry(payment).ReloadAsync();
+                    if (updated == 0)
+                    {
+                        if (payment.Status != PaymentStatus.Completed)
+                            throw new UserException("Status plaćanja je promijenjen. Osvježite podatke i pokušajte ponovo.");
+                        await transaction.CommitAsync();
+                        return _mapper.Map<PaymentResponse>(payment);
+                    }
+                    _context.Notifications.Add(notification);
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+                }
+                catch (DbUpdateException ex)
+                {
+                    _logger.LogError(ex, "Database update error during payment capture commit for payment {PaymentId}", payment.Id);
+                    throw new UserException("Greška pri evidentiranju plaćanja u bazi podataka.");
+                }
             }
 
             // SignalR push se šalje tek nakon što je transakcija commitovana
@@ -302,7 +349,7 @@ namespace EasyTab.Services.Services
             return _mapper.Map<PaymentResponse>(payment);
         }
 
-        public async Task<Notification?> RefundCompletedPaymentAsync(int reservationId)
+        public async Task<Notifications?> RefundCompletedPaymentAsync(int reservationId)
         {
             var completedPayment = await _context.Payments
                 .Include(p => p.Reservation)
@@ -311,10 +358,13 @@ namespace EasyTab.Services.Services
                 .FirstOrDefaultAsync(p => p.ReservationId == reservationId &&
                                           p.Status == PaymentStatus.Completed);
 
-            if (completedPayment == null || string.IsNullOrEmpty(completedPayment.PayPalCaptureId))
+            if (completedPayment == null)
             {
                 return null;
             }
+
+            if (string.IsNullOrWhiteSpace(completedPayment.PayPalCaptureId))
+                throw new UserException("Povrat uplate nije moguć jer nedostaje podatak o naplati. Rezervacija nije otkazana.");
 
             var requestId = $"refund-{completedPayment.Id}";
             var refundResult = await _payPalService.RefundCaptureAsync(
@@ -323,13 +373,21 @@ namespace EasyTab.Services.Services
                 completedPayment.Currency,
                 requestId);
 
+            if (string.Equals(refundResult.Status, "PENDING", StringComparison.OrdinalIgnoreCase))
+                _logger.LogWarning("PayPal refund for payment {PaymentId} is PENDING.", completedPayment.Id);
+            else if (!string.Equals(refundResult.Status, "COMPLETED", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogWarning("PayPal refund for payment {PaymentId} failed with status {Status}.", completedPayment.Id, refundResult.Status);
+                throw new UserException("Povrat uplate nije uspio. Rezervacija nije otkazana. Pokušajte ponovo kasnije.");
+            }
+
             completedPayment.Status = PaymentStatus.Refunded;
             completedPayment.PayPalRefundId = refundResult.RefundId ?? completedPayment.PayPalRefundId;
             completedPayment.RefundedAmount = completedPayment.Amount;
             completedPayment.RefundedAt = DateTime.UtcNow;
 
             var localeName = completedPayment.Reservation.Table?.Locale?.Name ?? "Lokal";
-            return new Notification
+            return new Notifications
             {
                 UserId = completedPayment.Reservation.UserId,
                 Title = "Povrat uplate",
@@ -339,7 +397,7 @@ namespace EasyTab.Services.Services
             };
         }
 
-        public async Task<List<PaymentResponse>> GetByReservationIdAsync(int reservationId)
+        public async Task<PagedResult<PaymentResponse>> GetByReservationIdAsync(int reservationId, BaseSearchObject search)
         {
             var reservation = await _context.Reservations
                 .Include(r => r.Table)
@@ -347,7 +405,7 @@ namespace EasyTab.Services.Services
 
             if (reservation == null)
             {
-                throw new KeyNotFoundException($"Rezervacija sa ID {reservationId} nije pronađena.");
+                throw new NotFoundException($"Rezervacija sa ID {reservationId} nije pronađena.");
             }
 
             var currentUserId = _currentUser.UserId;
@@ -365,13 +423,23 @@ namespace EasyTab.Services.Services
                 }
             }
 
-            var payments = await _context.Payments
-                .AsNoTracking()
-                .Where(p => p.ReservationId == reservationId)
+            var pageSize = Math.Clamp(search.PageSize ?? 10, 1, 100);
+            var page = Math.Max(search.Page ?? 1, 1);
+            var query = _context.Payments.AsNoTracking().Where(p => p.ReservationId == reservationId);
+            int? totalCount = search.IncludeTotalCount == true ? await query.CountAsync() : null;
+            var offset = (long)(page - 1) * pageSize;
+            var payments = offset > int.MaxValue ? new List<Payment>() : await query
                 .OrderByDescending(p => p.CreatedAt)
+                .ThenByDescending(p => p.Id)
+                .Skip((int)offset)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return _mapper.Map<List<PaymentResponse>>(payments);
+            return new PagedResult<PaymentResponse>
+            {
+                Items = _mapper.Map<List<PaymentResponse>>(payments),
+                TotalCount = totalCount
+            };
         }
     }
 }

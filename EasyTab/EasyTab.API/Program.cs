@@ -299,7 +299,7 @@ using (var scope = app.Services.CreateScope())
     
     try
     {
-        dbContext.Database.Migrate();
+        await dbContext.Database.MigrateAsync();
         await dbSeeder.SeedAsync();
     }
     catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 1801)

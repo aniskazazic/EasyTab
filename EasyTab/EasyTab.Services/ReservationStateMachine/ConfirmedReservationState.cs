@@ -1,3 +1,4 @@
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Messages;
 using EasyTab.Model.Models;
 using EasyTab.Services.Database;
@@ -26,7 +27,7 @@ namespace EasyTab.Services.ReservationStateMachine
 
             if (!string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Rezervacija mora biti potvrđena da bi bila završena.");
+                throw new UserException("Rezervacija mora biti potvrđena da bi bila završena.");
             }
 
             entity.ReservationState = CompletedReservationState.StateName;
@@ -81,7 +82,7 @@ namespace EasyTab.Services.ReservationStateMachine
 
             if (!string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Rezervacija mora biti potvrđena da bi bila otkazana.");
+                throw new UserException("Rezervacija mora biti potvrđena da bi bila otkazana.");
             }
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -108,7 +109,7 @@ namespace EasyTab.Services.ReservationStateMachine
                 .RefundCompletedPaymentAsync(id);
             if (refundNotification != null)
             {
-                notifications.Add(refundNotification);
+                notifications.Add(_mapper.Map<Notification>(refundNotification));
             }
 
             entity.ReservationState = CancelledReservationState.StateName;
