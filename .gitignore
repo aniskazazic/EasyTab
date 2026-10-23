@@ -436,3 +436,5 @@ doc/api/
 /EasyTab/.idea
 /EasyTab/UI/easytab_mobile/macos/Flutter
 .idea/
+*.md
+*.pdf
