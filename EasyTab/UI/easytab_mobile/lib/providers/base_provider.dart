@@ -15,7 +15,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   BaseProvider(String endpoint) {
     _endpoint = endpoint;
     _baseUrl = const String.fromEnvironment(
-      "baseUrl",
+      "API_BASE_URL",
       defaultValue: "http://10.0.2.2:5241",
     );
   }
@@ -33,7 +33,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
 
     var uri = Uri.parse(url);
 
-    var response = await _sendRequestWithRetry(
+    var response = await sendRequestWithRetry(
       () => http.get(uri, headers: createHeaders()),
     );
 
@@ -55,7 +55,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var uri = Uri.parse(url);
 
     var jsonRequest = jsonEncode(request);
-    var response = await _sendRequestWithRetry(
+    var response = await sendRequestWithRetry(
       () => http.post(uri, headers: createHeaders(), body: jsonRequest),
     );
 
@@ -70,7 +70,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var uri = Uri.parse(url);
 
     var jsonRequest = jsonEncode(request);
-    var response = await _sendRequestWithRetry(
+    var response = await sendRequestWithRetry(
       () => http.put(uri, headers: createHeaders(), body: jsonRequest),
     );
 
@@ -83,7 +83,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   Future<void> delete(int id) async {
     var url = "$baseUrl/$_endpoint/$id";
     var uri = Uri.parse(url);
-    var response = await _sendRequestWithRetry(
+    var response = await sendRequestWithRetry(
       () => http.delete(uri, headers: createHeaders()),
     );
     validateResponse(response);
@@ -175,7 +175,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
         }
         query += '$prefix$key=$encoded';
       } else if (value is DateTime) {
-        query += '$prefix$key=${(value as DateTime).toIso8601String()}';
+        query += '$prefix$key=${value.toIso8601String()}';
       } else if (value is List || value is Map) {
         if (value is List) value = value.asMap();
         value.forEach((k, v) {
@@ -195,7 +195,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
 
     var uri = Uri.parse(url);
 
-    var response = await _sendRequestWithRetry(
+    var response = await sendRequestWithRetry(
       () => http.get(uri, headers: createHeaders()),
     );
     validateResponse(response);
@@ -205,7 +205,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     return fromJson(data);
   }
 
-  Future<Response> _sendRequestWithRetry(
+  Future<Response> sendRequestWithRetry(
     Future<Response> Function() requestBuilder,
   ) async {
     var response = await requestBuilder();

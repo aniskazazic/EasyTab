@@ -5,7 +5,8 @@ part 'reservation.g.dart';
 @JsonSerializable()
 class Reservation {
   final int? id;
-  final int? userId;
+  final bool isPaid;
+  final double? paidAmountKm;
   final String? firstName;
   final String? lastName;
   final String? email;
@@ -30,7 +31,8 @@ class Reservation {
 
   Reservation({
     this.id,
-    this.userId,
+    this.isPaid = false,
+    this.paidAmountKm,
     this.firstName,
     this.lastName,
     this.email,
@@ -53,6 +55,14 @@ class Reservation {
     this.localeAddress,
     this.localeLogo,
   });
+
+  bool get isActive => const [
+    'pending',
+    'confirmed',
+    'na čekanju',
+    'potvrđena',
+    'potvrdena',
+  ].contains(reservationState?.toLowerCase());
 
   String get customerName => '${firstName ?? ''} ${lastName ?? ''}'.trim();
 

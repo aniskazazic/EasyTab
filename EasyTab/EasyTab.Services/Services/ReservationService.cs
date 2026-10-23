@@ -147,8 +147,8 @@ namespace EasyTab.Services.Services
                 var reservationIds = pagedResult.Items.Select(r => r.Id).ToList();
                 var completedPayments = await Context.Payments
                     .AsNoTracking()
-                    .Where(p => reservationIds.Contains(p.ReservationId) && p.Status == PaymentStatus.Completed)
-                    .GroupBy(p => p.ReservationId)
+                    .Where(p => p.ReservationId.HasValue && reservationIds.Contains(p.ReservationId.Value) && p.Status == PaymentStatus.Completed)
+                    .GroupBy(p => p.ReservationId!.Value)
                     .Select(g => new
                     {
                         ReservationId = g.Key,
@@ -223,52 +223,6 @@ namespace EasyTab.Services.Services
                     worker.UserId == _currentUser.UserId && !worker.IsDeleted);
 
             return reservation.UserId == _currentUser.UserId;
-        }
-
-        protected override async Task BeforeInsert(Reservation entity, ReservationInsertRequest request)
-        {
-            _logger.LogInformation("Creating reservation. UserId: {UserId}, TableId: {TableId}, ReservationDate: {ReservationDate}", request.UserId, request.TableId, request.ReservationDate);
-
-            var table = await Context.Tables.FindAsync(request.TableId);
-            if (table == null)
-            {
-                throw new UserException("Stol nije pronađen!");
-            }
-
-            if (request.NumberOfGuests != table.NumberOfGuests)
-            {
-                throw new UserException($"Stol prima tačno {table.NumberOfGuests} gostiju.");
-            }
-
-            var duplicate = await Context.Reservations.AnyAsync(r =>
-                r.UserId == request.UserId &&
-                r.TableId == request.TableId &&
-                r.ReservationDate.Date == request.ReservationDate.Date &&
-                r.StartTime == TimeOnly.FromTimeSpan(request.StartTime) &&
-                r.ReservationState != CancelledReservationState.StateName);
-
-            if (duplicate)
-            {
-                throw new UserException("Već imate rezervaciju za ovaj stol u ovom terminu!");
-            }
-
-            var overlaps = await Context.Reservations.AnyAsync(r =>
-                r.TableId == request.TableId &&
-                r.ReservationDate.Date == request.ReservationDate.Date &&
-                r.ReservationState != CancelledReservationState.StateName &&
-                r.StartTime < TimeOnly.FromTimeSpan(request.EndTime) &&
-                TimeOnly.FromTimeSpan(request.StartTime) < r.EndTime);
-
-            if (overlaps)
-            {
-                _logger.LogWarning("Reservation overlap detected. TableId: {TableId}, ReservationDate: {ReservationDate}", request.TableId, request.ReservationDate);
-                throw new UserException("Stol je već rezervisan za ovaj termin!");
-            }
-
-            entity.CreatedAt = DateTime.UtcNow;
-            entity.ReservationState = PendingReservationState.StateName;
-
-            await Task.CompletedTask;
         }
 
         public async Task<List<TimeSlots>> GetAvailableSlotsAsync(int tableId, DateTime date)
@@ -386,11 +340,9 @@ namespace EasyTab.Services.Services
             _logger.LogWarning("Reservation cancelled successfully. ReservationId: {ReservationId}", id);
         }
 
-        public override async Task<Reservations> CreateAsync(ReservationInsertRequest request)
+        public override Task<Reservations> CreateAsync(ReservationInsertRequest request)
         {
-            request.UserId = _currentUser.UserId;
-            var initialState = GetStateMachine(nameof(InitialReservationState));
-            return await initialState.CreateAsync(request);
+            throw new UserException("Rezervacija se kreira tek nakon uspješnog plaćanja. Pokrenite plaćanje za odabrani stol i termin.");
         }
 
         public async Task<Reservations> ConfirmAsync(int id)

@@ -187,12 +187,14 @@ namespace EasyTab.Services.PayPal
             return tokenResponse.AccessToken;
         }
 
-        public async Task<(string orderId, string? approvalUrl)> CreateOrderAsync(decimal amountEur, string currency, string referenceId, string description)
+        public async Task<(string orderId, string? approvalUrl)> CreateOrderAsync(decimal amountEur, string currency, string referenceId, string description, string? requestId = null)
         {
             var token = await GetAccessTokenAsync();
 
             using var request = new HttpRequestMessage(HttpMethod.Post, "v2/checkout/orders");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            if (requestId != null)
+                request.Headers.TryAddWithoutValidation("PayPal-Request-Id", requestId);
 
             var payload = new
             {

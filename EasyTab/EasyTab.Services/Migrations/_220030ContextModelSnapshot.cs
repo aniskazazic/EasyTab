@@ -312,6 +312,12 @@ namespace EasyTab.Services.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<DateTime?>("CaptureRequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CheckoutId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime");
 
@@ -323,12 +329,20 @@ namespace EasyTab.Services.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
+                    b.Property<TimeOnly?>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime?>("LastCheckedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("NumberOfGuests")
+                        .HasColumnType("int");
+
                     b.Property<string>("PayPalCaptureId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("PayPalOrderId")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
@@ -342,22 +356,45 @@ namespace EasyTab.Services.Migrations
                     b.Property<DateTime?>("RefundedAt")
                         .HasColumnType("datetime");
 
-                    b.Property<int>("ReservationId")
+                    b.Property<DateTime?>("ReservationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReservationId")
                         .HasColumnType("int");
+
+                    b.Property<TimeOnly?>("StartTime")
+                        .HasColumnType("time");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int?>("TableId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("CheckoutId")
+                        .IsUnique()
+                        .HasFilter("[CheckoutId] IS NOT NULL");
+
                     b.HasIndex("PayPalOrderId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("[PayPalOrderId] IS NOT NULL");
 
                     b.HasIndex("ReservationId")
                         .IsUnique()
-                        .HasFilter("[Status] IN ('Created', 'Completed')");
+                        .HasFilter("[ReservationId] IS NOT NULL AND [Status] IN ('Created', 'Completed')");
+
+                    b.HasIndex("TableId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Status", "CaptureRequestedAt", "LastCheckedAt");
 
                     b.ToTable("Payments");
                 });
@@ -847,8 +884,17 @@ namespace EasyTab.Services.Migrations
                         .WithMany("Payments")
                         .HasForeignKey("ReservationId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
                         .HasConstraintName("FK_Payments_Reservations");
+
+                    b.HasOne("EasyTab.Services.Database.Table", null)
+                        .WithMany()
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("EasyTab.Services.Database.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.Navigation("Reservation");
                 });

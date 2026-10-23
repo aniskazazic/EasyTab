@@ -7,7 +7,17 @@ namespace EasyTab.Services.Database
     {
         public int Id { get; set; }
 
-        public int ReservationId { get; set; }
+        public int? ReservationId { get; set; }
+
+        public Guid? CheckoutId { get; set; }
+        public int? UserId { get; set; }
+        public int? TableId { get; set; }
+        public int? NumberOfGuests { get; set; }
+        public DateTime? ReservationDate { get; set; }
+        public TimeOnly? StartTime { get; set; }
+        public TimeOnly? EndTime { get; set; }
+        public DateTime? CaptureRequestedAt { get; set; }
+        public DateTime? LastCheckedAt { get; set; }
 
         public decimal AmountKm { get; set; }
 
@@ -20,7 +30,7 @@ namespace EasyTab.Services.Database
         public string? ApprovalUrl { get; set; }
 
         [MaxLength(100)]
-        public string PayPalOrderId { get; set; } = null!;
+        public string? PayPalOrderId { get; set; }
 
         [MaxLength(100)]
         public string? PayPalCaptureId { get; set; }
@@ -39,6 +49,6 @@ namespace EasyTab.Services.Database
 
         public DateTime? RefundedAt { get; set; }
 
-        public virtual Reservation Reservation { get; set; } = null!;
+        public virtual Reservation? Reservation { get; set; }
     }
 }

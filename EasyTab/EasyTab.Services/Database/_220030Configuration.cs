@@ -300,7 +300,7 @@ public partial class _220030Context : DbContext
             entity.Property(e => e.Amount).HasColumnType("decimal(18,2)").IsRequired();
             entity.Property(e => e.Currency).HasMaxLength(10).IsRequired();
             entity.Property(e => e.ApprovalUrl).HasMaxLength(1000);
-            entity.Property(e => e.PayPalOrderId).HasMaxLength(100).IsRequired();
+            entity.Property(e => e.PayPalOrderId).HasMaxLength(100);
             entity.Property(e => e.PayPalCaptureId).HasMaxLength(100);
             entity.Property(e => e.PayPalRefundId).HasMaxLength(100);
             entity.Property(e => e.Status).HasMaxLength(50).IsRequired();
@@ -310,9 +310,14 @@ public partial class _220030Context : DbContext
             entity.Property(e => e.RefundedAt).HasColumnType("datetime");
 
             entity.HasIndex(e => e.PayPalOrderId).IsUnique();
+            entity.HasIndex(e => e.CheckoutId).IsUnique();
+            entity.HasIndex(e => new { e.Status, e.CaptureRequestedAt, e.LastCheckedAt });
             entity.HasIndex(e => e.ReservationId)
                 .IsUnique()
-                .HasFilter("[Status] IN ('Created', 'Completed')");
+                .HasFilter("[ReservationId] IS NOT NULL AND [Status] IN ('Created', 'Completed')");
+
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<Table>().WithMany().HasForeignKey(e => e.TableId).OnDelete(DeleteBehavior.NoAction);
 
             entity.HasOne(d => d.Reservation)
                 .WithMany(p => p.Payments)

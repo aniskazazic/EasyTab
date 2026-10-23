@@ -78,42 +78,17 @@ class ReservationProvider extends BaseProvider<Reservation> {
         .toList();
   }
 
-  /// Inserts a new reservation, refreshes the user's reservations, and returns raw JSON.
-  Future<Map<String, dynamic>> insertReservation(
-    Map<String, dynamic> request,
-  ) async {
-    final url = '${BaseProvider.baseUrl}/Reservations';
-    final uri = Uri.parse(url);
-
-    final response = await http.post(
-      uri,
-      headers: createHeaders(),
-      body: jsonEncode(request),
-    );
-    validateResponse(response);
-
-    final data = jsonDecode(response.body) as Map<String, dynamic>;
-
-    if (request['userId'] != null) {
-      final uid = int.tryParse(request['userId'].toString());
-      if (uid != null) {
-        // Asinhrono osvježi stanje rezervacija u memoriji
-        loadAll(uid);
-      }
-    }
-
-    return data;
-  }
-
   /// Cancels a reservation through the state machine.
   Future<void> cancelReservation(int id, String reason) async {
     final url = '${BaseProvider.baseUrl}/Reservations/cancel/$id';
     final uri = Uri.parse(url);
 
-    final response = await http.put(
-      uri,
-      headers: createHeaders(),
-      body: jsonEncode({'reason': reason}),
+    final response = await sendRequestWithRetry(
+      () => http.put(
+        uri,
+        headers: createHeaders(),
+        body: jsonEncode({'reason': reason}),
+      ),
     );
     validateResponse(response);
 

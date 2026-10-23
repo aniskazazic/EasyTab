@@ -27,6 +27,8 @@ public sealed class ReservationStatusBackgroundService : BackgroundService
                 var reservationService = scope.ServiceProvider
                     .GetRequiredService<IReservationService>();
                 await reservationService.ProcessAutomaticTransitionsAsync(LocalClock.Now);
+                await scope.ServiceProvider.GetRequiredService<IPaymentService>()
+                    .ReconcileCheckoutsAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

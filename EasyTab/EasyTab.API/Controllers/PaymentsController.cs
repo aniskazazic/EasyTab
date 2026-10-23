@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using EasyTab.API.Filters;
 using EasyTab.Model.Models;
 using EasyTab.Model.Responses;
+using EasyTab.Model.Requests;
 using EasyTab.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,6 +21,14 @@ namespace EasyTab.API.Controllers
         {
             _paymentService = paymentService;
         }
+
+        [HttpPost("checkout")]
+        public async Task<ActionResult<CreateOrderResponse>> Checkout([FromBody] ReservationCheckoutRequest request)
+            => Ok(await _paymentService.CreateCheckoutAsync(request));
+
+        [HttpPost("checkout/{orderId}/capture")]
+        public async Task<ActionResult<PaymentResponse>> CaptureCheckout(string orderId)
+            => Ok(await _paymentService.CaptureCheckoutAsync(orderId));
 
         [HttpPost("create-order/{reservationId}")]
         public async Task<ActionResult<CreateOrderResponse>> CreateOrder(int reservationId)
