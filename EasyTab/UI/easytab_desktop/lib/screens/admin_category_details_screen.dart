@@ -88,6 +88,7 @@ class _AdminCategoryDetailsScreenState
   Widget build(BuildContext context) {
     return MasterScreen(
       title: widget.category == null ? 'Nova kategorija' : 'Uredi kategoriju',
+      showCloseButton: true,
       child: Column(
         children: [
           Expanded(

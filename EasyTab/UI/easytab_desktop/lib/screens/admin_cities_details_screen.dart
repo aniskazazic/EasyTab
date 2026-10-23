@@ -1,9 +1,9 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/models/country.dart';
-import 'package:easytab_desktop/models/search_result.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:provider/provider.dart';
@@ -20,7 +20,7 @@ class _AdminCityDetailsScreenState extends State<AdminCityDetailsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
   late CityProvider cityProvider;
   late CountryProvider countryProvider;
-  SearchResult<Country>? countries;
+  List<Country> countries = [];
   bool isLoading = true;
 
   @override
@@ -33,11 +33,13 @@ class _AdminCityDetailsScreenState extends State<AdminCityDetailsScreen> {
 
   Future<void> _loadData() async {
     try {
-      countries = await countryProvider.get(
-        filter: {"Page": 1, "PageSize": 100},
+      countries = await fetchAllPages(
+        (filter) => countryProvider.get(filter: filter),
       );
+      if (!mounted) return;
       setState(() => isLoading = false);
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
       _showError(e.toString());
     }
@@ -105,8 +107,20 @@ class _AdminCityDetailsScreenState extends State<AdminCityDetailsScreen> {
   Widget build(BuildContext context) {
     return MasterScreen(
       title: widget.city == null ? 'Novi grad' : 'Uredi grad',
+      showCloseButton: true,
       child: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : countries.isEmpty
+          ? const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  'Forma za grad nije dostupna jer nema država. '
+                  'Prvo dodajte državu.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
           : Column(
               children: [
                 Expanded(
@@ -139,16 +153,14 @@ class _AdminCityDetailsScreenState extends State<AdminCityDetailsScreen> {
                             ),
                             validator: (value) =>
                                 value == null ? 'Država je obavezna' : null,
-                            items:
-                                countries?.items
-                                    ?.map(
-                                      (c) => DropdownMenuItem(
-                                        value: c.id,
-                                        child: Text(c.name ?? ''),
-                                      ),
-                                    )
-                                    .toList() ??
-                                [],
+                            items: countries
+                                .map(
+                                  (c) => DropdownMenuItem(
+                                    value: c.id,
+                                    child: Text(c.name ?? ''),
+                                  ),
+                                )
+                                .toList(),
                           ),
                         ],
                       ),

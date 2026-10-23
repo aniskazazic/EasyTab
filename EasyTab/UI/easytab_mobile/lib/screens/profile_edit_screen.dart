@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/user.dart';
 import 'package:easytab_mobile/providers/user_provider.dart';
 import 'package:file_picker/file_picker.dart';
@@ -25,6 +26,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   late UserProvider _userProvider;
 
   String? base64ProfileImage;
+  String? _profilePictureError;
   bool _removeProfileImage = false;
 
   @override
@@ -59,6 +61,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         setState(() {
           base64ProfileImage = base64String;
           _removeProfileImage = false;
+          _profilePictureError = null;
         });
       }
     } catch (e) {
@@ -90,6 +93,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       setState(() {
         base64ProfileImage = null;
         _removeProfileImage = true;
+        _profilePictureError = null;
       });
     }
   }
@@ -163,7 +167,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             }
           }
         } on Exception catch (e) {
-          if (mounted) alertBox(context, "Greška", e.toString());
+          final imageError = e is ApiClientException
+              ? e.imageValidationErrors['profilePicture']
+              : null;
+          if (mounted && imageError != null) {
+            setState(() => _profilePictureError = imageError);
+          } else if (mounted) {
+            alertBox(context, "Greška", e.toString());
+          }
         }
       },
       child: const Text("Sačuvaj promjene", style: TextStyle(fontSize: 16)),
@@ -191,6 +202,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
               icon: const Icon(Icons.delete),
               label: const Text('Obriši sliku'),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
+            ),
+          if (_profilePictureError != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                _profilePictureError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
             ),
           FormBuilderTextField(
             name: "firstName",

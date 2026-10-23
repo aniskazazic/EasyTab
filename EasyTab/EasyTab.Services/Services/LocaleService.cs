@@ -5,6 +5,7 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.Validators;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,6 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 
@@ -23,15 +23,20 @@ namespace EasyTab.Services.Services
 
         private readonly ILogger<LocaleService> _logger;
         private readonly ILocaleAccessService _localeAccessService;
+        private readonly ICurrentUserService _currentUser;
 
-        public LocaleService(_220030Context context, IMapper mapper, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper, insertValidator, updateValidator)
+        public LocaleService(_220030Context context, IMapper mapper, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser) : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
             _localeAccessService = localeAccessService;
+            _currentUser = currentUser;
         }
 
         public override async Task<Locales> CreateAsync(LocaleInsertRequest request)
         {
+            ImageContentValidator.ValidateOptionalImage(request.Logo, nameof(request.Logo));
+            ValidateGalleryImages(request.Images);
+
             _logger.LogInformation("Creating locale. LocaleName: {LocaleName}", request.Name);
 
             // Validacija CityId
@@ -49,15 +54,17 @@ namespace EasyTab.Services.Services
             }
 
             var entity = Mapper.Map<Locale>(request);
+            await BeforeInsert(entity, request);
             Context.Locales.Add(entity);
             await Context.SaveChangesAsync();
-            var response = Mapper.Map<Locales>(entity);
-            return response;
+            return MapToResponse(entity);
         }
 
         public override async Task<Locales?> UpdateAsync(int id, LocaleUpdateRequest request)
         {
             await _updateValidator.ValidateAndThrowAsync(request);
+            ImageContentValidator.ValidateOptionalImage(request.Logo, nameof(request.Logo));
+            ValidateGalleryImages(request.Images);
 
             _logger.LogInformation("Updating locale. LocaleId: {LocaleId}, LocaleName: {LocaleName}", id, request.Name);
 
@@ -81,6 +88,7 @@ namespace EasyTab.Services.Services
         {
             var entity = await Context.Locales
                 .Include(x => x.City)
+                    .ThenInclude(x => x.Country)
                 .Include(x => x.Category)
                 .Include(x => x.Owner)
                 .Include(x => x.LocaleImages)
@@ -90,10 +98,7 @@ namespace EasyTab.Services.Services
             if (entity == null)
                 return null;
 
-            var model = Mapper.Map<Locales>(entity);
-            model.CityName = entity.City?.Name;
-            model.CategoryName = entity.Category?.Name;
-            model.OwnerName = entity.Owner != null ? $"{entity.Owner.FirstName} {entity.Owner.LastName}" : null;
+            var model = MapToResponse(entity);
             model.AverageRating = await GetAverageRatingForLocaleAsync(entity.Id);
 
             return model;
@@ -105,8 +110,36 @@ namespace EasyTab.Services.Services
             if (result.Items == null || result.Items.Count == 0)
                 return result;
 
+            foreach (var locale in result.Items)
+                locale.Images = null;
+
             await ApplyAverageRatingsAsync(result.Items);
             return result;
+        }
+
+        private static void ValidateGalleryImages(
+            IReadOnlyList<LocaleImageInsertRequest>? images)
+        {
+            if (images == null)
+                return;
+
+            for (var index = 0; index < images.Count; index++)
+            {
+                var image = images[index];
+                if (image == null)
+                {
+                    ImageContentValidator.ValidateRequiredImage(
+                        null,
+                        null,
+                        $"Images[{index}].Base64Content");
+                    continue;
+                }
+
+                ImageContentValidator.ValidateRequiredImage(
+                    image.Base64Content,
+                    image.ContentType,
+                    $"Images[{index}].Base64Content");
+            }
         }
 
         public override async Task<bool> DeleteAsync(int id)
@@ -116,7 +149,7 @@ namespace EasyTab.Services.Services
             return await base.DeleteAsync(id);
         }
 
-        protected override IQueryable<Locale> ApplyFilter(IQueryable<Locale> query, LocaleSearchObject search)
+        protected override IQueryable<Locale> ApplyFilter(IQueryable<Locale> query, LocaleSearchObject? search)
         {
             query = query.Include(x => x.City).ThenInclude(x => x.Country)
                          .Include(x => x.Category)
@@ -146,7 +179,9 @@ namespace EasyTab.Services.Services
                     .Where(r => !r.IsDeleted)
                     .Average(r => r.Rating) >= search.Rating.Value);
 
-            if (search?.OwnerId.HasValue == true)
+            if (_currentUser.Role == RoleNames.Vlasnik)
+                query = query.Where(x => x.OwnerId == _currentUser.UserId);
+            else if (search?.OwnerId.HasValue == true)
                 query = query.Where(x => x.OwnerId == search.OwnerId);
 
             if (string.Equals(search?.SortBy, "rating", StringComparison.OrdinalIgnoreCase))
@@ -172,6 +207,9 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeInsert(Locale entity, LocaleInsertRequest request)
         {
+            if (_currentUser.Role == RoleNames.Vlasnik)
+                entity.OwnerId = _currentUser.UserId;
+
             entity.Logo = string.IsNullOrWhiteSpace(request.Logo) ? null : request.Logo;
 
             // Obrada slika

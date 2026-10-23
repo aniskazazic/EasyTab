@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as models;
 import 'package:easytab_desktop/providers/locale_provider.dart';
@@ -36,8 +37,11 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
   File? _userImage;
   File? _ownerImage;
   File? _workerImage;
+  final Map<String, String> _imageErrors = {};
 
   List<models.Locale> _locales = [];
+  bool _isLoadingLocales = true;
+  bool _localeLoadFailed = false;
   bool isLoading = false;
   @override
   void initState() {
@@ -56,11 +60,24 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
   }
 
   Future<void> _loadLocales() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingLocales = true;
+        _localeLoadFailed = false;
+      });
+    }
     try {
-      final result = await localeProvider.get(filter: {"RetrieveAll": true});
-      setState(() => _locales = result.items ?? []);
+      final locales = await fetchAllPages(
+        (filter) => localeProvider.get(filter: filter),
+      );
+      if (mounted) setState(() => _locales = locales);
     } catch (e) {
-      debugPrint('Error loading locales: $e');
+      if (mounted) {
+        setState(() => _localeLoadFailed = true);
+        _showError(e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingLocales = false);
     }
   }
 
@@ -107,11 +124,22 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
     }
   }
 
-  Future<Map<String, dynamic>> _buildRequest(
+  void _showImageOrFormError(Object error, String imageKey) {
+    final imageError = error is ApiClientException
+        ? error.imageValidationErrors['profilePicture']
+        : null;
+    if (imageError != null) {
+      setState(() => _imageErrors[imageKey] = imageError);
+      return;
+    }
+
+    _showError(error.toString());
+  }
+
+  Map<String, dynamic> _buildRequest(
     GlobalKey<FormBuilderState> formKey,
     File? image,
-    String subfolder,
-  ) async {
+  ) {
     var request = Map<String, dynamic>.from(formKey.currentState?.value ?? {});
 
     if (image != null) {
@@ -139,16 +167,11 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
     setState(() => isLoading = true);
     try {
-      var request = await _buildRequest(
-        _userFormKey,
-        _userImage,
-        'ImageFolder/ProfilePictures',
-      );
-      //request['roleIds'] = [3]; // User rola
+      var request = _buildRequest(_userFormKey, _userImage);
       await userProvider.insert(request);
       _showSuccess('Korisnik uspješno dodan!');
     } catch (e) {
-      _showError(e.toString());
+      _showImageOrFormError(e, 'user');
     } finally {
       setState(() => isLoading = false);
     }
@@ -161,16 +184,12 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
     setState(() => isLoading = true);
     try {
-      var request = await _buildRequest(
-        _ownerFormKey,
-        _ownerImage,
-        'ImageFolder/ProfilePictures',
-      );
+      var request = _buildRequest(_ownerFormKey, _ownerImage);
       request['roleIds'] = [2]; // Owner rola
       await userProvider.insert(request);
       _showSuccess('Vlasnik uspješno dodan!');
     } catch (e) {
-      _showError(e.toString());
+      _showImageOrFormError(e, 'owner');
     } finally {
       setState(() => isLoading = false);
     }
@@ -183,11 +202,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
     setState(() => isLoading = true);
     try {
-      var request = await _buildRequest(
-        _workerFormKey,
-        _workerImage,
-        'ImageFolder/ProfilePictures',
-      );
+      var request = _buildRequest(_workerFormKey, _workerImage);
 
       request['localeId'] = _workerFormKey.currentState?.value['localeId'];
       request['roleIds'] = [3];
@@ -195,7 +210,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
       await workerProvider.insert(request);
       _showSuccess('Radnik uspješno dodan!');
     } catch (e) {
-      _showError(e.toString());
+      _showImageOrFormError(e, 'worker');
     } finally {
       setState(() => isLoading = false);
     }
@@ -205,6 +220,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
   Widget build(BuildContext context) {
     return MasterScreen(
       title: 'Dodaj korisnika',
+      showCloseButton: true,
       child: Column(
         children: [
           // Tab bar
@@ -255,16 +271,21 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
               child: Column(
                 children: [
                   _buildImagePicker(
-                    image: _workerImage,
-                    onPick: () =>
-                        _pickImage((f) => setState(() => _workerImage = f)),
+                    image: _userImage,
+                    error: _imageErrors['user'],
+                    onPick: () => _pickImage((file) {
+                      setState(() {
+                        _userImage = file;
+                        _imageErrors.remove('user');
+                      });
+                    }),
                   ),
                   const SizedBox(height: 16),
-                  _buildNameRow(_userFormKey),
+                  _buildNameRow(),
                   const SizedBox(height: 16),
-                  _buildUsernameEmailRow(_userFormKey),
+                  _buildUsernameEmailRow(),
                   const SizedBox(height: 16),
-                  _buildPhoneBirthRow(_userFormKey),
+                  _buildPhoneBirthRow(),
                   const SizedBox(height: 16),
                   // Separator
                   Row(
@@ -312,16 +333,21 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
               child: Column(
                 children: [
                   _buildImagePicker(
-                    image: _workerImage,
-                    onPick: () =>
-                        _pickImage((f) => setState(() => _workerImage = f)),
+                    image: _ownerImage,
+                    error: _imageErrors['owner'],
+                    onPick: () => _pickImage((file) {
+                      setState(() {
+                        _ownerImage = file;
+                        _imageErrors.remove('owner');
+                      });
+                    }),
                   ),
                   const SizedBox(height: 16),
-                  _buildNameRow(_ownerFormKey),
+                  _buildNameRow(),
                   const SizedBox(height: 16),
-                  _buildUsernameEmailRow(_ownerFormKey),
+                  _buildUsernameEmailRow(),
                   const SizedBox(height: 16),
-                  _buildPhoneBirthRow(_ownerFormKey),
+                  _buildPhoneBirthRow(),
                   const SizedBox(height: 16),
                   // Separator
                   Row(
@@ -359,6 +385,39 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
   // ─── RADNIK TAB ───
   Widget _buildWorkerTab() {
+    if (_isLoadingLocales) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_localeLoadFailed) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Lokale nije moguće učitati. Pokušajte ponovo.'),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _loadLocales,
+              child: const Text('Pokušaj ponovo'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_locales.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'Radnika nije moguće dodati jer nema dostupnih lokala. '
+            'Prvo dodajte lokal.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
     return Column(
       children: [
         Expanded(
@@ -370,15 +429,20 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
                 children: [
                   _buildImagePicker(
                     image: _workerImage,
-                    onPick: () =>
-                        _pickImage((f) => setState(() => _workerImage = f)),
+                    error: _imageErrors['worker'],
+                    onPick: () => _pickImage((file) {
+                      setState(() {
+                        _workerImage = file;
+                        _imageErrors.remove('worker');
+                      });
+                    }),
                   ),
                   const SizedBox(height: 16),
-                  _buildNameRow(_workerFormKey),
+                  _buildNameRow(),
                   const SizedBox(height: 16),
-                  _buildUsernameEmailRow(_workerFormKey),
+                  _buildUsernameEmailRow(),
                   const SizedBox(height: 16),
-                  _buildPhoneBirthRow(_workerFormKey),
+                  _buildPhoneBirthRow(),
                   const SizedBox(height: 16),
 
                   // Lokal dropdown — samo za radnika
@@ -437,7 +501,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
   // ─── SHARED WIDGETS ───
 
-  Widget _buildNameRow(GlobalKey<FormBuilderState> key) {
+  Widget _buildNameRow() {
     return Row(
       children: [
         Expanded(
@@ -469,7 +533,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
     );
   }
 
-  Widget _buildUsernameEmailRow(GlobalKey<FormBuilderState> key) {
+  Widget _buildUsernameEmailRow() {
     return Row(
       children: [
         Expanded(
@@ -502,7 +566,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
     );
   }
 
-  Widget _buildPhoneBirthRow(GlobalKey<FormBuilderState> key) {
+  Widget _buildPhoneBirthRow() {
     return Row(
       children: [
         Expanded(
@@ -512,6 +576,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
               labelText: 'Broj telefona',
               border: OutlineInputBorder(),
             ),
+            validator: validatePhone,
           ),
         ),
         const SizedBox(width: 16),
@@ -535,50 +600,64 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
   Widget _buildImagePicker({
     required File? image,
+    required String? error,
     required VoidCallback onPick,
   }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: 80,
-          height: 80,
-          margin: const EdgeInsets.only(right: 16),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.grey.shade300),
-            color: Colors.grey.shade100,
-          ),
-          child: ClipOval(
-            child: image != null
-                ? Image.file(image, fit: BoxFit.cover)
-                : const Icon(Icons.person, size: 40, color: Colors.grey),
-          ),
-        ),
-        Expanded(
-          child: InkWell(
-            onTap: onPick,
-            borderRadius: BorderRadius.circular(8),
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Profilna slika',
-                border: OutlineInputBorder(),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              margin: const EdgeInsets.only(right: 16),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.grey.shade300),
+                color: Colors.grey.shade100,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    image != null ? 'Slika odabrana ✓' : 'Odaberite sliku',
-                    style: TextStyle(
-                      color: image != null ? Colors.green : Colors.grey,
-                    ),
-                  ),
-                  const Icon(Icons.file_upload),
-                ],
+              child: ClipOval(
+                child: image != null
+                    ? Image.file(image, fit: BoxFit.cover)
+                    : const Icon(Icons.person, size: 40, color: Colors.grey),
               ),
             ),
-          ),
+            Expanded(
+              child: InkWell(
+                onTap: onPick,
+                borderRadius: BorderRadius.circular(8),
+                child: InputDecorator(
+                  decoration: const InputDecoration(
+                    labelText: 'Profilna slika',
+                    border: OutlineInputBorder(),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        image != null ? 'Slika odabrana ✓' : 'Odaberite sliku',
+                        style: TextStyle(
+                          color: image != null ? Colors.green : Colors.grey,
+                        ),
+                      ),
+                      const Icon(Icons.file_upload),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
+        if (error != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              error,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ),
       ],
     );
   }

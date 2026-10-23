@@ -117,6 +117,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     if (response.statusCode < 299) {
       return;
     }
+    final validationErrors = ApiErrorParser.validationErrorsFromBody(
+      response.body,
+    );
     if (response.statusCode == 401) {
       final context = globalNavigatorKey.currentContext;
       if (context != null) {
@@ -156,6 +159,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
       throw ApiClientException(
         ApiErrorParser.messageFromBody(response.body) ??
             'Niste autorizirani. Prijavite se ponovo.',
+        validationErrors: validationErrors,
       );
     }
 
@@ -163,11 +167,13 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     if (response.statusCode >= 500) {
       throw ApiClientException(
         parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+        validationErrors: validationErrors,
       );
     }
 
     throw ApiClientException(
       parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+      validationErrors: validationErrors,
     );
   }
 

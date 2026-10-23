@@ -8,7 +8,8 @@ part of 'reservation.dart';
 
 Reservation _$ReservationFromJson(Map<String, dynamic> json) => Reservation(
   id: (json['id'] as num?)?.toInt(),
-  userId: (json['userId'] as num?)?.toInt(),
+  isPaid: json['isPaid'] as bool? ?? false,
+  paidAmountKm: (json['paidAmountKm'] as num?)?.toDouble(),
   firstName: json['firstName'] as String?,
   lastName: json['lastName'] as String?,
   email: json['email'] as String?,
@@ -43,7 +44,8 @@ Reservation _$ReservationFromJson(Map<String, dynamic> json) => Reservation(
 Map<String, dynamic> _$ReservationToJson(Reservation instance) =>
     <String, dynamic>{
       'id': instance.id,
-      'userId': instance.userId,
+      'isPaid': instance.isPaid,
+      'paidAmountKm': instance.paidAmountKm,
       'firstName': instance.firstName,
       'lastName': instance.lastName,
       'email': instance.email,

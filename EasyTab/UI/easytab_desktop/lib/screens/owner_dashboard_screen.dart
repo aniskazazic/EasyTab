@@ -1,5 +1,4 @@
 import 'package:easytab_desktop/models/locale.dart' as models;
-import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
@@ -34,9 +33,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   bool isLoading = false;
   bool isGeneratingReport = false;
   String? statsError;
-  final ownerId =
-      int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
-
   late OwnerProvider ownerProvider;
   late LocaleProvider localeProvider;
 
@@ -50,18 +46,36 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
 
   Future<void> _loadFirstLocale() async {
     try {
-      if (ownerId == 0) return;
-
-      final locales = await localeProvider.getByOwner(ownerId);
+      final locales = await localeProvider.getForCurrentOwner();
+      if (!mounted) return;
       if (locales.isNotEmpty) {
+        final locale = locales.firstWhere(
+          (item) => item.id == activeLocaleId,
+          orElse: () => locales.first,
+        );
         setState(() {
-          activeLocale = locales.first;
-          activeLocaleId = locales.first.id;
+          activeLocale = locale;
+          activeLocaleId = locale.id;
         });
-        await _loadStats(locales.first.id!);
+        if (locale.id != null) await _loadStats(locale.id!);
+      } else {
+        setState(() {
+          activeLocale = null;
+          activeLocaleId = null;
+          todayReservations = 0;
+          activeTables = 0;
+          totalTables = 0;
+          todayGuests = 0;
+          tableDistribution = [];
+          isLoading = false;
+        });
       }
     } catch (e) {
-      debugPrint('Error loading locales: $e');
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        statsError = 'Greška pri učitavanju lokala: $e';
+      });
     }
   }
 
@@ -99,9 +113,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Future<void> _onSectionTap(int localeId, String section) async {
-    if (ownerId == 0) return;
-
-    final locales = await localeProvider.getByOwner(ownerId);
+    final locales = await localeProvider.getForCurrentOwner();
+    if (!mounted || locales.isEmpty) return;
     final locale = locales.firstWhere(
       (l) => l.id == localeId,
       orElse: () => locales.first,
@@ -261,6 +274,28 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Widget _buildContent() {
+    if (statsError != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(statsError!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Pokušaj ponovo'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (activeLocale == null) {
+      return const Center(
+        child: Text('Nemate lokala. Dodajte lokal u bočnoj navigaciji.'),
+      );
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.only(bottom: 72),
       child: Column(

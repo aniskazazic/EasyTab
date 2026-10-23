@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
@@ -24,15 +25,32 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
   late UserProvider userProvider;
   bool isLoading = false;
+  bool _isLoadingUser = false;
   bool _changePassword = false;
 
   File? _imageFile;
+  String? _profilePictureError;
+  User? _user;
   bool get _isInsert => widget.user == null;
 
   @override
   void initState() {
     super.initState();
     userProvider = Provider.of<UserProvider>(context, listen: false);
+    _user = widget.user;
+    if (_user?.id != null) _loadUser(_user!.id!);
+  }
+
+  Future<void> _loadUser(int id) async {
+    setState(() => _isLoadingUser = true);
+    try {
+      final user = await userProvider.getById(id);
+      if (mounted) setState(() => _user = user);
+    } catch (e) {
+      if (mounted) _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoadingUser = false);
+    }
   }
 
   void _showError(String message) {
@@ -75,6 +93,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
     if (result != null && result.files.single.path != null) {
       setState(() {
         _imageFile = File(result.files.single.path!);
+        _profilePictureError = null;
       });
     }
   }
@@ -113,12 +132,12 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
       } else {
         final newPassword = request.remove('password');
         final passwordConfirmation = request.remove('passwordConfirmation');
-        await userProvider.update(widget.user!.id!, request);
+        await userProvider.update(_user!.id!, request);
         profileUpdated = true;
 
         if (_changePassword) {
           await userProvider.changePassword({
-            'id': widget.user!.id,
+            'id': _user!.id,
             'password': '',
             'newPassword': newPassword,
             'confirmNewPassword': passwordConfirmation,
@@ -128,11 +147,18 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
       }
     } catch (e) {
       final message = e.toString().replaceAll("Exception: ", "");
-      _showError(
-        profileUpdated
-            ? 'Profil je sačuvan, ali lozinka nije promijenjena: $message'
-            : message,
-      );
+      final imageError = e is ApiClientException
+          ? e.imageValidationErrors['profilePicture']
+          : null;
+      if (imageError != null) {
+        setState(() => _profilePictureError = imageError);
+      } else {
+        _showError(
+          profileUpdated
+              ? 'Profil je sačuvan, ali lozinka nije promijenjena: $message'
+              : message,
+        );
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -142,9 +168,14 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   Widget build(BuildContext context) {
     return MasterScreen(
       title: _isInsert ? 'Novi korisnik' : 'Uredi korisnika',
+      showCloseButton: true,
       child: Column(
         children: [
-          Expanded(child: _buildForm()),
+          Expanded(
+            child: _isLoadingUser
+                ? const Center(child: CircularProgressIndicator())
+                : _buildForm(),
+          ),
           _buildSaveButton(),
         ],
       ),
@@ -161,7 +192,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
             backgroundColor: const Color(0xFF1E40AF),
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
-          onPressed: isLoading ? null : _handleSave,
+          onPressed: isLoading || _isLoadingUser ? null : _handleSave,
           child: isLoading
               ? const CircularProgressIndicator(color: Colors.white)
               : Text(
@@ -177,12 +208,12 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
     return FormBuilder(
       key: formKey,
       initialValue: {
-        "firstName": widget.user?.firstName ?? '',
-        "lastName": widget.user?.lastName ?? '',
-        "username": widget.user?.username ?? '',
-        "email": widget.user?.email ?? '',
-        "phoneNumber": widget.user?.phoneNumber ?? '',
-        "birthDate": widget.user?.birthDate,
+        "firstName": _user?.firstName ?? '',
+        "lastName": _user?.lastName ?? '',
+        "username": _user?.username ?? '',
+        "email": _user?.email ?? '',
+        "phoneNumber": _user?.phoneNumber ?? '',
+        "birthDate": _user?.birthDate,
         "password": '',
         "passwordConfirmation": '',
       },
@@ -207,13 +238,11 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                   child: ClipOval(
                     child: _imageFile != null
                         ? Image.file(_imageFile!, fit: BoxFit.cover)
-                        : (imageProviderFromString(
-                                    widget.user?.profilePicture,
-                                  ) !=
+                        : (imageProviderFromString(_user?.profilePicture) !=
                                   null
                               ? Image(
                                   image: imageProviderFromString(
-                                    widget.user!.profilePicture,
+                                    _user!.profilePicture,
                                   )!,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, __, ___) => const Icon(
@@ -259,8 +288,18 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                           ),
                         ),
                       ),
+                      if (_profilePictureError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _profilePictureError!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       if (!_isInsert &&
-                          widget.user?.profilePicture != null &&
+                          _user?.profilePicture != null &&
                           _imageFile == null)
                         TextButton.icon(
                           style: TextButton.styleFrom(
@@ -268,8 +307,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                           ),
                           icon: const Icon(Icons.delete, size: 18),
                           label: const Text('Obriši sliku'),
-                          onPressed: () =>
-                              _deleteImage(userId: widget.user!.id),
+                          onPressed: () => _deleteImage(userId: _user!.id),
                         ),
                     ],
                   ),
@@ -319,7 +357,6 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                       labelText: "Korisničko ime",
                       border: OutlineInputBorder(),
                     ),
-                    enabled: _isInsert,
                     validator: _isInsert
                         ? FormBuilderValidators.required(
                             errorText: 'Korisničko ime je obavezno',
@@ -336,12 +373,15 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                       border: OutlineInputBorder(),
                     ),
                     validator: (value) {
-                      if (_isInsert && (value == null || value.isEmpty))
+                      final email = value ?? '';
+                      if (_isInsert && email.isEmpty) {
                         return 'Email je obavezan';
-                      if (value != null &&
-                          value.isNotEmpty &&
-                          !value.contains('@'))
-                        return 'Unesite validan email';
+                      }
+                      if (email.isNotEmpty) {
+                        return FormBuilderValidators.email(
+                          errorText: 'Unesite validan email',
+                        )(email);
+                      }
                       return null;
                     },
                   ),
@@ -359,6 +399,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                       labelText: "Broj telefona",
                       border: OutlineInputBorder(),
                     ),
+                    validator: validatePhone,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -413,7 +454,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
 
                 if (mounted) {
                   setState(() {
-                    widget.user?.profilePicture = null;
+                    _user?.profilePicture = null;
                   });
                   _showSuccess('Slika uspješno obrisana!');
                 }

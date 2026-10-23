@@ -1,4 +1,4 @@
-﻿using EasyTab.Model.Exceptions;
+using EasyTab.Model.Exceptions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using System.Net;
@@ -42,6 +42,12 @@ namespace EasyTab.API.Filters
                 context.ModelState.AddModelError("refreshTokenError", invalidRefreshTokenException.Message);
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
                 _logger.LogWarning("Invalid refresh token: {Message}", invalidRefreshTokenException.Message);
+            }
+            else if (context.Exception is ForbiddenException forbiddenException)
+            {
+                context.ModelState.AddModelError("authorizationError", forbiddenException.Message);
+                context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Forbidden;
+                _logger.LogWarning("Forbidden: {Message}", forbiddenException.Message);
             }
             else if (context.Exception is UnauthorizedAccessException unauthorizedAccessException)
             {

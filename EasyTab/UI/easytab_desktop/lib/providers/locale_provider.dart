@@ -9,8 +9,8 @@ class LocaleProvider extends BaseProvider<Locale> {
     return Locale.fromJson(json);
   }
 
-  Future<List<Locale>> getByOwner(int ownerId) async {
-    var result = await get(filter: {"OwnerId": ownerId, "RetrieveAll": true});
+  Future<List<Locale>> getForCurrentOwner() async {
+    var result = await get(filter: {"RetrieveAll": true});
     return result.items ?? [];
   }
 }

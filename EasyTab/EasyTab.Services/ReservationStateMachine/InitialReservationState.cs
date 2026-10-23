@@ -1,97 +1,89 @@
 using EasyTab.Model.Messages;
 using EasyTab.Model.Models;
-using EasyTab.Model.Requests;
+using EasyTab.Model.Exceptions;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.PayPal;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
-namespace EasyTab.Services.ReservationStateMachine
+namespace EasyTab.Services.ReservationStateMachine;
+
+public class InitialReservationState : BaseReservationState
 {
-    public class InitialReservationState : BaseReservationState
+    public InitialReservationState(_220030Context context, IMapper mapper, IServiceProvider serviceProvider)
+        : base(context, mapper, serviceProvider) { }
+
+    public async Task<(Payment Payment, List<Notification> Notifications)> StagePaidAsync(
+        Payment checkout, PayPalCaptureResult capture)
     {
-        public InitialReservationState(_220030Context context, IMapper mapper, IServiceProvider serviceProvider)
-            : base(context, mapper, serviceProvider)
+        if (_context.Database.CurrentTransaction == null)
+            throw new InvalidOperationException("Paid reservation creation requires a transaction.");
+        if (capture.Status != "COMPLETED" || string.IsNullOrWhiteSpace(capture.CaptureId) ||
+            capture.Amount != checkout.Amount || !string.Equals(capture.Currency, checkout.Currency, StringComparison.OrdinalIgnoreCase))
+            throw new UserException("Naplata nije potvrđena za ovu rezervaciju.");
+
+        var table = await _context.Tables.Include(x => x.Locale).SingleAsync(x => x.Id == checkout.TableId);
+        var user = await _context.Users.SingleAsync(x => x.Id == checkout.UserId);
+        var reservation = new Reservation
         {
-        }
-
-        public override async Task<Reservations> CreateAsync(ReservationInsertRequest request)
+            User = user, Table = table, ReservationDate = checkout.ReservationDate!.Value,
+            StartTime = checkout.StartTime!.Value, EndTime = checkout.EndTime!.Value,
+            CreatedAt = DateTime.UtcNow, ReservationState = PendingReservationState.StateName
+        };
+        checkout.Reservation = reservation;
+        checkout.PayPalCaptureId = capture.CaptureId;
+        checkout.Status = PaymentStatus.Completed;
+        checkout.CompletedAt = DateTime.UtcNow;
+        var payment = checkout;
+        var notifications = new List<Notification>
         {
-            var entity = _mapper.Map<Reservation>(request);
-            entity.ReservationState = PendingReservationState.StateName;
-
-            await using var transaction = await _context.Database.BeginTransactionAsync();
-            _context.Reservations.Add(entity);
-            await _context.SaveChangesAsync();
-
-            var user = await _context.Users.FindAsync(request.UserId);
-            var table = await _context.Tables
-                .Include(t => t.Locale)
-                .FirstOrDefaultAsync(t => t.Id == request.TableId);
-
-            var notifications = new List<Notification>();
-            if (user != null && table?.Locale != null)
+            new()
             {
-                notifications.Add(new Notification
+                UserId = user.Id, Title = "Rezervacija plaćena",
+                Message = $"Vaša rezervacija za {table.Locale.Name} ({reservation.ReservationDate:dd.MM.yyyy} u {reservation.StartTime:HH:mm}) je plaćena ({payment.AmountKm:F2} KM) i čeka potvrdu lokala.",
+                CreatedAt = DateTime.UtcNow
+            }
+        };
+        var access = _serviceProvider.GetRequiredService<ILocaleAccessService>();
+        foreach (var managerId in (await access.GetLocaleManagerUserIdsAsync(table.LocaleId)).Where(id => id != user.Id))
+        {
+            notifications.Add(new Notification
+            {
+                UserId = managerId, Title = "Nova rezervacija",
+                Message = $"Nova plaćena rezervacija za {table.Locale.Name} ({reservation.ReservationDate:dd.MM.yyyy} u {reservation.StartTime:HH:mm}) čeka potvrdu.",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        _context.Notifications.AddRange(notifications);
+        return (payment, notifications);
+    }
+
+    public async Task PublishCreatedAsync(Payment payment, List<Notification> notifications)
+    {
+        await PushNotificationsAsync(notifications);
+        var reservation = payment.Reservation!;
+        try
+        {
+            await _serviceProvider.GetRequiredService<IRabbitMQPublisher>().PublishReservationCreatedAsync(
+                new ReservationCreatedMessage
                 {
-                    UserId = user.Id,
-                    Title = "Rezervacija na čekanju",
-                    Message = $"Vaša rezervacija za {table.Locale.Name} ({entity.ReservationDate:dd.MM.yyyy} u {entity.StartTime:HH:mm}) je kreirana i čeka potvrdu lokala.",
-                    IsRead = false,
-                    CreatedAt = DateTime.UtcNow
+                    ReservationId = reservation.Id, UserId = reservation.UserId,
+                    UserEmail = reservation.User.Email,
+                    UserFullName = $"{reservation.User.FirstName} {reservation.User.LastName}",
+                    LocaleName = reservation.Table.Locale.Name,
+                    ReservationDate = reservation.ReservationDate,
+                    StartTime = reservation.StartTime.ToString("HH:mm"),
+                    EndTime = reservation.EndTime.ToString("HH:mm"),
+                    NumberOfGuests = reservation.Table.NumberOfGuests
                 });
-
-                var localeAccessService = _serviceProvider.GetRequiredService<ILocaleAccessService>();
-                var managerIds = await localeAccessService.GetLocaleManagerUserIdsAsync(table.LocaleId);
-                foreach (var managerId in managerIds.Where(id => id != user.Id))
-                {
-                    notifications.Add(new Notification
-                    {
-                        UserId = managerId,
-                        Title = "Nova rezervacija",
-                        Message = $"Nova rezervacija za {table.Locale.Name} ({entity.ReservationDate:dd.MM.yyyy} u {entity.StartTime:HH:mm}) čeka potvrdu.",
-                        IsRead = false,
-                        CreatedAt = DateTime.UtcNow
-                    });
-                }
-            }
-
-            _context.Notifications.AddRange(notifications);
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
-
-            await PushNotificationsAsync(notifications);
-
-            // Pripremi podatke za RabbitMQ poruku dok je DbContext još aktivan
-            if (user != null && table?.Locale != null)
-            {
-                var message = new ReservationCreatedMessage
-                {
-                    ReservationId = entity.Id,
-                    UserId = user.Id,
-                    UserEmail = user.Email,
-                    UserFullName = $"{user.FirstName} {user.LastName}",
-                    LocaleName = table.Locale.Name,
-                    ReservationDate = entity.ReservationDate,
-                    StartTime = entity.StartTime.ToString("HH:mm"),
-                    EndTime = entity.EndTime.ToString("HH:mm"),
-                    NumberOfGuests = table.NumberOfGuests
-                };
-
-                var publisher = _serviceProvider.GetRequiredService<IRabbitMQPublisher>();
-                await publisher.PublishReservationCreatedAsync(message);
-            }
-
-            return _mapper.Map<Reservations>(entity);
         }
-
-        public override List<string> GetAllowedActions()
+        catch (Exception ex)
         {
-            return new List<string> { "Create" };
+            _serviceProvider.GetRequiredService<ILogger<InitialReservationState>>()
+                .LogError(ex, "Reservation email publication failed after commit for {ReservationId}.", reservation.Id);
         }
     }
 }

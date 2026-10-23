@@ -46,7 +46,9 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
     super.dispose();
   }
 
-  Future<void> _loadWorkers() async {
+  Future<void> _loadWorkers({bool resetPage = false}) async {
+    if (!mounted) return;
+    if (resetPage) setState(() => _currentPage = 0);
     setState(() => isLoading = true);
     try {
       final filter = {
@@ -54,15 +56,18 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
         "PageSize": _pageSize,
         "IncludeTotalCount": true,
         "LocaleId": widget.localeId,
-        if (searchController.text.isNotEmpty) "Q": searchController.text,
+        if (searchController.text.trim().isNotEmpty)
+          "Q": searchController.text.trim(),
       };
       final result = await workerProvider.get(filter: filter);
+      if (!mounted) return;
       setState(() {
         _workers = result.items ?? [];
         _totalCount = result.totalCount ?? 0;
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
       _showError(e.toString());
     }
@@ -90,10 +95,20 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
   }
 
   void _confirmDelete(Worker worker) {
+    final messenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Brisanje radnika'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje radnika')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: Text(
           'Da li ste sigurni da želite obrisati radnika ${worker.firstName} ${worker.lastName}?',
         ),
@@ -109,8 +124,15 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
               try {
                 await workerProvider.delete(worker.id!);
                 await _loadWorkers();
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Radnik je uspješno obrisan.'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
               } catch (e) {
-                _showError(e.toString());
+                if (mounted) _showError(e.toString());
               }
             },
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),
@@ -216,7 +238,7 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
                           MaterialPageRoute(
                             builder: (context) => OwnerWorkerDetailsScreen(
                               localeId: widget.localeId,
-                              onSaved: _loadWorkers,
+                              onSaved: () => _loadWorkers(resetPage: true),
                             ),
                           ),
                         ),

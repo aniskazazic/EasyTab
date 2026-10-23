@@ -1,6 +1,7 @@
 import 'package:easytab_desktop/models/table.dart';
 import 'package:easytab_desktop/models/zone.dart';
 import 'package:easytab_desktop/providers/table_provider.dart';
+import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/zone_provider.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:flutter/material.dart';
@@ -26,11 +27,15 @@ class OwnerTablesScreen extends StatefulWidget {
 
 class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   late TableProvider tableProvider;
+  late ReservationProvider reservationProvider;
   late ZoneProvider zoneProvider;
 
   List<Tables> tables = [];
   List<Zone> zones = [];
   bool isLoading = false;
+  String? _tableDialogError;
+  String? _zoneDialogError;
+  bool _overlapNoticeShown = false;
 
   // Canvas dimenzije
   static const double canvasWidth = 900.0;
@@ -43,11 +48,13 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   void initState() {
     super.initState();
     tableProvider = context.read<TableProvider>();
+    reservationProvider = context.read<ReservationProvider>();
     zoneProvider = context.read<ZoneProvider>();
     _loadData();
   }
 
   Future<void> _loadData() async {
+    if (!mounted) return;
     setState(() => isLoading = true);
     try {
       final results = await Future.wait([
@@ -58,18 +65,21 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
       final loadedTables = results[0] as List<Tables>;
       final loadedZones = results[1] as List<Zone>;
 
+      if (!mounted) return;
       setState(() {
         tables = loadedTables;
         zones = loadedZones;
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
       _showError(e.toString());
     }
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -106,47 +116,121 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   }
 
   Offset? _findFreePosition({required double width, required double height}) {
-    bool overlapsExisting(double left, double top) {
-      final overlapsTable = tables.any((table) {
-        final x = table.xCoordinate ?? 0;
-        final y = table.yCoordinate ?? 0;
-        return left <= x + tableSize &&
-            left + width >= x &&
-            top <= y + tableSize &&
-            top + height >= y;
-      });
-      final overlapsZone = zones.any((zone) {
-        final x = zone.xCoordinate ?? 0;
-        final y = zone.yCoordinate ?? 0;
-        final zoneWidth = zone.width ?? 160;
-        final zoneHeight = zone.height ?? 80;
-        return left <= x + zoneWidth &&
-            left + width >= x &&
-            top <= y + zoneHeight &&
-            top + height >= y;
-      });
-      return overlapsTable || overlapsZone;
-    }
-
     for (double y = 10; y + height <= canvasHeight; y += 20) {
       for (double x = 10; x + width <= canvasWidth; x += 20) {
-        if (!overlapsExisting(x, y)) return Offset(x, y);
+        if (_canPlaceElement(left: x, top: y, width: width, height: height)) {
+          return Offset(x, y);
+        }
       }
     }
     return null;
   }
 
-  void _showTableDialog({Tables? table, int? index}) {
+  bool _canPlaceElement({
+    required double left,
+    required double top,
+    required double width,
+    required double height,
+    int? ignoredTableIndex,
+    int? ignoredZoneIndex,
+  }) {
+    if (left < 0 ||
+        top < 0 ||
+        left + width > canvasWidth ||
+        top + height > canvasHeight) {
+      return false;
+    }
+
+    bool overlaps({
+      required double x,
+      required double y,
+      required double otherWidth,
+      required double otherHeight,
+    }) =>
+        left < x + otherWidth &&
+        left + width > x &&
+        top < y + otherHeight &&
+        top + height > y;
+
+    for (var index = 0; index < tables.length; index++) {
+      if (index == ignoredTableIndex) continue;
+      final table = tables[index];
+      if (overlaps(
+        x: table.xCoordinate ?? 0,
+        y: table.yCoordinate ?? 0,
+        otherWidth: tableSize,
+        otherHeight: tableSize,
+      )) {
+        return false;
+      }
+    }
+    for (var index = 0; index < zones.length; index++) {
+      if (index == ignoredZoneIndex) continue;
+      final zone = zones[index];
+      if (overlaps(
+        x: zone.xCoordinate ?? 0,
+        y: zone.yCoordinate ?? 0,
+        otherWidth: zone.width ?? 160,
+        otherHeight: zone.height ?? 80,
+      )) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void _showOverlapNotice() {
+    if (_overlapNoticeShown) return;
+    _overlapNoticeShown = true;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Stolovi i zone se ne mogu preklapati.')),
+    );
+  }
+
+  Future<void> _showTableDialog({Tables? table, int? index}) async {
+    var hasUpcomingReservation = false;
+    final tableId = table?.id;
+    if (tableId != null && tableId > 0) {
+      try {
+        final reservations = await reservationProvider.get(
+          filter: {
+            'TableId': tableId,
+            'IsUpcoming': true,
+            'Page': 1,
+            'PageSize': 1,
+            'IncludeTotalCount': true,
+          },
+        );
+        hasUpcomingReservation =
+            (reservations.totalCount ?? reservations.items?.length ?? 0) > 0;
+      } catch (e) {
+        if (mounted) {
+          _showError('Nije moguće provjeriti aktivne rezervacije: $e');
+        }
+        return;
+      }
+    }
+    if (!mounted) return;
+
+    _tableDialogError = null;
     final nameController = TextEditingController(text: table?.name ?? '');
     int guests = table?.numberOfGuests ?? 2;
     final isEdit = table != null;
-    final messenger = ScaffoldMessenger.of(context);
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
-          title: Text(isEdit ? 'Uredi stol' : 'Novi stol'),
+          title: Row(
+            children: [
+              Expanded(child: Text(isEdit ? 'Uredi stol' : 'Novi stol')),
+              IconButton(
+                tooltip: 'Zatvori',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -156,7 +240,26 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                   labelText: 'Naziv stola',
                   border: OutlineInputBorder(),
                 ),
+                maxLength: 40,
               ),
+              if (_tableDialogError != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _tableDialogError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              if (hasUpcomingReservation)
+                const Padding(
+                  padding: EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Brisanje je onemogućeno jer stol ima aktivnu rezervaciju.',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
               const SizedBox(height: 16),
               const Text(
                 'Broj gostiju:',
@@ -194,10 +297,19 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
           actions: [
             if (isEdit)
               TextButton(
-                onPressed: () {
-                  setState(() => tables.removeAt(index!));
-                  Navigator.pop(context);
-                },
+                onPressed: hasUpcomingReservation
+                    ? null
+                    : () async {
+                        if (await _confirmDeleteTable(index!) &&
+                            context.mounted) {
+                          Navigator.pop(context);
+                        }
+                      },
+                style: TextButton.styleFrom(
+                  foregroundColor: hasUpcomingReservation
+                      ? Colors.grey
+                      : Colors.red,
+                ),
                 child: const Text(
                   'Obriši',
                   style: TextStyle(color: Colors.red),
@@ -212,39 +324,42 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                 backgroundColor: const Color(0xFF1E40AF),
               ),
               onPressed: () {
-                if (nameController.text.isEmpty) return;
+                if (nameController.text.trim().isEmpty) {
+                  setStateDialog(
+                    () => _tableDialogError = 'Naziv stola je obavezan.',
+                  );
+                  return;
+                }
                 final position = isEdit
                     ? null
                     : _findFreePosition(width: tableSize, height: tableSize);
+                if (!isEdit && position == null) {
+                  setStateDialog(
+                    () => _tableDialogError =
+                        'Nema slobodnog mjesta na tlocrtu za novi stol.',
+                  );
+                  return;
+                }
                 setState(() {
                   if (isEdit) {
                     tables[index!] = tables[index].copyWith(
-                      name: nameController.text,
+                      name: nameController.text.trim(),
                       numberOfGuests: guests,
                     );
                   } else {
                     tables.add(
                       Tables(
                         id: 0,
-                        name: nameController.text,
+                        name: nameController.text.trim(),
                         localeId: widget.localeId,
-                        xCoordinate: position?.dx ?? 10,
-                        yCoordinate: position?.dy ?? 10,
+                        xCoordinate: position!.dx,
+                        yCoordinate: position.dy,
                         numberOfGuests: guests,
                       ),
                     );
                   }
                 });
                 Navigator.pop(context);
-                if (!isEdit && position == null) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Nema slobodnog mjesta na platnu. Element je postavljen u gornji lijevi ugao (10, 10).',
-                      ),
-                    ),
-                  );
-                }
               },
               child: Text(
                 isEdit ? 'Spremi' : 'Dodaj',
@@ -254,21 +369,29 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
           ],
         ),
       ),
-    );
+    ).whenComplete(nameController.dispose);
   }
 
   void _showZoneDialog({Zone? zone, int? index}) {
+    _zoneDialogError = null;
     final nameController = TextEditingController(text: zone?.name ?? '');
     double width = zone?.width ?? 160;
     double height = zone?.height ?? 80;
     final isEdit = zone != null;
-    final messenger = ScaffoldMessenger.of(context);
-
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
-          title: Text(isEdit ? 'Uredi zonu' : 'Nova zona'),
+          title: Row(
+            children: [
+              Expanded(child: Text(isEdit ? 'Uredi zonu' : 'Nova zona')),
+              IconButton(
+                tooltip: 'Zatvori',
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -278,7 +401,18 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                   labelText: 'Naziv zone',
                   border: OutlineInputBorder(),
                 ),
+                maxLength: 40,
               ),
+              if (_zoneDialogError != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    _zoneDialogError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -317,9 +451,10 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
           actions: [
             if (isEdit)
               TextButton(
-                onPressed: () {
-                  setState(() => zones.removeAt(index!));
-                  Navigator.pop(context);
+                onPressed: () async {
+                  if (await _confirmDeleteZone(index!) && context.mounted) {
+                    Navigator.pop(context);
+                  }
                 },
                 child: const Text(
                   'Obriši',
@@ -335,14 +470,41 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                 backgroundColor: const Color(0xFF1E40AF),
               ),
               onPressed: () {
-                if (nameController.text.isEmpty) return;
+                if (nameController.text.trim().isEmpty) {
+                  setStateDialog(
+                    () => _zoneDialogError = 'Naziv zone je obavezan.',
+                  );
+                  return;
+                }
                 final position = isEdit
                     ? null
                     : _findFreePosition(width: width, height: height);
+                final left = isEdit ? zone.xCoordinate ?? 0 : position?.dx ?? 0;
+                final top = isEdit ? zone.yCoordinate ?? 0 : position?.dy ?? 0;
+                if (position == null && !isEdit) {
+                  setStateDialog(
+                    () => _zoneDialogError =
+                        'Nema slobodnog mjesta na tlocrtu za novu zonu.',
+                  );
+                  return;
+                }
+                if (!_canPlaceElement(
+                  left: left,
+                  top: top,
+                  width: width,
+                  height: height,
+                  ignoredZoneIndex: index,
+                )) {
+                  setStateDialog(
+                    () => _zoneDialogError =
+                        'Zona se ne može preklapati s drugim elementima.',
+                  );
+                  return;
+                }
                 setState(() {
                   if (isEdit) {
                     zones[index!] = zones[index].copyWith(
-                      name: nameController.text,
+                      name: nameController.text.trim(),
                       width: width,
                       height: height,
                     );
@@ -350,10 +512,10 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                     zones.add(
                       Zone(
                         id: 0,
-                        name: nameController.text,
+                        name: nameController.text.trim(),
                         localeId: widget.localeId,
-                        xCoordinate: position?.dx ?? 10,
-                        yCoordinate: position?.dy ?? 10,
+                        xCoordinate: position!.dx,
+                        yCoordinate: position.dy,
                         width: width,
                         height: height,
                       ),
@@ -361,15 +523,6 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                   }
                 });
                 Navigator.pop(context);
-                if (!isEdit && position == null) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Nema slobodnog mjesta na platnu. Element je postavljen na (10, 10).',
-                      ),
-                    ),
-                  );
-                }
               },
               child: Text(
                 isEdit ? 'Spremi' : 'Dodaj',
@@ -379,14 +532,95 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
           ],
         ),
       ),
+    ).whenComplete(nameController.dispose);
+  }
+
+  Future<bool> _confirmDeleteTable(int index) async {
+    final name = tables[index].name ?? 'stol';
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje stola')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(dialogContext, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
+        content: Text(
+          'Želite li obrisati "$name"? Promjena se primjenjuje tek nakon snimanja tlocrta.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Odustani'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
+    if (shouldDelete != true || !mounted) return false;
+    setState(() => tables.removeAt(index));
+    return true;
+  }
+
+  Future<bool> _confirmDeleteZone(int index) async {
+    final name = zones[index].name ?? 'zonu';
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje zone')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(dialogContext, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
+        content: Text(
+          'Želite li obrisati "$name"? Promjena se primjenjuje tek nakon snimanja tlocrta.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Odustani'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true || !mounted) return false;
+    setState(() => zones.removeAt(index));
+    return true;
   }
 
   void _confirmSave() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Spremi raspored'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Spremi raspored')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: const Text(
           'Da li ste sigurni da želite snimiti trenutni raspored?',
         ),
@@ -644,15 +878,23 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
         onDoubleTap: () => _showTableDialog(table: table, index: index),
 
         onPanUpdate: (details) {
+          final newX = (x + details.delta.dx)
+              .clamp(0, canvasWidth - tableSize)
+              .toDouble();
+          final newY = (y + details.delta.dy)
+              .clamp(0, canvasHeight - tableSize)
+              .toDouble();
+          if (!_canPlaceElement(
+            left: newX,
+            top: newY,
+            width: tableSize,
+            height: tableSize,
+            ignoredTableIndex: index,
+          )) {
+            _showOverlapNotice();
+            return;
+          }
           setState(() {
-            double newX = (x + details.delta.dx).clamp(
-              0,
-              canvasWidth - tableSize,
-            );
-            double newY = (y + details.delta.dy).clamp(
-              0,
-              canvasHeight - tableSize,
-            );
             tables[index] = table.copyWith(
               xCoordinate: newX,
               yCoordinate: newY,
@@ -662,6 +904,7 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
             y = newY;
           });
         },
+        onPanEnd: (_) => _overlapNoticeShown = false,
         child: Container(
           width: tableSize,
           height: tableSize,
@@ -705,14 +948,29 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
       child: GestureDetector(
         onDoubleTap: () => _showZoneDialog(zone: zone, index: index),
         onPanUpdate: (details) {
+          final newX = (x + details.delta.dx)
+              .clamp(0, canvasWidth - w)
+              .toDouble();
+          final newY = (y + details.delta.dy)
+              .clamp(0, canvasHeight - h)
+              .toDouble();
+          if (!_canPlaceElement(
+            left: newX,
+            top: newY,
+            width: w,
+            height: h,
+            ignoredZoneIndex: index,
+          )) {
+            _showOverlapNotice();
+            return;
+          }
           setState(() {
-            double newX = (x + details.delta.dx).clamp(0, canvasWidth - w);
-            double newY = (y + details.delta.dy).clamp(0, canvasHeight - h);
             zones[index] = zone.copyWith(xCoordinate: newX, yCoordinate: newY);
             x = newX;
             y = newY;
           });
         },
+        onPanEnd: (_) => _overlapNoticeShown = false,
         child: Container(
           width: w,
           height: h,

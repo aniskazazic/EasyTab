@@ -1,4 +1,4 @@
-﻿using EasyTab.Services.Interfaces;
+using EasyTab.Services.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
@@ -18,6 +18,8 @@ public partial class Locale : ISoftDelete
     public TimeOnly EndOfWorkingHours { get; set; }
 
     public double LengthOfReservation { get; set; }
+
+    public decimal ReservationPrice { get; set; }
 
     [MaxLength]
     public string? Logo { get; set; }

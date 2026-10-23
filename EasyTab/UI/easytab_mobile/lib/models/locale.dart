@@ -23,6 +23,7 @@ class Locale {
   String? countryName;
   String? ownerName;
   double? averageRating;
+  double? reservationPrice;
 
   Locale({
     this.id,
@@ -42,6 +43,7 @@ class Locale {
     this.countryName,
     this.ownerName,
     this.averageRating,
+    this.reservationPrice,
   });
 
   factory Locale.fromJson(Map<String, dynamic> json) => _$LocaleFromJson(json);
@@ -63,7 +65,7 @@ DateTime? _timeOnlyFromJson(String? value) {
 
 String? _timeOnlyToJson(DateTime? value) {
   if (value == null) return null;
-  final twoDigits = (int n) => n.toString().padLeft(2, '0');
+  String twoDigits(int n) => n.toString().padLeft(2, '0');
   final h = twoDigits(value.hour);
   final m = twoDigits(value.minute);
   final s = twoDigits(value.second);

@@ -191,7 +191,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Potvrda rezervacije'),
         content: Text(
-          'Želite li potvrditi rezervaciju #${reservation.id} za "${reservation.localeName ?? 'Lokal'}"?',
+          'Želite li potvrditi rezervaciju za "${reservation.localeName ?? 'Lokal'}"?',
         ),
         actions: [
           TextButton(
@@ -248,7 +248,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Unesite razlog otkazivanja rezervacije #${reservation.id} za "${reservation.localeName ?? 'Lokal'}":',
+              'Unesite razlog otkazivanja rezervacije za "${reservation.localeName ?? 'Lokal'}":',
             ),
             const SizedBox(height: 12),
             TextField(

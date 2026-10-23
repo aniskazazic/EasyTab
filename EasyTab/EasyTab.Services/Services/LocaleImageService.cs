@@ -5,6 +5,7 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.Validators;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
@@ -49,6 +50,11 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeInsert(LocaleImage entity, LocaleImageInsertRequest request)
         {
+            ImageContentValidator.ValidateRequiredImage(
+                request.Base64Content,
+                request.ContentType,
+                nameof(request.Base64Content));
+
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             // Provjera da li lokal postoji
             var localeExists = await Context.Locales.AnyAsync(x => x.Id == request.LocaleId);
@@ -62,6 +68,11 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeUpdate(LocaleImage entity, LocaleImageUpdateRequest request)
         {
+            ImageContentValidator.ValidateRequiredImage(
+                request.Base64Content,
+                request.ContentType,
+                nameof(request.Base64Content));
+
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(entity.LocaleId);
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             // Provjera da li lokal postoji
@@ -89,5 +100,3 @@ namespace EasyTab.Services.Services
         }
     }
 }
-
-

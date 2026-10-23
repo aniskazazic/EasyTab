@@ -2,7 +2,8 @@ import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/models/table.dart';
 import 'package:easytab_mobile/models/time_slot.dart';
-import 'package:easytab_mobile/providers/auth_provider.dart';
+import 'package:easytab_mobile/models/reservation_checkout_request.dart';
+import 'package:easytab_mobile/screens/reservation_payment_screen.dart';
 import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:flutter/material.dart';
@@ -43,6 +44,12 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
     _loadSlots();
   }
 
+  @override
+  void dispose() {
+    _reservationProvider.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadSlots() async {
     final tableId = table.id;
     if (tableId == null) return;
@@ -70,10 +77,6 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
         _slotsLoading = false;
       });
     }
-  }
-
-  String _fmtDate(DateTime dt) {
-    return formatDateOnly(dt);
   }
 
   Future<void> _pickDate() async {
@@ -106,235 +109,73 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
   }
 
   Future<void> _processPayment() async {
-    if (_selectedSlotIndex == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Molimo odaberite termin'),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+    if (_isProcessing ||
+        _selectedSlotIndex == null ||
+        (locale.reservationPrice ?? 0) <= 0 ||
+        table.id == null) {
       return;
     }
-
-    final userId = AuthProvider.currentUserId;
-    if (userId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Niste prijavljeni. Molimo prijavite se ponovo.'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    final slot = _slots[_selectedSlotIndex!];
-    final startTimeFormatted = slot.start.length == 5
-        ? '${slot.start}:00'
-        : slot.start;
-    final endTimeFormatted = slot.end.length == 5 ? '${slot.end}:00' : slot.end;
-
-    final request = {
-      'userId': userId,
-      'tableId': table.id,
-      'numberOfGuests': table.numberOfGuests ?? 2,
-      'reservationDate': DateTime(
-        _selectedDate.year,
-        _selectedDate.month,
-        _selectedDate.day,
-      ).toIso8601String(),
-      'startTime': startTimeFormatted,
-      'endTime': endTimeFormatted,
-    };
-
     setState(() => _isProcessing = true);
-
     try {
-      await _reservationProvider.insertReservation(request);
-
+      if (!await confirmReservationPayment(context, locale.reservationPrice!)) {
+        return;
+      }
       if (!mounted) return;
-      setState(() => _isProcessing = false);
-
-      _showSuccessDialog();
+      final slot = _slots[_selectedSlotIndex!];
+      final request = ReservationCheckoutRequest(
+        tableId: table.id!,
+        numberOfGuests: table.numberOfGuests ?? 2,
+        reservationDate: _selectedDate,
+        startTime: slot.start,
+        endTime: slot.end,
+      );
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ReservationPaymentScreen(
+            request: request,
+            price: locale.reservationPrice!,
+            localeName: locale.name ?? 'Rezervacija',
+          ),
+        ),
+      );
+      if (mounted) Navigator.of(context).pop();
     } on ApiClientException catch (e) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(e.message),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isProcessing = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Greška pri kreiranju rezervacije: $e'),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
-  }
-
-  void _showSuccessDialog() {
-    final slot = _slots[_selectedSlotIndex!];
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFEF3C7),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.hourglass_top_rounded,
-                  color: Color(0xFFD97706),
-                  size: 40,
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Rezervacija kreirana!',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: const Color(0xFFFDE68A)),
-                ),
-                child: const Text(
-                  'Status: Na čekanju',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFB45309),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    _confirmRow('Lokal', locale.name ?? '-'),
-                    const SizedBox(height: 6),
-                    _confirmRow('Stol', table.name ?? '-'),
-                    const SizedBox(height: 6),
-                    _confirmRow('Datum', _fmtDate(_selectedDate)),
-                    const SizedBox(height: 6),
-                    _confirmRow('Termin', '${slot.start} - ${slot.end}'),
-                    const SizedBox(height: 6),
-                    _confirmRow(
-                      'Gosti',
-                      '${table.numberOfGuests ?? '-'} ${(table.numberOfGuests ?? 0) == 1 ? 'osoba' : 'osobe/a'}',
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                    Navigator.of(context).pop();
-                    Navigator.of(context).pop();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E40AF),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Zatvori',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _confirmRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14.5, color: Color(0xFF64748B)),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: Color(0xFF0F172A),
-          ),
-        ),
-      ],
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 110),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildTableInfoBanner(),
-                  _buildDateAndGuestsSection(),
-                  _buildTimeSlotsSection(),
-                ],
+    return PopScope(
+      canPop: !_isProcessing,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F7FA),
+        body: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 110),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTableInfoBanner(),
+                    _buildDateAndGuestsSection(),
+                    _buildTimeSlotsSection(),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+        bottomNavigationBar: _buildPayButton(),
       ),
-      bottomNavigationBar: _buildPayButton(),
     );
   }
 
@@ -348,7 +189,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
           child: Row(
             children: [
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: _isProcessing ? null : () => Navigator.pop(context),
                 child: Container(
                   width: 38,
                   height: 38,
@@ -489,7 +330,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
             child: _SectionCard(
               label: 'Datum',
               child: GestureDetector(
-                onTap: _pickDate,
+                onTap: _isProcessing ? null : _pickDate,
                 behavior: HitTestBehavior.opaque,
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -589,7 +430,9 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                 final slot = _slots[i];
                 final isSelected = _selectedSlotIndex == i;
                 return GestureDetector(
-                  onTap: () => setState(() => _selectedSlotIndex = i),
+                  onTap: _isProcessing
+                      ? null
+                      : () => setState(() => _selectedSlotIndex = i),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 180),
                     alignment: Alignment.center,
@@ -706,7 +549,12 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _isProcessing ? null : _processPayment,
+              onPressed:
+                  _isProcessing ||
+                      _selectedSlotIndex == null ||
+                      (locale.reservationPrice ?? 0) <= 0
+                  ? null
+                  : _processPayment,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF1E40AF),
                 disabledBackgroundColor: const Color(0xFF93C5FD),
@@ -736,17 +584,14 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
             ),
           ),
           const SizedBox(height: 6),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.lock_outlined, size: 14, color: Colors.grey.shade500),
-              const SizedBox(width: 4),
-              Text(
-                'Plaćanje putem PayPal-a  ·  100% sigurno',
-                style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500),
-              ),
-            ],
+          Text(
+            locale.reservationPrice == null
+                ? 'Cijena nije dostupna; plaćanje je onemogućeno.'
+                : 'Cijena: ${locale.reservationPrice!.toStringAsFixed(2)} KM',
           ),
+          const Text(paymentCurrencyNote, textAlign: TextAlign.center),
+          if (_selectedSlotIndex == null)
+            const Text('Odaberite termin za plaćanje.'),
         ],
       ),
     );
