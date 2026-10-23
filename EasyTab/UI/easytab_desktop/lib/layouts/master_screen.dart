@@ -13,10 +13,12 @@ class MasterScreen extends StatefulWidget {
     required this.title,
     this.padding = const EdgeInsets.all(24.0),
     this.sidebar,
+    this.showCloseButton = false,
   });
   final Widget child;
   final String title;
   final EdgeInsets padding;
+  final bool showCloseButton;
 
   /// Ako je null, u admin shellu se sidebar ne crta (jedan sidebar u [AdminShellScreen]).
   final Widget? sidebar;
@@ -122,6 +124,12 @@ class _MasterScreenState extends State<MasterScreen> {
                                 ),
                               ),
                           ],
+                        ),
+                      if (widget.showCloseButton)
+                        IconButton(
+                          tooltip: 'Zatvori',
+                          onPressed: _onBackPressed,
+                          icon: const Icon(Icons.close),
                         ),
                     ],
                   ),

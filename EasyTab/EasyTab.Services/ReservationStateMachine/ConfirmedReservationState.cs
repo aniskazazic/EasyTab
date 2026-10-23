@@ -1,6 +1,6 @@
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Messages;
 using EasyTab.Model.Models;
-using EasyTab.Model.Requests;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using MapsterMapper;
@@ -27,7 +27,7 @@ namespace EasyTab.Services.ReservationStateMachine
 
             if (!string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Rezervacija mora biti potvrđena da bi bila završena.");
+                throw new UserException("Rezervacija mora biti potvrđena da bi bila završena.");
             }
 
             entity.ReservationState = CompletedReservationState.StateName;
@@ -68,17 +68,22 @@ namespace EasyTab.Services.ReservationStateMachine
 
         public override async Task<Reservations> CancelAsync(int id, string reason, int cancelledById)
         {
+            return await CancelCoreAsync(id, reason, cancelledById);
+        }
+
+        public override async Task<Reservations> CancelBySystemAsync(int id, string reason)
+        {
+            return await CancelCoreAsync(id, reason, null);
+        }
+
+        private async Task<Reservations> CancelCoreAsync(int id, string reason, int? cancelledById)
+        {
             var entity = await GetReservationOrThrowAsync(id);
 
             if (!string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Rezervacija mora biti potvrđena da bi bila otkazana.");
+                throw new UserException("Rezervacija mora biti potvrđena da bi bila otkazana.");
             }
-
-            entity.ReservationState = CancelledReservationState.StateName;
-            entity.CancelledById = cancelledById;
-            entity.CancelledAt = DateTime.UtcNow;
-            entity.CancellationReason = reason;
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
             var user = await _context.Users.FindAsync(entity.UserId);
@@ -98,6 +103,19 @@ namespace EasyTab.Services.ReservationStateMachine
                     CreatedAt = DateTime.UtcNow
                 }
             };
+
+            var refundNotification = await _serviceProvider
+                .GetRequiredService<IPaymentService>()
+                .RefundCompletedPaymentAsync(id);
+            if (refundNotification != null)
+            {
+                notifications.Add(_mapper.Map<Notification>(refundNotification));
+            }
+
+            entity.ReservationState = CancelledReservationState.StateName;
+            entity.CancelledById = cancelledById;
+            entity.CancelledAt = DateTime.UtcNow;
+            entity.CancellationReason = reason;
 
             if (cancelledById == entity.UserId && table?.Locale != null)
             {
@@ -145,7 +163,7 @@ namespace EasyTab.Services.ReservationStateMachine
 
         public override List<string> GetAllowedActions()
         {
-            return new List<string> { nameof(CompleteAsync), nameof(CancelAsync) };
+            return new List<string> { nameof(CompleteAsync), nameof(CancelAsync), nameof(CancelBySystemAsync) };
         }
     }
 }

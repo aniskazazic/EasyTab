@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
@@ -25,6 +26,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   late UserProvider userProvider;
   bool isLoading = true;
   File? _imageFile;
+  String? _profilePictureError;
   bool _removeProfilePicture = false;
   bool _changePassword = false;
 
@@ -60,8 +62,9 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
         });
       });
     } catch (e) {
-      debugPrint('Greska pri ucitavanju korisnika: $e');
-      if (mounted) setState(() => isLoading = false);
+      if (!mounted) return;
+      setState(() => isLoading = false);
+      _showError('Greška pri učitavanju podataka: $e');
     }
   }
 
@@ -69,7 +72,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Greska'),
+        title: const Text('Greška'),
         content: Text(message.replaceAll('Exception: ', '')),
         actions: [
           TextButton(
@@ -85,7 +88,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Uspjesno'),
+        title: const Text('Uspješno'),
         content: Text(message),
         actions: [
           TextButton(
@@ -108,6 +111,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       setState(() {
         _imageFile = File(result.files.single.path!);
         _removeProfilePicture = false;
+        _profilePictureError = null;
       });
     }
   }
@@ -121,8 +125,9 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       final request = Map<String, dynamic>.from(
         formKey.currentState?.value ?? {},
       );
-      if (_imageFile != null)
+      if (_imageFile != null) {
         request['profilePicture'] = base64Encode(_imageFile!.readAsBytesSync());
+      }
       if (request['birthDate'] is DateTime) {
         request['birthDate'] = (request['birthDate'] as DateTime)
             .toIso8601String()
@@ -154,14 +159,21 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
           'confirmNewPassword': passwordConfirmation,
         });
       }
-      if (mounted) _showSuccess('Podaci uspjesno azurirani!');
+      if (mounted) _showSuccess('Podaci su uspješno ažurirani.');
     } catch (e) {
       final message = e.toString().replaceAll('Exception: ', '');
-      _showError(
-        profileUpdated
-            ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
-            : message,
-      );
+      final imageError = e is ApiClientException
+          ? e.imageValidationErrors['profilePicture']
+          : null;
+      if (imageError != null) {
+        setState(() => _profilePictureError = imageError);
+      } else {
+        _showError(
+          profileUpdated
+              ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
+              : message,
+        );
+      }
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -173,12 +185,21 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Brisanje slike'),
-        content: const Text('Da li ste sigurni da zelite obrisati sliku?'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje slike')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
+        content: const Text('Da li ste sigurni da želite obrisati sliku?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Otkazi'),
+            child: const Text('Otkaži'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -189,7 +210,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                 _imageFile = null;
               });
             },
-            child: const Text('Obrisi', style: TextStyle(color: Colors.white)),
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -258,6 +279,16 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                                 : 'Promijeni sliku',
                           ),
                         ),
+                        if (_profilePictureError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              _profilePictureError!,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                            ),
+                          ),
                         if (user?.profilePicture != null &&
                             _imageFile == null &&
                             !_removeProfilePicture)
@@ -309,7 +340,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                         child: FormBuilderTextField(
                           name: 'username',
                           decoration: const InputDecoration(
-                            labelText: 'Korisnicko ime',
+                            labelText: 'Korisničko ime',
                             border: OutlineInputBorder(),
                           ),
                           enabled: user != null,
@@ -349,7 +380,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                           inputType: InputType.date,
                           format: dateOnlyFormatter,
                           decoration: const InputDecoration(
-                            labelText: 'Datum rodjenja',
+                            labelText: 'Datum rođenja',
                             border: OutlineInputBorder(),
                             suffixIcon: Icon(Icons.calendar_today),
                           ),
@@ -365,6 +396,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                             labelText: 'Broj telefona',
                             border: OutlineInputBorder(),
                           ),
+                          validator: validatePhone,
                         ),
                       ),
                     ],

@@ -6,8 +6,10 @@ using EasyTab.API.Services.AccessManager;
 using EasyTab.Common.Services.CryptoService;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
+using EasyTab.Model.Serialization;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.PayPal;
 using EasyTab.Services.ReservationStateMachine;
 using EasyTab.Services.SeedData;
 using EasyTab.Services.Services;
@@ -16,6 +18,7 @@ using FluentValidation;
 using Mapster;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -66,6 +69,22 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationPushService, SignalRNotificationPushService>();
 builder.Services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
 builder.Services.AddHostedService<ReservationStatusBackgroundService>();
+
+builder.Services.AddOptions<PayPalOptions>()
+    .Bind(builder.Configuration.GetSection(PayPalOptions.SectionName))
+    .Validate(
+        options =>
+            !string.IsNullOrWhiteSpace(options.ClientId) &&
+            !string.IsNullOrWhiteSpace(options.Secret) &&
+            !string.IsNullOrWhiteSpace(options.BaseUrl) &&
+            !string.IsNullOrWhiteSpace(options.ReturnUrl) &&
+            !string.IsNullOrWhiteSpace(options.CancelUrl) &&
+            !string.IsNullOrWhiteSpace(options.Currency) &&
+            options.BamToEurRate > 0,
+        "PayPal konfiguracija nije potpuna. Popunite ClientId, Secret, BaseUrl, ReturnUrl, CancelUrl i Currency, te postavite BamToEurRate na vrijednost veću od 0.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IPayPalService, PayPalService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, UserIdProvider>();
@@ -138,6 +157,26 @@ builder.Services.AddControllers(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new TimeOnlyJsonConverter());
     });
+builder.Services.Configure<ApiBehaviorOptions>(options =>
+{
+    options.InvalidModelStateResponseFactory = context =>
+    {
+        if (context.ModelState.Keys.Any(key =>
+            key.EndsWith("LengthOfReservation", StringComparison.OrdinalIgnoreCase)))
+        {
+            return new BadRequestObjectResult(new
+            {
+                message = ReservationDurationMessages.InvalidValue,
+                errors = new Dictionary<string, string[]>
+                {
+                    ["lengthOfReservation"] = [ReservationDurationMessages.InvalidValue]
+                }
+            });
+        }
+
+        return new BadRequestObjectResult(new ValidationProblemDetails(context.ModelState));
+    };
+});
 
 var allowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
@@ -260,7 +299,7 @@ using (var scope = app.Services.CreateScope())
     
     try
     {
-        dbContext.Database.Migrate();
+        await dbContext.Database.MigrateAsync();
         await dbSeeder.SeedAsync();
     }
     catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 1801)

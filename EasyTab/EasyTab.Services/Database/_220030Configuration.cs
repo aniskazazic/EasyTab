@@ -63,6 +63,9 @@ public partial class _220030Context : DbContext
             entity.Property(e => e.Logo).HasColumnType("nvarchar(max)");
             entity.Property(e => e.Name).HasMaxLength(100);
             entity.Property(e => e.PhoneNumber).HasMaxLength(20);
+            entity.Property(e => e.ReservationPrice)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(5.00m);
 
             entity.HasOne(d => d.Category).WithMany(p => p.Locales)
                 .HasForeignKey(d => d.CategoryId)
@@ -287,6 +290,40 @@ public partial class _220030Context : DbContext
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK_PasswordResetTokens_Users");
+        });
+
+        modelBuilder.Entity<Payment>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.AmountKm).HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Amount).HasColumnType("decimal(18,2)").IsRequired();
+            entity.Property(e => e.Currency).HasMaxLength(10).IsRequired();
+            entity.Property(e => e.ApprovalUrl).HasMaxLength(1000);
+            entity.Property(e => e.PayPalOrderId).HasMaxLength(100);
+            entity.Property(e => e.PayPalCaptureId).HasMaxLength(100);
+            entity.Property(e => e.PayPalRefundId).HasMaxLength(100);
+            entity.Property(e => e.Status).HasMaxLength(50).IsRequired();
+            entity.Property(e => e.CreatedAt).HasColumnType("datetime");
+            entity.Property(e => e.CompletedAt).HasColumnType("datetime");
+            entity.Property(e => e.RefundedAmount).HasColumnType("decimal(18,2)");
+            entity.Property(e => e.RefundedAt).HasColumnType("datetime");
+
+            entity.HasIndex(e => e.PayPalOrderId).IsUnique();
+            entity.HasIndex(e => e.CheckoutId).IsUnique();
+            entity.HasIndex(e => new { e.Status, e.CaptureRequestedAt, e.LastCheckedAt });
+            entity.HasIndex(e => e.ReservationId)
+                .IsUnique()
+                .HasFilter("[ReservationId] IS NOT NULL AND [Status] IN ('Created', 'Completed')");
+
+            entity.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne<Table>().WithMany().HasForeignKey(e => e.TableId).OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(d => d.Reservation)
+                .WithMany(p => p.Payments)
+                .HasForeignKey(d => d.ReservationId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_Payments_Reservations");
         });
     }
 }

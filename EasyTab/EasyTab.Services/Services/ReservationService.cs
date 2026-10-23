@@ -138,6 +138,42 @@ namespace EasyTab.Services.Services
             return dto;
         }
 
+        public override async Task<PagedResult<Reservations>> GetAsync(ReservationSearchObject search)
+        {
+            var pagedResult = await base.GetAsync(search);
+
+            if (pagedResult.Items != null && pagedResult.Items.Count > 0)
+            {
+                var reservationIds = pagedResult.Items.Select(r => r.Id).ToList();
+                var completedPayments = await Context.Payments
+                    .AsNoTracking()
+                    .Where(p => p.ReservationId.HasValue && reservationIds.Contains(p.ReservationId.Value) && p.Status == PaymentStatus.Completed)
+                    .GroupBy(p => p.ReservationId!.Value)
+                    .Select(g => new
+                    {
+                        ReservationId = g.Key,
+                        PaidAmountKm = g.Max(p => p.AmountKm)
+                    })
+                    .ToDictionaryAsync(x => x.ReservationId, x => x.PaidAmountKm);
+
+                foreach (var item in pagedResult.Items)
+                {
+                    if (completedPayments.TryGetValue(item.Id, out var amountKm))
+                    {
+                        item.IsPaid = true;
+                        item.PaidAmountKm = amountKm;
+                    }
+                    else
+                    {
+                        item.IsPaid = false;
+                        item.PaidAmountKm = null;
+                    }
+                }
+            }
+
+            return pagedResult;
+        }
+
         public override async Task<Reservations?> GetByIdAsync(int id)
         {
             var entity = await Context.Reservations
@@ -153,7 +189,25 @@ namespace EasyTab.Services.Services
             if (!CanAccessReservation(entity))
                 return null;
 
-            return MapToResponse(entity);
+            var dto = MapToResponse(entity);
+            var payment = await Context.Payments
+                .AsNoTracking()
+                .Where(p => p.ReservationId == id && p.Status == PaymentStatus.Completed)
+                .OrderByDescending(p => p.CompletedAt ?? p.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (payment != null)
+            {
+                dto.IsPaid = true;
+                dto.PaidAmountKm = payment.AmountKm;
+            }
+            else
+            {
+                dto.IsPaid = false;
+                dto.PaidAmountKm = null;
+            }
+
+            return dto;
         }
 
         private bool CanAccessReservation(Reservation reservation)
@@ -169,52 +223,6 @@ namespace EasyTab.Services.Services
                     worker.UserId == _currentUser.UserId && !worker.IsDeleted);
 
             return reservation.UserId == _currentUser.UserId;
-        }
-
-        protected override async Task BeforeInsert(Reservation entity, ReservationInsertRequest request)
-        {
-            _logger.LogInformation("Creating reservation. UserId: {UserId}, TableId: {TableId}, ReservationDate: {ReservationDate}", request.UserId, request.TableId, request.ReservationDate);
-
-            var table = await Context.Tables.FindAsync(request.TableId);
-            if (table == null)
-            {
-                throw new UserException("Stol nije pronađen!");
-            }
-
-            if (request.NumberOfGuests != table.NumberOfGuests)
-            {
-                throw new UserException($"Stol prima tačno {table.NumberOfGuests} gostiju.");
-            }
-
-            var duplicate = await Context.Reservations.AnyAsync(r =>
-                r.UserId == request.UserId &&
-                r.TableId == request.TableId &&
-                r.ReservationDate.Date == request.ReservationDate.Date &&
-                r.StartTime == TimeOnly.FromTimeSpan(request.StartTime) &&
-                r.ReservationState != CancelledReservationState.StateName);
-
-            if (duplicate)
-            {
-                throw new UserException("Već imate rezervaciju za ovaj stol u ovom terminu!");
-            }
-
-            var overlaps = await Context.Reservations.AnyAsync(r =>
-                r.TableId == request.TableId &&
-                r.ReservationDate.Date == request.ReservationDate.Date &&
-                r.ReservationState != CancelledReservationState.StateName &&
-                r.StartTime < TimeOnly.FromTimeSpan(request.EndTime) &&
-                TimeOnly.FromTimeSpan(request.StartTime) < r.EndTime);
-
-            if (overlaps)
-            {
-                _logger.LogWarning("Reservation overlap detected. TableId: {TableId}, ReservationDate: {ReservationDate}", request.TableId, request.ReservationDate);
-                throw new UserException("Stol je već rezervisan za ovaj termin!");
-            }
-
-            entity.CreatedAt = DateTime.UtcNow;
-            entity.ReservationState = PendingReservationState.StateName;
-
-            await Task.CompletedTask;
         }
 
         public async Task<List<TimeSlots>> GetAvailableSlotsAsync(int tableId, DateTime date)
@@ -332,11 +340,9 @@ namespace EasyTab.Services.Services
             _logger.LogWarning("Reservation cancelled successfully. ReservationId: {ReservationId}", id);
         }
 
-        public override async Task<Reservations> CreateAsync(ReservationInsertRequest request)
+        public override Task<Reservations> CreateAsync(ReservationInsertRequest request)
         {
-            request.UserId = _currentUser.UserId;
-            var initialState = GetStateMachine(nameof(InitialReservationState));
-            return await initialState.CreateAsync(request);
+            throw new UserException("Rezervacija se kreira tek nakon uspješnog plaćanja. Pokrenite plaćanje za odabrani stol i termin.");
         }
 
         public async Task<Reservations> ConfirmAsync(int id)
@@ -423,6 +429,13 @@ namespace EasyTab.Services.Services
                         "Skipped automatic cancellation for reservation {ReservationId} because its state changed.",
                         id);
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Error automatically cancelling reservation {ReservationId}. Skipping until next cycle.",
+                        id);
+                }
             }
 
             var overdueConfirmedIds = await Context.Reservations
@@ -450,6 +463,13 @@ namespace EasyTab.Services.Services
                     _logger.LogInformation(
                         ex,
                         "Skipped automatic completion for reservation {ReservationId} because its state changed.",
+                        id);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(
+                        ex,
+                        "Error automatically completing reservation {ReservationId}. Skipping until next cycle.",
                         id);
                 }
             }

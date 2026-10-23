@@ -87,6 +87,7 @@ class _AdminCountryDetailsScreenState extends State<AdminCountryDetailsScreen> {
   Widget build(BuildContext context) {
     return MasterScreen(
       title: widget.country == null ? 'Nova država' : 'Uredi državu',
+      showCloseButton: true,
       child: Column(
         children: [
           Expanded(

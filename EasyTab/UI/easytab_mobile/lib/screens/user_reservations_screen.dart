@@ -1,3 +1,4 @@
+import 'package:easytab_mobile/providers/notification_provider.dart';
 import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/reservation.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
@@ -17,19 +18,28 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late ReservationProvider _reservationProvider;
+  late NotificationProvider _notifications;
+  bool _busy = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _reservationProvider = context.read<ReservationProvider>();
+    _notifications = context.read<NotificationProvider>();
+    _notifications.addListener(_onNotification);
     _loadData();
   }
 
   @override
   void dispose() {
+    _notifications.removeListener(_onNotification);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onNotification() {
+    if (mounted) _loadData();
   }
 
   Future<void> _loadData() async {
@@ -54,7 +64,9 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
     final userId = AuthProvider.currentUserId;
     if (userId == null || reservation.id == null) return;
 
-    final reasonController = TextEditingController();
+    if (_busy) return;
+    setState(() => _busy = true);
+    var enteredReason = '';
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -78,6 +90,10 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
               'Jeste li sigurni da želite otkazati rezervaciju za "${reservation.localeName ?? 'Lokal'}"?',
               style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
             ),
+            if (reservation.isPaid)
+              const Text(
+                'Rezervacija je plaćena; nakon otkazivanja slijedi povrat novca',
+              ),
             const SizedBox(height: 16),
             const Text(
               'Razlog otkazivanja (opcionalno):',
@@ -89,7 +105,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
             ),
             const SizedBox(height: 6),
             TextField(
-              controller: reasonController,
+              onChanged: (value) => enteredReason = value.trim(),
               maxLines: 2,
               decoration: InputDecoration(
                 hintText: 'Npr. Promjena planova...',
@@ -133,11 +149,14 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      if (mounted) setState(() => _busy = false);
+      return;
+    }
 
     try {
-      final reason = reasonController.text.trim().isNotEmpty
-          ? reasonController.text.trim()
+      final reason = enteredReason.isNotEmpty
+          ? enteredReason
           : 'Korisnik otkazao rezervaciju';
 
       await _reservationProvider.cancelReservation(reservation.id!, reason);
@@ -145,11 +164,17 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Row(
+            content: Row(
               children: [
                 Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
                 SizedBox(width: 8),
-                Text('Rezervacija je uspješno otkazana.'),
+                Expanded(
+                  child: Text(
+                    reservation.isPaid
+                        ? 'Rezervacija je otkazana. Povrat novca je obrađen.'
+                        : 'Rezervacija je uspješno otkazana.',
+                  ),
+                ),
               ],
             ),
             backgroundColor: const Color(0xFF15803D),
@@ -175,12 +200,16 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Greška pri otkazivanju: $e'),
+            content: const Text(
+              'Otkazivanje nije potvrđeno. Provjerite internet vezu i pokušajte ponovo.',
+            ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -221,7 +250,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
             color: const Color(0xFF1E40AF),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1E40AF).withOpacity(0.25),
+                color: const Color(0xFF1E40AF).withValues(alpha: 0.25),
                 blurRadius: 6,
                 offset: const Offset(0, 2),
               ),
@@ -319,10 +348,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
 
   Widget _buildReservationCard(Reservation res, {required bool isUpcoming}) {
     final state = res.reservationState ?? 'Na čekanju';
-    final canCancel =
-        isUpcoming &&
-        (state.toLowerCase() == 'na čekanju' ||
-            state.toLowerCase() == 'potvrđena');
+    final canCancel = isUpcoming && res.isActive;
 
     final dateStr = res.reservationDate == null
         ? '-'
@@ -339,7 +365,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: Colors.black.withValues(alpha: 0.06),
             blurRadius: 12,
             offset: const Offset(0, 3),
           ),
@@ -525,6 +551,18 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
                 ),
               ),
 
+            if (res.isPaid)
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Text(
+                  '✓ Plaćeno${res.paidAmountKm == null ? '' : ' · ${res.paidAmountKm!.toStringAsFixed(2)} KM'}',
+                ),
+              ),
+            if (_busy)
+              const Padding(
+                padding: EdgeInsets.all(14),
+                child: Text('Sačekajte završetak trenutnog zahtjeva.'),
+              ),
             // Dugme za otkazivanje
             if (canCancel)
               Padding(
@@ -532,7 +570,9 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
                 child: SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () => _handleCancelReservation(res),
+                    onPressed: _busy
+                        ? null
+                        : () => _handleCancelReservation(res),
                     icon: const Icon(
                       Icons.cancel_outlined,
                       size: 16,

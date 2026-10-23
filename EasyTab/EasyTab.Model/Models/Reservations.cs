@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -36,5 +36,7 @@ namespace EasyTab.Model.Models
         public string? LocaleName { get; set; }
         public string? LocaleAddress { get; set; }
         public string? LocaleLogo { get; set; }
+        public bool IsPaid { get; set; }
+        public decimal? PaidAmountKm { get; set; }
     }
 }

@@ -1,4 +1,5 @@
 using EasyTab.Model.Requests;
+using EasyTab.Model.Serialization;
 using FluentValidation;
 
 namespace EasyTab.Services.Validators
@@ -36,8 +37,13 @@ namespace EasyTab.Services.Validators
                 .NotEmpty().WithMessage("Kraj radnog vremena je obavezan.");
 
             RuleFor(x => x.LengthOfReservation)
-                .GreaterThan(0).WithMessage("Trajanje rezervacije mora biti veće od 0.");
+                .GreaterThan(0)
+                .LessThanOrEqualTo(24)
+                .WithMessage(ReservationDurationMessages.InvalidValue);
 
+            RuleFor(x => x.ReservationPrice)
+                .GreaterThan(0).WithMessage("Cijena rezervacije mora biti veća od 0.")
+                .Must(price => decimal.Round(price, 2) == price).WithMessage("Cijena rezervacije može imati najviše 2 decimale.");
         }
     }
 }

@@ -166,6 +166,11 @@ namespace EasyTab.Services.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
 
+                    b.Property<decimal>("ReservationPrice")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(5.00m);
+
                     b.Property<TimeOnly>("StartOfWorkingHours")
                         .HasColumnType("time");
 
@@ -287,6 +292,111 @@ namespace EasyTab.Services.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("PasswordResetTokens");
+                });
+
+            modelBuilder.Entity("EasyTab.Services.Database.Payment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal>("AmountKm")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("ApprovalUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<DateTime?>("CaptureRequestedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CheckoutId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<TimeOnly?>("EndTime")
+                        .HasColumnType("time");
+
+                    b.Property<DateTime?>("LastCheckedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("NumberOfGuests")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PayPalCaptureId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PayPalOrderId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("PayPalRefundId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<decimal?>("RefundedAmount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("RefundedAt")
+                        .HasColumnType("datetime");
+
+                    b.Property<DateTime?>("ReservationDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ReservationId")
+                        .HasColumnType("int");
+
+                    b.Property<TimeOnly?>("StartTime")
+                        .HasColumnType("time");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int?>("TableId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CheckoutId")
+                        .IsUnique()
+                        .HasFilter("[CheckoutId] IS NOT NULL");
+
+                    b.HasIndex("PayPalOrderId")
+                        .IsUnique()
+                        .HasFilter("[PayPalOrderId] IS NOT NULL");
+
+                    b.HasIndex("ReservationId")
+                        .IsUnique()
+                        .HasFilter("[ReservationId] IS NOT NULL AND [Status] IN ('Created', 'Completed')");
+
+                    b.HasIndex("TableId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("Status", "CaptureRequestedAt", "LastCheckedAt");
+
+                    b.ToTable("Payments");
                 });
 
             modelBuilder.Entity("EasyTab.Services.Database.Reaction", b =>
@@ -768,6 +878,27 @@ namespace EasyTab.Services.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("EasyTab.Services.Database.Payment", b =>
+                {
+                    b.HasOne("EasyTab.Services.Database.Reservation", "Reservation")
+                        .WithMany("Payments")
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("FK_Payments_Reservations");
+
+                    b.HasOne("EasyTab.Services.Database.Table", null)
+                        .WithMany()
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("EasyTab.Services.Database.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("Reservation");
+                });
+
             modelBuilder.Entity("EasyTab.Services.Database.Reaction", b =>
                 {
                     b.HasOne("EasyTab.Services.Database.Review", "Review")
@@ -942,6 +1073,11 @@ namespace EasyTab.Services.Migrations
                     b.Navigation("Workers");
 
                     b.Navigation("Zones");
+                });
+
+            modelBuilder.Entity("EasyTab.Services.Database.Reservation", b =>
+                {
+                    b.Navigation("Payments");
                 });
 
             modelBuilder.Entity("EasyTab.Services.Database.Review", b =>

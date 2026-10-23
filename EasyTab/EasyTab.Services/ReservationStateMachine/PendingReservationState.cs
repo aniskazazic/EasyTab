@@ -1,7 +1,6 @@
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Messages;
 using EasyTab.Model.Models;
-using EasyTab.Model.Requests;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using MapsterMapper;
@@ -9,8 +8,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace EasyTab.Services.ReservationStateMachine
@@ -30,7 +27,7 @@ namespace EasyTab.Services.ReservationStateMachine
 
             if (!string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Rezervacija mora biti u stanju 'Na čekanju' da bi bila potvrđena.");
+                throw new UserException("Rezervacija mora biti u stanju 'Na čekanju' da bi bila potvrđena.");
             }
 
             entity.ReservationState = ConfirmedReservationState.StateName;
@@ -103,13 +100,8 @@ namespace EasyTab.Services.ReservationStateMachine
 
             if (!string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException("Rezervacija mora biti u stanju 'Na čekanju' da bi bila otkazana.");
+                throw new UserException("Rezervacija mora biti u stanju 'Na čekanju' da bi bila otkazana.");
             }
-
-            entity.ReservationState = CancelledReservationState.StateName;
-            entity.CancelledById = cancelledById;
-            entity.CancelledAt = DateTime.UtcNow;
-            entity.CancellationReason = reason;
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
             var user = await _context.Users.FindAsync(entity.UserId);
@@ -129,6 +121,19 @@ namespace EasyTab.Services.ReservationStateMachine
                     CreatedAt = DateTime.UtcNow
                 }
             };
+
+            var refundNotification = await _serviceProvider
+                .GetRequiredService<IPaymentService>()
+                .RefundCompletedPaymentAsync(id);
+            if (refundNotification != null)
+            {
+                notifications.Add(_mapper.Map<Notification>(refundNotification));
+            }
+
+            entity.ReservationState = CancelledReservationState.StateName;
+            entity.CancelledById = cancelledById;
+            entity.CancelledAt = DateTime.UtcNow;
+            entity.CancellationReason = reason;
 
             if (cancelledById == entity.UserId && table?.Locale != null)
             {

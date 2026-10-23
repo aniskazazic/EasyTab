@@ -1,13 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/models/category.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
 import 'package:easytab_desktop/models/localeimage.dart';
 import 'package:easytab_desktop/models/search_result.dart';
-import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
@@ -52,7 +52,11 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
 
   int? selectedCountryId;
   bool isLoading = true;
+  bool _isSaving = false;
+  String? _loadError;
   File? _image;
+  String? _logoError;
+  String? _galleryError;
 
   bool get _isInsert => widget.locale == null;
 
@@ -110,9 +114,14 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         }
 
         isLoading = false;
+        _loadError = null;
       });
     } catch (e) {
-      setState(() => isLoading = false);
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
       _showError(e.toString());
     }
   }
@@ -185,15 +194,14 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       (key, value) => value == null || value.toString().isEmpty,
     );
 
-    // Automatski dodaj ownerId od logiranog usera
-    if (_isInsert) {
-      request['ownerId'] =
-          int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
-    } else {
-      request.remove('ownerId');
-    }
+    request.remove('ownerId');
 
+    setState(() => _isSaving = true);
     try {
+      request['lengthOfReservation'] = double.parse(
+        request['lengthOfReservation'] as String,
+      );
+
       if (_isInsert) {
         await localeProvider.insert(request);
         _showSuccess('Lokal uspješno dodan!');
@@ -202,14 +210,29 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         _showSuccess('Postavke uspješno sačuvane!');
       }
     } catch (e) {
-      _showError(e.toString());
+      final imageErrors = e is ApiClientException
+          ? e.imageValidationErrors
+          : const <String, String>{};
+      if (imageErrors.isNotEmpty) {
+        setState(() {
+          _logoError = imageErrors['logo'];
+          _galleryError = imageErrors['images'];
+        });
+      } else {
+        _showError(e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  void _getImage() async {
+  Future<void> _getImage() async {
     var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
-      setState(() => _image = File(result.files.single.path!));
+      setState(() {
+        _image = File(result.files.single.path!);
+        _logoError = null;
+      });
     }
   }
 
@@ -217,7 +240,16 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Brisanje loga'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje loga')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(dialogContext, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: const Text(
           'Da li ste sigurni da želite obrisati logo lokala?',
         ),
@@ -258,7 +290,16 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Brisanje slike'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Brisanje slike')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(dialogContext, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: const Text('Da li ste sigurni da želite obrisati ovu sliku?'),
         actions: [
           TextButton(
@@ -282,6 +323,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 } else {
                   setState(() {
                     newImages.remove(image);
+                    _galleryError = null;
                   });
                 }
 
@@ -338,12 +380,21 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                   const SizedBox(height: 15),
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
+                      : _loadError != null
+                      ? Expanded(
+                          child: Center(
+                            child: Text(
+                              _loadError!,
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        )
                       : Expanded(child: _buildForm()),
                   if (!isLoading &&
                       ((localeImagesResult?.items?.isNotEmpty ?? false) ||
                           newImages.isNotEmpty))
                     _buildImageList(),
-                  if (!isLoading) _buildSaveButton(),
+                  if (!isLoading && _loadError == null) _buildSaveButton(),
                 ],
               ),
             ),
@@ -430,11 +481,13 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
             backgroundColor: const Color(0xFF1E40AF),
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
-          onPressed: _handleSave,
-          child: Text(
-            _isInsert ? 'Dodaj lokal' : 'Spremi postavke',
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-          ),
+          onPressed: _isSaving ? null : _handleSave,
+          child: _isSaving
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Text(
+                  _isInsert ? 'Dodaj lokal' : 'Spremi postavke',
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
         ),
       ),
     );
@@ -533,6 +586,16 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                           ),
                         ),
                       ),
+                      if (_logoError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _logoError!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       if (!_isInsert &&
                           widget.locale?.logo != null &&
                           _image == null)
@@ -593,19 +656,26 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                       labelText: "Broj telefona",
                       border: OutlineInputBorder(),
                     ),
+                    validator: validatePhone,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: FormBuilderTextField(
                     name: "lengthOfReservation",
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: "Dužina rezervacije (sati)",
                       border: OutlineInputBorder(),
                     ),
-                    validator: FormBuilderValidators.required(
-                      errorText: 'Dužina rezervacije je obavezna',
-                    ),
+                    validator: FormBuilderValidators.compose([
+                      FormBuilderValidators.required(
+                        errorText: 'Dužina rezervacije je obavezna',
+                      ),
+                      validateReservationLength,
+                    ]),
                   ),
                 ),
               ],
@@ -786,6 +856,19 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 ],
               ),
             ),
+            if (_galleryError != null)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    _galleryError!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -800,18 +883,26 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       );
 
       if (result != null) {
+        setState(() => _galleryError = null);
         for (var file in result.files) {
           var bytes = await file.xFile.readAsBytes();
           final base64String = base64Encode(bytes);
+          final extension = file.extension?.toLowerCase().replaceFirst(
+            RegExp(r'^\.'),
+            '',
+          );
+          final contentType = extension == 'jpg' || extension == 'jpeg'
+              ? 'image/jpeg'
+              : extension == 'png'
+              ? 'image/png'
+              : 'image/${extension ?? ''}';
 
           setState(() {
             newImages.add(
               LocaleImage(
                 id: 0,
                 fileName: file.name,
-                contentType: file.extension != null
-                    ? 'image/${file.extension}'
-                    : 'image/png',
+                contentType: contentType,
                 base64Content: base64String,
                 localeId: 0,
               ),

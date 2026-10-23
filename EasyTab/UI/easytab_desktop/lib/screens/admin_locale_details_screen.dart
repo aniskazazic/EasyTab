@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/category.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/models/locale.dart';
-import 'package:easytab_desktop/models/search_result.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
@@ -47,6 +47,11 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   bool isLoading = true;
 
   bool get _isInsert => widget.locale == null;
+  bool get _hasRequiredReferences =>
+      _countries.isNotEmpty &&
+      _allCities.isNotEmpty &&
+      _categories.isNotEmpty &&
+      (!_isInsert || _owners.isNotEmpty);
 
   @override
   void initState() {
@@ -62,20 +67,23 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   Future<void> _loadData() async {
     try {
       final results = await Future.wait([
-        categoryProvider.get(filter: {"Page": 1, "PageSize": 100}),
-        countryProvider.get(filter: {"Page": 1, "PageSize": 100}),
-        cityProvider.get(filter: {"Page": 1, "PageSize": 100}),
-
-        if (_isInsert) userProvider.get(filter: {}),
+        fetchAllPages<Category>(
+          (filter) => categoryProvider.get(filter: filter),
+        ),
+        fetchAllPages<Country>((filter) => countryProvider.get(filter: filter)),
+        fetchAllPages<City>((filter) => cityProvider.get(filter: filter)),
+        if (_isInsert)
+          fetchAllPages<User>((filter) => userProvider.get(filter: filter)),
       ]);
 
+      if (!mounted) return;
       setState(() {
-        _categories = (results[0] as SearchResult<Category>).items ?? [];
-        _countries = (results[1] as SearchResult<Country>).items ?? [];
-        _allCities = (results[2] as SearchResult<City>).items ?? [];
+        _categories = results[0] as List<Category>;
+        _countries = results[1] as List<Country>;
+        _allCities = results[2] as List<City>;
 
         if (_isInsert) {
-          final allUsers = (results[3] as SearchResult<User>).items ?? [];
+          final allUsers = results[3] as List<User>;
           _owners = allUsers
               .where(
                 (u) =>
@@ -100,6 +108,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => isLoading = false);
       _showError(e.toString());
     }
@@ -166,6 +175,10 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
     );
 
     try {
+      request['lengthOfReservation'] = double.parse(
+        request['lengthOfReservation'] as String,
+      );
+
       if (_isInsert) {
         await localeProvider.insert(request);
         _showSuccess('Lokal uspješno dodan!');
@@ -175,7 +188,14 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         _showSuccess('Lokal uspješno ažuriran!');
       }
     } catch (e) {
-      _showError(e.toString());
+      final imageError = e is ApiClientException
+          ? e.imageValidationErrors['logo']
+          : null;
+      if (imageError != null) {
+        setState(() => _logoError = imageError);
+      } else {
+        _showError(e.toString());
+      }
     }
   }
 
@@ -183,14 +203,36 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   Widget build(BuildContext context) {
     return MasterScreen(
       title: _isInsert ? 'Novi lokal' : 'Uredi lokal',
+      showCloseButton: true,
       child: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : !_hasRequiredReferences
+          ? _buildPrerequisiteWarning()
           : Column(
               children: [
                 Expanded(child: _buildForm()),
                 _buildSaveButton(),
               ],
             ),
+    );
+  }
+
+  Widget _buildPrerequisiteWarning() {
+    final missing = <String>[];
+    if (_countries.isEmpty) missing.add('država');
+    if (_allCities.isEmpty) missing.add('gradova');
+    if (_categories.isEmpty) missing.add('kategorija');
+    if (_isInsert && _owners.isEmpty) missing.add('vlasnika');
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          'Unos lokala nije moguć jer nema dostupnih: '
+          '${missing.join(', ')}. Prvo dodajte potrebne podatke.',
+          textAlign: TextAlign.center,
+        ),
+      ),
     );
   }
 
@@ -314,6 +356,16 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                           ),
                         ),
                       ),
+                      if (_logoError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            _logoError!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ),
                       if (!_isInsert &&
                           widget.locale?.logo != null &&
                           _image == null)
@@ -383,19 +435,26 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                       labelText: "Broj telefona",
                       border: OutlineInputBorder(),
                     ),
+                    validator: validatePhone,
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: FormBuilderTextField(
                     name: "lengthOfReservation",
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     decoration: const InputDecoration(
                       labelText: "Dužina rezervacije (sati)",
                       border: OutlineInputBorder(),
                     ),
-                    validator: FormBuilderValidators.required(
-                      errorText: 'Dužina rezervacije je obavezna',
-                    ),
+                    validator: FormBuilderValidators.compose([
+                      FormBuilderValidators.required(
+                        errorText: 'Dužina rezervacije je obavezna',
+                      ),
+                      validateReservationLength,
+                    ]),
                   ),
                 ),
               ],
@@ -617,12 +676,14 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   }
 
   File? _image;
+  String? _logoError;
 
   void getImage() async {
     var result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
       setState(() {
         _image = File(result.files.single.path!);
+        _logoError = null;
       });
     }
   }

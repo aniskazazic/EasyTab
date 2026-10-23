@@ -15,7 +15,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   BaseProvider(String endpoint) {
     _endpoint = endpoint;
     _baseUrl = const String.fromEnvironment(
-      "baseUrl",
+      "API_BASE_URL",
       defaultValue: "http://10.0.2.2:5241",
     );
   }
@@ -33,7 +33,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
 
     var uri = Uri.parse(url);
 
-    var response = await _sendRequestWithRetry(() => http.get(uri, headers: createHeaders()));
+    var response = await sendRequestWithRetry(
+      () => http.get(uri, headers: createHeaders()),
+    );
 
     validateResponse(response);
 
@@ -53,7 +55,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var uri = Uri.parse(url);
 
     var jsonRequest = jsonEncode(request);
-    var response = await _sendRequestWithRetry(() => http.post(uri, headers: createHeaders(), body: jsonRequest));
+    var response = await sendRequestWithRetry(
+      () => http.post(uri, headers: createHeaders(), body: jsonRequest),
+    );
 
     validateResponse(response);
 
@@ -66,7 +70,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var uri = Uri.parse(url);
 
     var jsonRequest = jsonEncode(request);
-    var response = await _sendRequestWithRetry(() => http.put(uri, headers: createHeaders(), body: jsonRequest));
+    var response = await sendRequestWithRetry(
+      () => http.put(uri, headers: createHeaders(), body: jsonRequest),
+    );
 
     validateResponse(response);
 
@@ -77,7 +83,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   Future<void> delete(int id) async {
     var url = "$baseUrl/$_endpoint/$id";
     var uri = Uri.parse(url);
-    var response = await _sendRequestWithRetry(() => http.delete(uri, headers: createHeaders()));
+    var response = await sendRequestWithRetry(
+      () => http.delete(uri, headers: createHeaders()),
+    );
     validateResponse(response);
   }
 
@@ -104,10 +112,14 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     if (response.statusCode < 299) {
       return;
     }
+    final validationErrors = ApiErrorParser.validationErrorsFromBody(
+      response.body,
+    );
     if (response.statusCode == 401) {
       throw ApiClientException(
         ApiErrorParser.messageFromBody(response.body) ??
             'Niste autorizirani. Prijavite se ponovo.',
+        validationErrors: validationErrors,
       );
     }
 
@@ -115,11 +127,13 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     if (response.statusCode >= 500) {
       throw ApiClientException(
         parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+        validationErrors: validationErrors,
       );
     }
 
     throw ApiClientException(
       parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+      validationErrors: validationErrors,
     );
   }
 
@@ -161,7 +175,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
         }
         query += '$prefix$key=$encoded';
       } else if (value is DateTime) {
-        query += '$prefix$key=${(value as DateTime).toIso8601String()}';
+        query += '$prefix$key=${value.toIso8601String()}';
       } else if (value is List || value is Map) {
         if (value is List) value = value.asMap();
         value.forEach((k, v) {
@@ -181,7 +195,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
 
     var uri = Uri.parse(url);
 
-    var response = await _sendRequestWithRetry(() => http.get(uri, headers: createHeaders()));
+    var response = await sendRequestWithRetry(
+      () => http.get(uri, headers: createHeaders()),
+    );
     validateResponse(response);
 
     var data = jsonDecode(response.body);
@@ -189,9 +205,11 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     return fromJson(data);
   }
 
-  Future<Response> _sendRequestWithRetry(Future<Response> Function() requestBuilder) async {
+  Future<Response> sendRequestWithRetry(
+    Future<Response> Function() requestBuilder,
+  ) async {
     var response = await requestBuilder();
-    
+
     if (response.statusCode == 401) {
       final success = await SessionManager().triggerSessionExpiredFlow();
       if (success) {

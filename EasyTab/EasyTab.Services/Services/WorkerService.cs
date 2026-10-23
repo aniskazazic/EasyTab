@@ -7,15 +7,13 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.Validators;
 using FluentValidation;
 using MapsterMapper;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 
@@ -34,7 +32,7 @@ namespace EasyTab.Services.Services
             _localeAccessService = localeAccessService;
         }
 
-        protected override IQueryable<Worker> ApplyFilter(IQueryable<Worker> query, WorkerSearchObject search)
+        protected override IQueryable<Worker> ApplyFilter(IQueryable<Worker> query, WorkerSearchObject? search)
         {
             query = query.Include(x => x.User)
                          .Include(x => x.Locale);
@@ -51,6 +49,13 @@ namespace EasyTab.Services.Services
                     x.User.Username.Contains(search.Q));
 
             return query;
+        }
+
+        protected override IQueryable<Worker> ApplySort(IQueryable<Worker> query, WorkerSearchObject search)
+        {
+            return string.IsNullOrWhiteSpace(search?.SortBy)
+                ? query.OrderByDescending(x => x.Id)
+                : base.ApplySort(query, search);
         }
 
         protected override Workers MapToResponse(Worker entity)
@@ -73,8 +78,21 @@ namespace EasyTab.Services.Services
             };
         }
 
+        public override async Task<PagedResult<Workers>> GetAsync(WorkerSearchObject search)
+        {
+            var result = await base.GetAsync(search);
+            foreach (var worker in result.Items)
+                worker.ProfilePicture = null;
+
+            return result;
+        }
+
         public override async Task<Workers> CreateAsync(WorkerInsertRequest request)
         {
+            ImageContentValidator.ValidateOptionalImage(
+                request.ProfilePicture,
+                nameof(request.ProfilePicture));
+
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
 
             var existingUser = Context.Users
@@ -162,6 +180,9 @@ namespace EasyTab.Services.Services
 
         public override async Task<Workers?> UpdateAsync(int id, WorkerUpdateRequest request)
         {
+            ImageContentValidator.ValidateOptionalImage(
+                request.ProfilePicture,
+                nameof(request.ProfilePicture));
 
             var worker = await Context.Workers
                 .Include(x => x.User)
@@ -207,6 +228,17 @@ namespace EasyTab.Services.Services
             await Context.SaveChangesAsync();
 
             return MapToResponse(worker);
+        }
+
+        public override async Task<Workers?> GetByIdAsync(int id)
+        {
+            var worker = await Context.Workers
+                .Include(x => x.User)
+                .Include(x => x.Locale)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == id);
+
+            return worker == null ? null : MapToResponse(worker);
         }
 
         protected override async Task BeforeInsert(Worker entity, WorkerInsertRequest request)

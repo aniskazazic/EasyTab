@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
@@ -25,6 +26,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   late UserProvider userProvider;
   bool isLoading = true;
   File? _imageFile;
+  String? _profilePictureError;
   bool _changePassword = false;
 
   @override
@@ -59,7 +61,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
         });
       });
     } catch (e) {
-      debugPrint('Greska pri ucitavanju korisnika: $e');
+      if (mounted) _showError(e.toString());
       if (mounted) setState(() => isLoading = false);
     }
   }
@@ -104,7 +106,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   Future<void> _pickImage() async {
     final result = await FilePicker.pickFiles(type: FileType.image);
     if (result != null && result.files.single.path != null) {
-      setState(() => _imageFile = File(result.files.single.path!));
+      setState(() {
+        _imageFile = File(result.files.single.path!);
+        _profilePictureError = null;
+      });
     }
   }
 
@@ -147,14 +152,21 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
           'confirmNewPassword': passwordConfirmation,
         });
       }
-      if (mounted) _showSuccess('Podaci uspjesno azurirani!');
+      if (mounted) _showSuccess('Podaci su uspješno ažurirani.');
     } catch (e) {
       final message = e.toString().replaceAll('Exception: ', '');
-      _showError(
-        profileUpdated
-            ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
-            : message,
-      );
+      final imageError = e is ApiClientException
+          ? e.imageValidationErrors['profilePicture']
+          : null;
+      if (imageError != null) {
+        setState(() => _profilePictureError = imageError);
+      } else {
+        _showError(
+          profileUpdated
+              ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
+              : message,
+        );
+      }
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -204,6 +216,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     return MasterScreen(
       title: 'Postavke',
       sidebar: const AdminSidebar(),
+      showCloseButton: true,
       child: isLoading && user == null
           ? const Center(child: CircularProgressIndicator())
           : _buildSettings(user),
@@ -242,6 +255,16 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                     icon: const Icon(Icons.camera_alt),
                     label: const Text('Promijeni sliku'),
                   ),
+                  if (_profilePictureError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        _profilePictureError!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    ),
                   if (user?.profilePicture != null && _imageFile == null)
                     TextButton.icon(
                       onPressed: _confirmDeleteImage,
@@ -339,6 +362,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                             labelText: 'Broj telefona',
                             border: OutlineInputBorder(),
                           ),
+                          validator: validatePhone,
                         ),
                       ),
                     ],

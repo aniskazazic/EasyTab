@@ -9,6 +9,7 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using EasyTab.Services.Validators;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
@@ -91,6 +92,15 @@ namespace EasyTab.Services.Services
             return model;
         }
 
+        public override async Task<PagedResult<Users>> GetAsync(UserSearchObject search)
+        {
+            var result = await base.GetAsync(search);
+            foreach (var user in result.Items)
+                user.ProfilePicture = null;
+
+            return result;
+        }
+
         public override async Task<Users> CreateAsync(UserInsertRequest request)
         {
             var result = await base.CreateAsync(request);
@@ -132,6 +142,9 @@ namespace EasyTab.Services.Services
         {
 
             await _insertValidator.ValidateAndThrowAsync(request);
+            ImageContentValidator.ValidateOptionalImage(
+                request.ProfilePicture,
+                nameof(request.ProfilePicture));
 
             // Check if email or username already exists
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
@@ -183,6 +196,10 @@ namespace EasyTab.Services.Services
 
         public override async Task<Users?> UpdateAsync(int id, UserUpdateRequest request)
         {
+            ImageContentValidator.ValidateOptionalImage(
+                request.ProfilePicture,
+                nameof(request.ProfilePicture));
+
             var currentUser = _httpContextAccessor.HttpContext?.User;
             var isAdmin = currentUser?.Claims.Any(claim =>
                 (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == RoleNames.Admin) == true;

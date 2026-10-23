@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace EasyTab.Model.Models
@@ -20,6 +21,7 @@ namespace EasyTab.Model.Models
         public DateTime? BirthDate {  get; set; }
         public int LocaleId { get; set; }
         public string? LocaleName { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? ProfilePicture { get; set; }
     }
 }
