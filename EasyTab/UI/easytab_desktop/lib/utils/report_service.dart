@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:easytab_desktop/models/payment_summary.dart';
 
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
@@ -32,6 +33,9 @@ class ReportService {
   }
 
   static Future<String> saveAdminReport({
+    required DateTime from,
+    required DateTime to,
+    required PaymentSummary payments,
     required int users,
     required int locales,
     required int reviews,
@@ -81,6 +85,10 @@ class ReportService {
               ['Kategorije', '$categories'],
             ],
           ),
+          ..._paymentSummary(
+            'Period placanja: ${DateFormat('dd.MM.yyyy.').format(from)} - ${DateFormat('dd.MM.yyyy.').format(to)}',
+            payments,
+          ),
         ],
       ),
     );
@@ -92,6 +100,8 @@ class ReportService {
   }
 
   static Future<String> saveOwnerReport({
+    required DateTime date,
+    required PaymentSummary payments,
     required String localeName,
     required int todayReservations,
     required int activeTables,
@@ -119,7 +129,9 @@ class ReportService {
         footer: _footer,
         build: (context) => [
           pw.SizedBox(height: 22),
-          _sectionTitle('Danasnji pregled'),
+          _sectionTitle(
+            'Dnevni pregled: ${DateFormat('dd.MM.yyyy.').format(date)}',
+          ),
           pw.SizedBox(height: 14),
           pw.Wrap(
             spacing: 12,
@@ -155,6 +167,10 @@ class ReportService {
                 ];
               }).toList(),
             ),
+          ..._paymentSummary(
+            'Placanja za dan: ${DateFormat('dd.MM.yyyy.').format(date)}',
+            payments,
+          ),
         ],
       ),
     );
@@ -164,6 +180,161 @@ class ReportService {
       document,
     );
   }
+
+  static List<pw.Widget> _paymentSummary(
+    String dateLabel,
+    PaymentSummary payments,
+  ) => [
+    pw.SizedBox(height: 28),
+    pw.Container(
+      padding: const pw.EdgeInsets.all(18),
+      decoration: pw.BoxDecoration(
+        color: _white,
+        border: pw.Border.all(color: _border),
+        borderRadius: pw.BorderRadius.circular(10),
+      ),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              _sectionTitle('Pregled placanja'),
+              pw.Container(
+                padding: const pw.EdgeInsets.symmetric(
+                  horizontal: 9,
+                  vertical: 5,
+                ),
+                decoration: pw.BoxDecoration(
+                  color: _lightBlue,
+                  borderRadius: pw.BorderRadius.circular(6),
+                ),
+                child: pw.Text(
+                  'KM',
+                  style: pw.TextStyle(
+                    color: _blue,
+                    fontSize: 9,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 6),
+          pw.Text(
+            dateLabel,
+            style: const pw.TextStyle(fontSize: 9, color: _mutedText),
+          ),
+          pw.SizedBox(height: 16),
+          pw.Row(
+            children: [
+              pw.Expanded(
+                child: _paymentCard(
+                  label: 'Ukupno naplaceno (bruto)',
+                  amount: payments.totalCollectedKm,
+                  accent: const PdfColor.fromInt(0xFF15803D),
+                  background: const PdfColor.fromInt(0xFFF0FDF4),
+                  border: const PdfColor.fromInt(0xFFBBF7D0),
+                ),
+              ),
+              pw.SizedBox(width: 12),
+              pw.Expanded(
+                child: _paymentCard(
+                  label: 'Ukupno refundirano',
+                  amount: payments.totalRefundedKm,
+                  accent: const PdfColor.fromInt(0xFFB45309),
+                  background: const PdfColor.fromInt(0xFFFFFBEB),
+                  border: const PdfColor.fromInt(0xFFFDE68A),
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 14),
+          pw.Container(
+            padding: const pw.EdgeInsets.only(top: 12),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(top: pw.BorderSide(color: _border, width: .7)),
+            ),
+            child: pw.Row(
+              children: [
+                pw.Container(
+                  width: 14,
+                  height: 14,
+                  alignment: pw.Alignment.center,
+                  decoration: const pw.BoxDecoration(
+                    color: _lightBlue,
+                    shape: pw.BoxShape.circle,
+                  ),
+                  child: pw.Text(
+                    'i',
+                    style: pw.TextStyle(
+                      color: _blue,
+                      fontSize: 9,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 7),
+                pw.Expanded(
+                  child: pw.Text(
+                    'Refund ne umanjuje naplaceni iznos (bruto).',
+                    style: const pw.TextStyle(fontSize: 8.5, color: _mutedText),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  ];
+
+  static pw.Widget _paymentCard({
+    required String label,
+    required double amount,
+    required PdfColor accent,
+    required PdfColor background,
+    required PdfColor border,
+  }) => pw.Container(
+    padding: const pw.EdgeInsets.all(14),
+    decoration: pw.BoxDecoration(
+      color: background,
+      border: pw.Border.all(color: border),
+      borderRadius: pw.BorderRadius.circular(8),
+    ),
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(label, style: pw.TextStyle(fontSize: 9, color: accent)),
+        pw.SizedBox(height: 10),
+        pw.FittedBox(
+          fit: pw.BoxFit.scaleDown,
+          alignment: pw.Alignment.centerLeft,
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.end,
+            children: [
+              pw.Text(
+                amount.toStringAsFixed(2),
+                style: pw.TextStyle(
+                  fontSize: 25,
+                  color: accent,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(width: 5),
+              pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 3),
+                child: pw.Text(
+                  'KM',
+                  style: pw.TextStyle(fontSize: 10, color: accent),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
 
   static pw.Document _newDocument() => pw.Document(
     title: 'EasyTab izvjestaj',

@@ -77,6 +77,19 @@ namespace EasyTab.Services.Services
             if (search?.ReservationState != null)
                 query = query.Where(x => x.ReservationState == search.ReservationState);
 
+            if (!string.IsNullOrWhiteSpace(search?.PaymentStatus))
+            {
+                query = search.PaymentStatus switch
+                {
+                    "Paid" => query.Where(r => Context.Payments.Any(p => p.ReservationId == r.Id && p.Status == PaymentStatus.Completed)
+                        && !Context.Payments.Any(p => p.ReservationId == r.Id && p.Status == PaymentStatus.Refunded)),
+                    "Refunded" => query.Where(r => Context.Payments.Any(p => p.ReservationId == r.Id && p.Status == PaymentStatus.Refunded)),
+                    "Unpaid" => query.Where(r => !Context.Payments.Any(p => p.ReservationId == r.Id &&
+                        (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Refunded))),
+                    _ => throw new UserException("Nepoznat status plaćanja.")
+                };
+            }
+
             // Aktivne rezervacije: samo one koje nisu otkazane/završene i čiji termin još nije prošao
             if (search?.IsUpcoming == true)
             {
@@ -161,29 +174,21 @@ namespace EasyTab.Services.Services
             if (pagedResult.Items != null && pagedResult.Items.Count > 0)
             {
                 var reservationIds = pagedResult.Items.Select(r => r.Id).ToList();
-                var completedPayments = await Context.Payments
+                var payments = await Context.Payments
                     .AsNoTracking()
-                    .Where(p => p.ReservationId.HasValue && reservationIds.Contains(p.ReservationId.Value) && p.Status == PaymentStatus.Completed)
-                    .GroupBy(p => p.ReservationId!.Value)
-                    .Select(g => new
-                    {
-                        ReservationId = g.Key,
-                        PaidAmountKm = g.Max(p => p.AmountKm)
-                    })
-                    .ToDictionaryAsync(x => x.ReservationId, x => x.PaidAmountKm);
+                    .Where(p => p.ReservationId.HasValue && reservationIds.Contains(p.ReservationId.Value) &&
+                        (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Refunded))
+                    .OrderByDescending(p => p.Status == PaymentStatus.Refunded)
+                    .ThenByDescending(p => p.CompletedAt ?? p.CreatedAt)
+                    .ThenByDescending(p => p.Id)
+                    .ToListAsync();
+                var byReservation = payments.GroupBy(p => p.ReservationId!.Value)
+                    .ToDictionary(g => g.Key, g => g.First());
 
                 foreach (var item in pagedResult.Items)
                 {
-                    if (completedPayments.TryGetValue(item.Id, out var amountKm))
-                    {
-                        item.IsPaid = true;
-                        item.PaidAmountKm = amountKm;
-                    }
-                    else
-                    {
-                        item.IsPaid = false;
-                        item.PaidAmountKm = null;
-                    }
+                    byReservation.TryGetValue(item.Id, out var payment);
+                    SetPaymentDetails(item, payment);
                 }
             }
 
@@ -208,22 +213,63 @@ namespace EasyTab.Services.Services
             var dto = MapToResponse(entity);
             var payment = await Context.Payments
                 .AsNoTracking()
-                .Where(p => p.ReservationId == id && p.Status == PaymentStatus.Completed)
-                .OrderByDescending(p => p.CompletedAt ?? p.CreatedAt)
+                .Where(p => p.ReservationId == id && (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Refunded))
+                .OrderByDescending(p => p.Status == PaymentStatus.Refunded)
+                .ThenByDescending(p => p.CompletedAt ?? p.CreatedAt)
+                .ThenByDescending(p => p.Id)
                 .FirstOrDefaultAsync();
 
-            if (payment != null)
-            {
-                dto.IsPaid = true;
-                dto.PaidAmountKm = payment.AmountKm;
-            }
-            else
-            {
-                dto.IsPaid = false;
-                dto.PaidAmountKm = null;
-            }
+            SetPaymentDetails(dto, payment);
 
             return dto;
+        }
+
+        private static void SetPaymentDetails(Reservations dto, Payment? payment)
+        {
+            dto.IsPaid = payment?.Status == PaymentStatus.Completed;
+            dto.PaidAmountKm = dto.IsPaid ? payment!.AmountKm : null;
+            dto.RefundedAmountKm = payment?.Status == PaymentStatus.Refunded ? payment.AmountKm : null;
+            dto.PaidAt = payment?.CompletedAt;
+            dto.RefundedAt = payment?.RefundedAt;
+        }
+
+        public async Task<PaymentSummary> GetPaymentSummaryAsync(PaymentSummarySearchObject search)
+        {
+            if (!_currentUser.IsAdmin && _currentUser.Role != RoleNames.Vlasnik)
+                throw new ForbiddenException("Nemate dozvolu za pregled izvještaja o plaćanju.");
+
+            var to = search.To?.Date ?? LocalClock.Now.Date;
+            var from = search.From?.Date ?? to.AddDays(-29);
+            if (to < from)
+                throw new UserException("Datum do ne smije biti prije datuma od.");
+            if (to == DateTime.MaxValue.Date)
+                throw new UserException("Datum do je izvan dozvoljenog raspona.");
+
+            if (!_currentUser.IsAdmin && search.LocaleId.HasValue &&
+                !await Context.Locales.AnyAsync(l => l.Id == search.LocaleId.Value && l.OwnerId == _currentUser.UserId))
+                throw new ForbiddenException("Nemate dozvolu za pregled plaćanja ovog lokala.");
+
+            var startUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(from, DateTimeKind.Unspecified), TimeZoneInfo.Local);
+            var endUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(to.AddDays(1), DateTimeKind.Unspecified), TimeZoneInfo.Local);
+            var payments = Context.Payments.AsNoTracking();
+            // Select one effective locale per payment; no join/concat can duplicate a payment.
+            var locales = Context.Locales.AsNoTracking();
+            if (!_currentUser.IsAdmin)
+                locales = locales.Where(l => l.OwnerId == _currentUser.UserId);
+            if (search.LocaleId.HasValue)
+                locales = locales.Where(l => l.Id == search.LocaleId.Value);
+            payments = payments.Where(p => locales.Any(l => l.Id ==
+                (p.Reservation != null ? (int?)p.Reservation.Table.LocaleId :
+                    Context.Tables.Where(t => t.Id == p.TableId).Select(t => (int?)t.LocaleId).FirstOrDefault())));
+
+            return await payments.GroupBy(p => 1).Select(g => new PaymentSummary
+            {
+                TotalCollectedKm = g.Sum(p =>
+                    (p.Status == PaymentStatus.Completed || p.Status == PaymentStatus.Refunded) &&
+                    p.CompletedAt >= startUtc && p.CompletedAt < endUtc ? p.AmountKm : 0m),
+                TotalRefundedKm = g.Sum(p => p.Status == PaymentStatus.Refunded &&
+                    p.RefundedAt >= startUtc && p.RefundedAt < endUtc ? p.AmountKm : 0m)
+            }).SingleOrDefaultAsync() ?? new PaymentSummary();
         }
 
         private bool CanAccessReservation(Reservation reservation)

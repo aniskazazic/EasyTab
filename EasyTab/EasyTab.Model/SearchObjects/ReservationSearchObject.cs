@@ -9,6 +9,7 @@ namespace EasyTab.Model.SearchObjects
 {
     public class ReservationSearchObject : BaseSearchObject
     {
+        public string? PaymentStatus { get; set; }
         public int? UserId { get; set; }
         public int? TableId { get; set; }
         public int? LocaleId { get; set; }

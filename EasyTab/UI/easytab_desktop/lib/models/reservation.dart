@@ -4,6 +4,17 @@ part 'reservation.g.dart';
 
 @JsonSerializable()
 class Reservation {
+  final bool isPaid;
+  final double? paidAmountKm;
+  final double? refundedAmountKm;
+  final DateTime? paidAt;
+  final DateTime? refundedAt;
+
+  String get paymentLabel => refundedAmountKm != null
+      ? 'Refundirano · ${refundedAmountKm!.toStringAsFixed(2)} KM'
+      : isPaid
+      ? 'Da · ${paidAmountKm?.toStringAsFixed(2) ?? "-"} KM'
+      : 'Ne';
   final int? id;
   final int? userId;
   final int? tableId;
@@ -25,6 +36,11 @@ class Reservation {
   final String? localeLogo;
 
   Reservation({
+    this.isPaid = false,
+    this.paidAmountKm,
+    this.refundedAmountKm,
+    this.paidAt,
+    this.refundedAt,
     this.id,
     this.userId,
     this.tableId,

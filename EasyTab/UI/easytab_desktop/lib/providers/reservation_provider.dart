@@ -1,10 +1,34 @@
 import 'dart:convert';
+import 'package:easytab_desktop/models/payment_summary.dart';
 import 'package:easytab_desktop/models/reservation.dart';
 import 'package:easytab_desktop/providers/base_provider.dart';
 import 'package:http/http.dart' as http;
 
 class ReservationProvider extends BaseProvider<Reservation> {
   ReservationProvider() : super("Reservations");
+
+  Future<PaymentSummary> getPaymentSummary({
+    required DateTime from,
+    required DateTime to,
+    int? localeId,
+  }) async {
+    String date(DateTime value) => value.toIso8601String().split('T').first;
+    final uri =
+        Uri.parse(
+          '${BaseProvider.baseUrl}/Reservations/payment-summary',
+        ).replace(
+          queryParameters: {
+            'From': date(from),
+            'To': date(to),
+            if (localeId != null) 'LocaleId': '$localeId',
+          },
+        );
+    final response = await http.get(uri, headers: createHeaders());
+    validateResponse(response);
+    return PaymentSummary.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
 
   @override
   Reservation fromJson(data) =>

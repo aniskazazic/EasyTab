@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
 import 'package:easytab_desktop/models/reservation.dart';
@@ -18,6 +19,9 @@ class AdminReservationsScreen extends StatefulWidget {
 
 class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   bool isLoading = false;
+  final Set<int> _cancelling = {};
+  String? _selectedPaymentStatus;
+  String? _appliedPaymentStatus;
   late ReservationProvider _reservationProvider;
   late LocaleProvider _localeProvider;
   late NotificationProvider _notificationProvider;
@@ -118,6 +122,9 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
             '${_appliedDate!.day.toString().padLeft(2, '0')}';
       }
 
+      if (_appliedPaymentStatus != null) {
+        filter['PaymentStatus'] = _appliedPaymentStatus;
+      }
       final result = await _reservationProvider.get(filter: filter);
       if (mounted) {
         setState(() {
@@ -145,6 +152,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       _appliedQuery = searchController.text.trim().toLowerCase();
       _appliedLocaleId = _selectedLocaleId;
       _appliedState = _selectedState;
+      _appliedPaymentStatus = _selectedPaymentStatus;
       _appliedDate = _selectedDate;
       _currentPage = 0;
     });
@@ -160,6 +168,8 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       _appliedQuery = '';
       _appliedLocaleId = null;
       _appliedState = null;
+      _selectedPaymentStatus = null;
+      _appliedPaymentStatus = null;
       _appliedDate = null;
       _currentPage = 0;
     });
@@ -235,14 +245,23 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   }
 
   Future<void> _cancelReservation(Reservation reservation) async {
-    if (reservation.id == null) return;
+    if (reservation.id == null || _cancelling.contains(reservation.id)) return;
 
     final reasonController = TextEditingController();
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Otkaži rezervaciju'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Otkaži rezervaciju')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(ctx, false),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,6 +269,13 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
             Text(
               'Unesite razlog otkazivanja rezervacije za "${reservation.localeName ?? 'Lokal'}":',
             ),
+            if (reservation.isPaid)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  'Otkazivanjem slijedi povrat ${reservation.paidAmountKm?.toStringAsFixed(2) ?? "-"} KM korisniku.',
+                ),
+              ),
             const SizedBox(height: 12),
             TextField(
               controller: reasonController,
@@ -278,18 +304,26 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true) {
+      reasonController.dispose();
+      return;
+    }
 
     final reason = reasonController.text.trim().isNotEmpty
         ? reasonController.text.trim()
         : 'Otkazano od strane administratora';
 
     try {
+      setState(() => _cancelling.add(reservation.id!));
       await _reservationProvider.cancelReservation(reservation.id!, reason);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Rezervacija je uspješno otkazana.'),
+          SnackBar(
+            content: Text(
+              reservation.isPaid
+                  ? 'Rezervacija je otkazana. Izvršen je povrat novca korisniku.'
+                  : 'Rezervacija je uspješno otkazana.',
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -299,11 +333,18 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Greška pri otkazivanju: $e'),
+            content: Text(
+              e is ApiClientException
+                  ? e.message
+                  : 'Nije moguće otkazati rezervaciju. Pokušajte ponovo.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
       }
+    } finally {
+      reasonController.dispose();
+      if (mounted) setState(() => _cancelling.remove(reservation.id));
     }
   }
 
@@ -338,14 +379,22 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   }
 
   Widget _buildSearchAndFilter() {
+    final hasActiveFilters =
+        _selectedPaymentStatus != null ||
+        _selectedDate != null ||
+        _selectedLocaleId != null ||
+        (_selectedState != null && _selectedState != 'Sva stanja') ||
+        searchController.text.isNotEmpty;
+
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Expanded(
           flex: 3,
           child: TextField(
             controller: searchController,
             decoration: InputDecoration(
-              hintText: 'Pretraži po lokalu, stolu...',
+              hintText: 'Pretraži po stolu...',
               prefixIcon: const Icon(Icons.search),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
@@ -364,6 +413,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
           child: DropdownButtonFormField<int?>(
             // ignore: deprecated_member_use
             value: _selectedLocaleId,
+            isExpanded: true,
             decoration: InputDecoration(
               labelText: 'Lokal',
               border: OutlineInputBorder(
@@ -377,7 +427,10 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
             items: [
               const DropdownMenuItem(value: null, child: Text('Svi lokali')),
               ..._locales.map((l) {
-                return DropdownMenuItem(value: l.id, child: Text(l.name ?? ''));
+                return DropdownMenuItem(
+                  value: l.id,
+                  child: Text(l.name ?? '', overflow: TextOverflow.ellipsis),
+                );
               }),
             ],
             onChanged: (val) {
@@ -393,6 +446,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
           child: DropdownButtonFormField<String>(
             // ignore: deprecated_member_use
             value: _selectedState,
+            isExpanded: true,
             decoration: InputDecoration(
               labelText: 'Stanje',
               border: OutlineInputBorder(
@@ -414,11 +468,36 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
           ),
         ),
         const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<String>(
+            initialValue: _selectedPaymentStatus,
+            key: ValueKey(_selectedPaymentStatus),
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Status plaćanja',
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('Sve')),
+              DropdownMenuItem(value: 'Paid', child: Text('Plaćeno')),
+              DropdownMenuItem(value: 'Unpaid', child: Text('Neplaćeno')),
+              DropdownMenuItem(value: 'Refunded', child: Text('Refundirano')),
+            ],
+            onChanged: (value) =>
+                setState(() => _selectedPaymentStatus = value),
+          ),
+        ),
+        const SizedBox(width: 12),
         SizedBox(
           height: 48,
           child: OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -451,7 +530,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF1E40AF),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -459,10 +538,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
             onPressed: _applyFilters,
           ),
         ),
-        if (_selectedDate != null ||
-            _selectedLocaleId != null ||
-            (_selectedState != null && _selectedState != 'Sva stanja') ||
-            searchController.text.isNotEmpty) ...[
+        if (hasActiveFilters) ...[
           const SizedBox(width: 8),
           IconButton(
             tooltip: 'Poništi filtere',
@@ -484,49 +560,64 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
     }
 
     return Expanded(
-      child: SingleChildScrollView(
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: DataTable(
-            headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
-            headingTextStyle: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-            columns: const [
-              DataColumn(label: Text('Lokal')),
-              DataColumn(label: Text('Stol')),
-              DataColumn(label: Text('Gosti')),
-              DataColumn(label: Text('Datum')),
-              DataColumn(label: Text('Termin')),
-              DataColumn(label: Text('Status')),
-              DataColumn(label: Text('Akcija')),
-            ],
-            rows: list.map((res) {
-              final dateStr = res.reservationDate != null
-                  ? formatDateOnly(res.reservationDate!)
-                  : '-';
-              final timeStr =
-                  '${_formatTime(res.startTime)} - ${_formatTime(res.endTime)}';
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          child: SizedBox(
+            width: double.infinity,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
+              headingTextStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+              columns: const [
+                DataColumn(label: Text('Lokal')),
+                DataColumn(label: Text('Stol')),
+                DataColumn(label: Text('Gosti')),
+                DataColumn(label: Text('Datum')),
+                DataColumn(label: Text('Termin')),
+                DataColumn(label: Text('Status')),
+                DataColumn(label: Text('Plaćeno')),
+                DataColumn(label: Text('Akcija')),
+              ],
+              rows: list.map((res) {
+                final dateStr = res.reservationDate != null
+                    ? formatDateOnly(res.reservationDate!)
+                    : '-';
+                final timeStr =
+                    '${_formatTime(res.startTime)} - ${_formatTime(res.endTime)}';
 
-              return DataRow(
-                cells: [
-                  DataCell(Text(res.localeName ?? '-')),
-                  DataCell(Text(res.tableName ?? '-')),
-                  DataCell(Text('${res.numberOfGuests ?? '-'}')),
-                  DataCell(Text(dateStr)),
-                  DataCell(Text(timeStr)),
-                  DataCell(
-                    _buildStatusBadge(res.reservationState ?? 'Na čekanju'),
-                  ),
-                  DataCell(_buildRowActions(res)),
-                ],
-              );
-            }).toList(),
+                return DataRow(
+                  cells: [
+                    DataCell(Text(res.localeName ?? '-')),
+                    DataCell(Text(res.tableName ?? '-')),
+                    DataCell(Text('${res.numberOfGuests ?? '-'}')),
+                    DataCell(Text(dateStr)),
+                    DataCell(Text(timeStr)),
+                    DataCell(
+                      _buildStatusBadge(res.reservationState ?? 'Na čekanju'),
+                    ),
+                    DataCell(
+                      Text(
+                        res.paymentLabel,
+                        style: TextStyle(
+                          color: res.refundedAmountKm != null
+                              ? Colors.deepOrange
+                              : null,
+                        ),
+                      ),
+                    ),
+                    DataCell(_buildRowActions(res)),
+                  ],
+                );
+              }).toList(),
+            ),
           ),
         ),
       ),
@@ -534,6 +625,12 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   }
 
   Widget _buildRowActions(Reservation res) {
+    if (_cancelling.contains(res.id)) {
+      return const Tooltip(
+        message: 'Otkazivanje i povrat uplate su u toku.',
+        child: IconButton(onPressed: null, icon: Icon(Icons.hourglass_top)),
+      );
+    }
     final state = (res.reservationState ?? '').toLowerCase();
 
     if (state == 'na čekanju') {

@@ -1,3 +1,5 @@
+import 'package:easytab_desktop/widgets/report_period_dialog.dart';
+import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/providers/category_provider.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
@@ -83,9 +85,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _generateReport() async {
     if (isGeneratingReport || isLoading) return;
 
+    final period = await selectReportPeriod(context);
+    if (period == null || !mounted) return;
     setState(() => isGeneratingReport = true);
     try {
+      final payments = await context
+          .read<ReservationProvider>()
+          .getPaymentSummary(from: period.start, to: period.end);
       final path = await ReportService.saveAdminReport(
+        from: period.start,
+        to: period.end,
+        payments: payments,
         users: countUsers,
         locales: countLocales,
         reviews: countReviews,

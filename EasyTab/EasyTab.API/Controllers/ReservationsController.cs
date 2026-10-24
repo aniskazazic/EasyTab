@@ -29,6 +29,11 @@ namespace EasyTab.API.Controllers
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
         public override Task<bool> Delete(int id) => base.Delete(id);
 
+        [HttpGet("payment-summary")]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
+        public Task<PaymentSummary> GetPaymentSummary([FromQuery] PaymentSummarySearchObject search)
+            => _reservationService.GetPaymentSummaryAsync(search);
+
         [HttpGet("available-slots")]
         public async Task<IActionResult> GetAvailableSlots([FromQuery] int tableId, [FromQuery] DateTime date)
         {

@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/reservation.dart';
 import 'package:easytab_desktop/providers/notification_provider.dart';
@@ -28,6 +29,9 @@ class OwnerReservationsScreen extends StatefulWidget {
 
 class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   bool isLoading = false;
+  final Set<int> _cancelling = {};
+  String? _selectedPaymentStatus;
+  String? _appliedPaymentStatus;
   late ReservationProvider _reservationProvider;
   late NotificationProvider _notificationProvider;
   int _lastNotificationRefreshVersion = 0;
@@ -102,6 +106,9 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
             '${_appliedDate!.day.toString().padLeft(2, '0')}';
       }
 
+      if (_appliedPaymentStatus != null) {
+        filter['PaymentStatus'] = _appliedPaymentStatus;
+      }
       final result = await _reservationProvider.get(filter: filter);
       if (mounted) {
         setState(() {
@@ -128,6 +135,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     setState(() {
       _appliedQuery = searchController.text.trim().toLowerCase();
       _appliedState = _selectedState;
+      _appliedPaymentStatus = _selectedPaymentStatus;
       _appliedDate = _selectedDate;
       _currentPage = 0;
     });
@@ -141,6 +149,8 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
       _selectedDate = null;
       _appliedQuery = '';
       _appliedState = null;
+      _selectedPaymentStatus = null;
+      _appliedPaymentStatus = null;
       _appliedDate = null;
       _currentPage = 0;
     });
@@ -279,7 +289,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   }
 
   Future<void> _cancelReservation(Reservation reservation) async {
-    if (reservation.id == null) return;
+    if (reservation.id == null || _cancelling.contains(reservation.id)) return;
 
     final reasonController = TextEditingController();
 
@@ -303,6 +313,13 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
             Text(
               'Unesite razlog otkazivanja rezervacije za stol "${reservation.tableName ?? 'Stol'}":',
             ),
+            if (reservation.isPaid)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(
+                  'Otkazivanjem slijedi povrat ${reservation.paidAmountKm?.toStringAsFixed(2) ?? "-"} KM korisniku.',
+                ),
+              ),
             const SizedBox(height: 12),
             TextField(
               controller: reasonController,
@@ -341,12 +358,17 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
         : 'Otkazano od strane vlasnika';
 
     try {
+      setState(() => _cancelling.add(reservation.id!));
       await _reservationProvider.cancelReservation(reservation.id!, reason);
       reasonController.dispose();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Rezervacija je uspješno otkazana.'),
+          SnackBar(
+            content: Text(
+              reservation.isPaid
+                  ? 'Rezervacija je otkazana. Izvršen je povrat novca korisniku.'
+                  : 'Rezervacija je uspješno otkazana.',
+            ),
             backgroundColor: Colors.orange,
           ),
         );
@@ -357,11 +379,17 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Greška pri otkazivanju: $e'),
+            content: Text(
+              e is ApiClientException
+                  ? e.message
+                  : 'Nije moguće otkazati rezervaciju. Pokušajte ponovo.',
+            ),
             backgroundColor: Colors.red,
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _cancelling.remove(reservation.id));
     }
   }
 
@@ -378,6 +406,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSearchAndFilter(),
+
           const SizedBox(height: 16),
           isLoading
               ? const Expanded(
@@ -421,7 +450,27 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
             onSubmitted: (_) => _applyFilters(),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
+        SizedBox(
+          width: 220,
+          child: DropdownButtonFormField<String>(
+            initialValue: _selectedPaymentStatus,
+            key: ValueKey(_selectedPaymentStatus),
+            decoration: const InputDecoration(
+              labelText: 'Status plaćanja',
+              border: OutlineInputBorder(),
+            ),
+            items: const [
+              DropdownMenuItem(value: null, child: Text('Sve')),
+              DropdownMenuItem(value: 'Paid', child: Text('Plaćeno')),
+              DropdownMenuItem(value: 'Unpaid', child: Text('Neplaćeno')),
+              DropdownMenuItem(value: 'Refunded', child: Text('Refundirano')),
+            ],
+            onChanged: (value) =>
+                setState(() => _selectedPaymentStatus = value),
+          ),
+        ),
+        const SizedBox(width: 16),
         Expanded(
           flex: 2,
           child: DropdownButtonFormField<String>(
@@ -447,7 +496,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
             },
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
         SizedBox(
           height: 48,
           child: OutlinedButton.icon(
@@ -476,7 +525,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
             },
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 16),
         SizedBox(
           height: 48,
           child: ElevatedButton.icon(
@@ -493,10 +542,11 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
             onPressed: _applyFilters,
           ),
         ),
-        if (_selectedDate != null ||
+        if (_selectedPaymentStatus != null ||
+            _selectedDate != null ||
             (_selectedState != null && _selectedState != 'Sva stanja') ||
             searchController.text.isNotEmpty) ...[
-          const SizedBox(width: 8),
+          const SizedBox(width: 12),
           IconButton(
             tooltip: 'Poništi filtere',
             icon: const Icon(Icons.clear, color: Colors.grey),
@@ -517,47 +567,62 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     }
 
     return Expanded(
-      child: SingleChildScrollView(
-        child: Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: DataTable(
-            headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
-            headingTextStyle: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-            columns: const [
-              DataColumn(label: Text('Stol')),
-              DataColumn(label: Text('Gosti')),
-              DataColumn(label: Text('Datum')),
-              DataColumn(label: Text('Termin')),
-              DataColumn(label: Text('Status')),
-              DataColumn(label: Text('Akcija')),
-            ],
-            rows: list.map((res) {
-              final dateStr = res.reservationDate != null
-                  ? formatDateOnly(res.reservationDate!)
-                  : '-';
-              final timeStr =
-                  '${_formatTime(res.startTime)} - ${_formatTime(res.endTime)}';
+      child: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: SingleChildScrollView(
+          child: SizedBox(
+            width: double.infinity,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
+              headingTextStyle: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+              columns: const [
+                DataColumn(label: Text('Stol')),
+                DataColumn(label: Text('Gosti')),
+                DataColumn(label: Text('Datum')),
+                DataColumn(label: Text('Termin')),
+                DataColumn(label: Text('Status')),
+                DataColumn(label: Text('Plaćeno')),
+                DataColumn(label: Text('Akcija')),
+              ],
+              rows: list.map((res) {
+                final dateStr = res.reservationDate != null
+                    ? formatDateOnly(res.reservationDate!)
+                    : '-';
+                final timeStr =
+                    '${_formatTime(res.startTime)} - ${_formatTime(res.endTime)}';
 
-              return DataRow(
-                cells: [
-                  DataCell(Text(res.tableName ?? '-')),
-                  DataCell(Text('${res.numberOfGuests ?? '-'}')),
-                  DataCell(Text(dateStr)),
-                  DataCell(Text(timeStr)),
-                  DataCell(
-                    _buildStatusBadge(res.reservationState ?? 'Na čekanju'),
-                  ),
-                  DataCell(_buildRowActions(res)),
-                ],
-              );
-            }).toList(),
+                return DataRow(
+                  cells: [
+                    DataCell(Text(res.tableName ?? '-')),
+                    DataCell(Text('${res.numberOfGuests ?? '-'}')),
+                    DataCell(Text(dateStr)),
+                    DataCell(Text(timeStr)),
+                    DataCell(
+                      _buildStatusBadge(res.reservationState ?? 'Na čekanju'),
+                    ),
+                    DataCell(
+                      Text(
+                        res.paymentLabel,
+                        style: TextStyle(
+                          color: res.refundedAmountKm != null
+                              ? Colors.deepOrange
+                              : null,
+                        ),
+                      ),
+                    ),
+                    DataCell(_buildRowActions(res)),
+                  ],
+                );
+              }).toList(),
+            ),
           ),
         ),
       ),
@@ -565,6 +630,12 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   }
 
   Widget _buildRowActions(Reservation res) {
+    if (_cancelling.contains(res.id)) {
+      return const Tooltip(
+        message: 'Otkazivanje i povrat uplate su u toku.',
+        child: IconButton(onPressed: null, icon: Icon(Icons.hourglass_top)),
+      );
+    }
     final state = (res.reservationState ?? '').toLowerCase();
 
     if (state == 'na čekanju') {

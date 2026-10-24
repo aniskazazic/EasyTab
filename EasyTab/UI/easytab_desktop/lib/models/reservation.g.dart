@@ -7,6 +7,15 @@ part of 'reservation.dart';
 // **************************************************************************
 
 Reservation _$ReservationFromJson(Map<String, dynamic> json) => Reservation(
+  isPaid: json['isPaid'] as bool? ?? false,
+  paidAmountKm: (json['paidAmountKm'] as num?)?.toDouble(),
+  refundedAmountKm: (json['refundedAmountKm'] as num?)?.toDouble(),
+  paidAt: json['paidAt'] == null
+      ? null
+      : DateTime.parse(json['paidAt'] as String),
+  refundedAt: json['refundedAt'] == null
+      ? null
+      : DateTime.parse(json['refundedAt'] as String),
   id: (json['id'] as num?)?.toInt(),
   userId: (json['userId'] as num?)?.toInt(),
   tableId: (json['tableId'] as num?)?.toInt(),
@@ -38,6 +47,11 @@ Reservation _$ReservationFromJson(Map<String, dynamic> json) => Reservation(
 
 Map<String, dynamic> _$ReservationToJson(Reservation instance) =>
     <String, dynamic>{
+      'isPaid': instance.isPaid,
+      'paidAmountKm': instance.paidAmountKm,
+      'refundedAmountKm': instance.refundedAmountKm,
+      'paidAt': instance.paidAt?.toIso8601String(),
+      'refundedAt': instance.refundedAt?.toIso8601String(),
       'id': instance.id,
       'userId': instance.userId,
       'tableId': instance.tableId,

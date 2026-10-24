@@ -38,5 +38,10 @@ namespace EasyTab.Model.Models
         public string? LocaleLogo { get; set; }
         public bool IsPaid { get; set; }
         public decimal? PaidAmountKm { get; set; }
+        public decimal? RefundedAmountKm { get; set; }
+        [JsonConverter(typeof(UtcNullableDateTimeJsonConverter))]
+        public DateTime? PaidAt { get; set; }
+        [JsonConverter(typeof(UtcNullableDateTimeJsonConverter))]
+        public DateTime? RefundedAt { get; set; }
     }
 }

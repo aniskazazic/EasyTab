@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/models/locale.dart' as models;
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
@@ -195,17 +196,34 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Future<void> _generateReport() async {
-    if (isGeneratingReport || isLoading) return;
+    if (isGeneratingReport || isLoading || activeLocaleId == null) return;
 
+    final reportDate = DateUtils.dateOnly(DateTime.now());
+    final reportLocaleId = activeLocaleId;
+    final reportLocaleName = activeLocale?.name ?? '';
+    final reportReservations = todayReservations;
+    final reportActiveTables = activeTables;
+    final reportTotalTables = totalTables;
+    final reportGuests = todayGuests;
+    final reportDistribution = List<Map<String, dynamic>>.of(tableDistribution);
     setState(() => isGeneratingReport = true);
     try {
+      final payments = await context
+          .read<ReservationProvider>()
+          .getPaymentSummary(
+            from: reportDate,
+            to: reportDate,
+            localeId: reportLocaleId,
+          );
       final path = await ReportService.saveOwnerReport(
-        localeName: activeLocale?.name ?? '',
-        todayReservations: todayReservations,
-        activeTables: activeTables,
-        totalTables: totalTables,
-        todayGuests: todayGuests,
-        tableDistribution: tableDistribution,
+        date: reportDate,
+        payments: payments,
+        localeName: reportLocaleName,
+        todayReservations: reportReservations,
+        activeTables: reportActiveTables,
+        totalTables: reportTotalTables,
+        todayGuests: reportGuests,
+        tableDistribution: reportDistribution,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -256,9 +274,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                               _buildContent(),
                               Align(
                                 alignment: Alignment.bottomRight,
-                                child: GenerateReportButton(
-                                  isLoading: isGeneratingReport,
-                                  onPressed: _generateReport,
+                                child: Tooltip(
+                                  message: activeLocaleId == null
+                                      ? 'Za izvještaj je potreban odabran lokal.'
+                                      : 'Generiši izvještaj za odabrani lokal.',
+                                  child: GenerateReportButton(
+                                    isLoading: isGeneratingReport,
+                                    onPressed: activeLocaleId == null
+                                        ? null
+                                        : _generateReport,
+                                  ),
                                 ),
                               ),
                             ],
