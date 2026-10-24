@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
+import 'package:easytab_desktop/widgets/reservation_price_field.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/models/category.dart';
 import 'package:easytab_desktop/models/city.dart';
@@ -189,7 +190,10 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       }
     }
 
-    // Ukloni prazna polja
+    request['reservationPrice'] = double.parse(
+      (request['reservationPrice'] as String).trim().replaceAll(',', '.'),
+    );
+
     request.removeWhere(
       (key, value) => value == null || value.toString().isEmpty,
     );
@@ -269,7 +273,10 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     if (shouldDelete != true || widget.locale?.id == null) return;
 
     try {
-      await localeProvider.update(widget.locale!.id!, {'logo': ''});
+      await localeProvider.update(widget.locale!.id!, {
+        'logo': '',
+        'reservationPrice': widget.locale!.reservationPrice,
+      });
       if (!mounted) return;
 
       setState(() => widget.locale!.logo = null);
@@ -390,10 +397,6 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                           ),
                         )
                       : Expanded(child: _buildForm()),
-                  if (!isLoading &&
-                      ((localeImagesResult?.items?.isNotEmpty ?? false) ||
-                          newImages.isNotEmpty))
-                    _buildImageList(),
                   if (!isLoading && _loadError == null) _buildSaveButton(),
                 ],
               ),
@@ -501,6 +504,8 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         "address": widget.locale?.address ?? '',
         "lengthOfReservation":
             widget.locale?.lengthOfReservation?.toString() ?? '',
+        'reservationPrice':
+            widget.locale?.reservationPrice?.toStringAsFixed(2) ?? '',
         "phoneNumber": widget.locale?.phoneNumber ?? '',
         "cityId": widget.locale?.cityId,
         "categoryId": widget.locale?.categoryId,
@@ -515,6 +520,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         padding: const EdgeInsets.only(bottom: 16),
         child: Column(
           children: [
+            const SizedBox(height: 16),
             // Logo
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -761,6 +767,8 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
               ],
             ),
             const SizedBox(height: 16),
+            const ReservationPriceField(),
+            const SizedBox(height: 16),
 
             // Država i grad
             Row(
@@ -869,6 +877,9 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                   ),
                 ),
               ),
+            if ((localeImagesResult?.items?.isNotEmpty ?? false) ||
+                newImages.isNotEmpty)
+              _buildImageList(),
           ],
         ),
       ),

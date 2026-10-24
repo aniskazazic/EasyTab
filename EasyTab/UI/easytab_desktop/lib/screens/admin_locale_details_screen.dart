@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:easytab_desktop/widgets/reservation_price_field.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/category.dart';
@@ -170,6 +171,10 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       }
     }
 
+    request['reservationPrice'] = double.parse(
+      (request['reservationPrice'] as String).trim().replaceAll(',', '.'),
+    );
+
     request.removeWhere(
       (key, value) => value == null || value.toString().isEmpty,
     );
@@ -264,6 +269,8 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         "address": widget.locale?.address ?? '',
         "lengthOfReservation":
             widget.locale?.lengthOfReservation?.toString() ?? '',
+        'reservationPrice':
+            widget.locale?.reservationPrice?.toStringAsFixed(2) ?? '',
         "phoneNumber": widget.locale?.phoneNumber ?? '',
         "cityId": widget.locale?.cityId,
         "categoryId": widget.locale?.categoryId,
@@ -280,6 +287,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         padding: const EdgeInsets.all(30.0),
         child: Column(
           children: [
+            const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -383,6 +391,8 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                                 'name': widget.locale!.name,
                                 'address': widget.locale!.address,
                                 'logo': '',
+                                'reservationPrice':
+                                    widget.locale!.reservationPrice,
                               });
                               if (mounted) Navigator.pop(context);
                             },
@@ -548,6 +558,8 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            const ReservationPriceField(),
             const SizedBox(height: 16),
 
             Row(

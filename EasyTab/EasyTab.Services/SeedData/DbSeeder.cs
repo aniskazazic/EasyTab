@@ -518,9 +518,22 @@ namespace EasyTab.Services.SeedData
             return locales.SelectMany((locale, localeIndex) => Enumerable.Range(0, 6).Select(reviewIndex =>
             {
                 var index = localeIndex * 6 + reviewIndex;
+                var rating = ratingsByLocaleId[locale.Id][reviewIndex];
                 return new Review
                 {
-                    Description = new[]
+                    Description = rating <= 2
+                        ? new[]
+                        {
+                            "Usluga je bila spora, a osoblje nije bilo naročito ljubazno.",
+                            "Dugo smo čekali narudžbu i otišli razočarani uslugom.",
+                            "Hrana je stigla hladna, a na naše primjedbe nije bilo reakcije.",
+                            "Stol nije bio uredan, a atmosfera je bila previše bučna.",
+                            "Cijene su previsoke za kvalitet hrane i usluge koju smo dobili.",
+                            "Rezervacija je bila spremna, ali ostatak posjete nije ispunio očekivanja."
+                        }[reviewIndex]
+                        : rating == 3
+                        ? "Ugodan ambijent i korektna usluga, uz malo duže čekanje. Sveukupno solidno iskustvo."
+                        : new[]
                     {
                         "Odlična usluga i vrlo ukusna hrana. Ambijent je posebno lijep.",
                         "Porcije su obilne, osoblje ljubazno, a čekanje kratko.",
@@ -529,7 +542,7 @@ namespace EasyTab.Services.SeedData
                         "Lijep ambijent u starom gradu i korektne cijene.",
                         "Kafa je odlična, a terasa je ugodna za duži razgovor."
                     }[reviewIndex],
-                    Rating = ratingsByLocaleId[locale.Id][reviewIndex],
+                    Rating = rating,
                     UserId = authors[index % authors.Count].Id,
                     LocaleId = locale.Id,
                     DateAdded = DateTime.UtcNow.AddDays(-(index + 1)),

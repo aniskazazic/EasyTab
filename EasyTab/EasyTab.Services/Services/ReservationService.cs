@@ -98,12 +98,28 @@ namespace EasyTab.Services.Services
                     (r.ReservationDate.Date == now.Date && r.StartTime < TimeOnly.FromTimeSpan(now.TimeOfDay)));
             }
 
-            // Po defaultu najnovije rezervacije na vrhu
             if (string.IsNullOrWhiteSpace(search?.SortBy))
             {
-                query = query.OrderByDescending(x => x.ReservationDate)
-                             .ThenBy(x => x.StartTime)
-                             .ThenBy(x => x.Id);
+                if (search?.IsUpcoming == true)
+                {
+                    query = query.OrderBy(x => x.ReservationDate)
+                                 .ThenBy(x => x.StartTime)
+                                 .ThenBy(x => x.Id);
+                }
+                else if (search?.IsUpcoming == false)
+                {
+                    query = query.OrderByDescending(x => x.ReservationState == CancelledReservationState.StateName)
+                                 .ThenByDescending(x => x.CancelledAt)
+                                 .ThenByDescending(x => x.ReservationDate)
+                                 .ThenByDescending(x => x.StartTime)
+                                 .ThenByDescending(x => x.Id);
+                }
+                else
+                {
+                    query = query.OrderByDescending(x => x.ReservationDate)
+                                 .ThenBy(x => x.StartTime)
+                                 .ThenBy(x => x.Id);
+                }
             }
 
             return query;

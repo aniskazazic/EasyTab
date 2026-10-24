@@ -12,6 +12,7 @@ class Locale {
   @JsonKey(fromJson: _timeOnlyFromJson, toJson: _timeOnlyToJson)
   DateTime? endOfWorkingHours;
   double? lengthOfReservation;
+  double? reservationPrice;
   String? logo;
   String? phoneNumber;
   int? cityId;
@@ -30,6 +31,7 @@ class Locale {
     this.startOfWorkingHours,
     this.endOfWorkingHours,
     this.lengthOfReservation,
+    this.reservationPrice,
     this.logo,
     this.phoneNumber,
     this.cityId,
