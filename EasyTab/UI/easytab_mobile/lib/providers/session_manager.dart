@@ -5,6 +5,8 @@ import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/favourite_provider.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/screens/login_screen.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class SessionManager with WidgetsBindingObserver {
   static final SessionManager _instance = SessionManager._internal();
@@ -72,14 +74,17 @@ class SessionManager with WidgetsBindingObserver {
     }
 
     _isPopupShowing = true;
-    _refreshCompleter = Completer<bool>();
+    final completer = Completer<bool>();
+    _refreshCompleter = completer;
     _expirationTimer?.cancel();
 
     final success = await _showExpiredDialog();
 
-    _isPopupShowing = false;
-    _refreshCompleter!.complete(success);
-    _refreshCompleter = null;
+    if (!completer.isCompleted) completer.complete(success);
+    if (identical(_refreshCompleter, completer)) {
+      _isPopupShowing = false;
+      _refreshCompleter = null;
+    }
 
     return success;
   }
@@ -87,58 +92,74 @@ class SessionManager with WidgetsBindingObserver {
   Future<bool> _showExpiredDialog() async {
     final context = globalNavigatorKey.currentContext;
     if (context == null) return false;
+    var isRenewing = false;
 
     final result = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Sesija je istekla'),
-          content: const Text(
-            'Vaša sesija je istekla. Molimo prijavite se ponovo za nastavak rada.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                final authProvider = Provider.of<AuthProvider>(
-                  context,
-                  listen: false,
-                );
-                try {
-                  final success = await authProvider.renewSession();
-                  if (success && context.mounted) {
-                    Navigator.pop(context, true);
-                  } else if (context.mounted) {
-                    Navigator.pop(context, false);
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    Navigator.pop(context, false);
-                  }
-                }
-              },
-              child: const Text('Prijavi se'),
+      builder: (BuildContext context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: dialogTitle(context, 'Sesija je istekla'),
+            content: const Text(
+              'Vaša sesija je istekla. Molimo prijavite se ponovo za nastavak rada.',
             ),
-          ],
-        );
-      },
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Na prijavu'),
+              ),
+              TextButton(
+                onPressed: isRenewing
+                    ? null
+                    : () async {
+                        setDialogState(() => isRenewing = true);
+                        final authProvider = Provider.of<AuthProvider>(
+                          context,
+                          listen: false,
+                        );
+                        try {
+                          final success = await authProvider.renewSession();
+                          if (success && context.mounted) {
+                            Navigator.pop(context, true);
+                          } else if (context.mounted) {
+                            Navigator.pop(context, false);
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            Navigator.pop(context, false);
+                          }
+                        }
+                      },
+                child: Text(
+                  isRenewing ? 'Obnavljanje sesije…' : 'Obnovi sesiju',
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
 
     if (result == true) {
       return true;
     } else {
-      _forceLogout();
+      await logoutAndRedirect();
       return false;
     }
   }
 
-  void _forceLogout() {
+  Future<void> logoutAndRedirect() async {
     stopSession();
     final context = globalNavigatorKey.currentContext;
     if (context != null) {
       Provider.of<FavouriteProvider>(context, listen: false).clear();
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      authProvider.logout(notifyServer: false); // Očisti tokene
+      await authProvider.logout(notifyServer: false);
+      globalNavigatorKey.currentState?.pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
     }
   }
 

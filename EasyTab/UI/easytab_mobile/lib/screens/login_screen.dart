@@ -6,6 +6,7 @@ import 'package:easytab_mobile/layout/worker_master_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:easytab_mobile/providers/favourite_provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -19,6 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isLoading = false;
   bool _obscurePassword = true;
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
@@ -33,15 +35,13 @@ class _LoginScreenState extends State<LoginScreen> {
       listen: false,
     );
 
-    if (username.isEmpty || password.isEmpty) {
-      _showError('Unesite korisničko ime i lozinku!');
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
-      await authProvider.login(username, password);
+      await authProvider.login(username.trim(), password);
+      if (!mounted) return;
       context.read<FavouriteProvider>().clear();
 
       var role =
@@ -52,7 +52,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _showError(
           'Ova aplikacija je namijenjena korisnicima. Koristite desktop aplikaciju.',
         );
-        AuthProvider.clear();
+        await authProvider.logout(notifyServer: false);
         return;
       }
       if (AuthProvider.isWorker || role == 'Radnik') {
@@ -69,27 +69,17 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         return;
       }
+      await authProvider.logout(notifyServer: false);
+      _showError('Vaša uloga nema pristup mobilnoj aplikaciji.');
     } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      _showError(userError(e));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showError(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Greška'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
+    showFeedback(context, message, error: true);
   }
 
   @override
@@ -166,9 +156,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildHeader(Size size) {
     return Container(
-      height: size.height * 0.32,
+      constraints: BoxConstraints(minHeight: size.height * 0.32),
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -238,182 +228,195 @@ class _LoginScreenState extends State<LoginScreen> {
         ],
       ),
       padding: const EdgeInsets.only(top: 32, bottom: 24, left: 24, right: 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Dobro došli nazad',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF0F172A),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Prijavite se kako biste nastavili',
-            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-          ),
-          const SizedBox(height: 28),
-
-          _buildLabel('Korisničko ime'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _usernameController,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
-            decoration: _inputDecoration(
-              'Unesite korisničko ime',
-              Icons.person_outline_rounded,
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          _buildLabel('Lozinka'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _passwordController,
-            obscureText: _obscurePassword,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
-            decoration: _inputDecoration(
-              'Unesite lozinku',
-              Icons.lock_outline_rounded,
-              suffix: IconButton(
-                icon: Icon(
-                  _obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  color: Colors.grey[500],
-                  size: 20,
-                ),
-                onPressed: () =>
-                    setState(() => _obscurePassword = !_obscurePassword),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Dobro došli nazad',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0F172A),
               ),
             ),
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ForgotPasswordScreen(),
+            const SizedBox(height: 4),
+            Text(
+              'Prijavite se kako biste nastavili',
+              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 28),
+
+            _buildLabel('Korisničko ime'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _usernameController,
+              enabled: !_isLoading,
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Unesite korisničko ime.'
+                  : null,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+              decoration: _inputDecoration(
+                'Unesite korisničko ime',
+                Icons.person_outline_rounded,
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            _buildLabel('Lozinka'),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _passwordController,
+              enabled: !_isLoading,
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Unesite lozinku.' : null,
+              obscureText: _obscurePassword,
+              style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
+              decoration: _inputDecoration(
+                'Unesite lozinku',
+                Icons.lock_outline_rounded,
+                suffix: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: Colors.grey[500],
+                    size: 20,
                   ),
-                );
-              },
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: Size.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              child: const Text(
-                'Zaboravili ste lozinku?',
-                style: TextStyle(
-                  color: Color(0xFF1E40AF),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ForgotPasswordScreen(),
+                    ),
+                  );
+                },
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'Zaboravili ste lozinku?',
+                  style: TextStyle(
+                    color: Color(0xFF1E40AF),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
 
-          SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                color: const Color(0xFF1E40AF),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1E40AF).withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: const Color(0xFF1E40AF),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF1E40AF).withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: _isLoading
+                      ? null
+                      : () => _handleLogin(
+                          _usernameController.text,
+                          _passwordController.text,
+                        ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'Prijava',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            Row(
+              children: [
+                const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'ili',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                children: [
+                  Text(
+                    'Nemate račun? ',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                    ),
+                    child: const Text(
+                      'Registrujte se',
+                      style: TextStyle(
+                        color: Color(0xFF1E40AF),
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
-              child: ElevatedButton(
-                onPressed: _isLoading
-                    ? null
-                    : () => _handleLogin(
-                        _usernameController.text,
-                        _passwordController.text,
-                      ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Prijava',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-              ),
             ),
-          ),
-          const SizedBox(height: 24),
-
-          Row(
-            children: [
-              const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'ili',
-                  style: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              const Expanded(child: Divider(color: Color(0xFFE2E8F0))),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Nemate račun? ',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              ),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                ),
-                child: const Text(
-                  'Registrujte se',
-                  style: TextStyle(
-                    color: Color(0xFF1E40AF),
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
@@ -435,6 +438,7 @@ class _LoginScreenState extends State<LoginScreen> {
     Widget? suffix,
   }) {
     return InputDecoration(
+      errorMaxLines: 3,
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
       prefixIcon: Icon(icon, color: const Color(0xFF1E40AF), size: 18),

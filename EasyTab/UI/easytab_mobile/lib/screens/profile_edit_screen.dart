@@ -6,7 +6,8 @@ import 'package:easytab_mobile/providers/user_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:form_builder_validators/form_builder_validators.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
+import 'package:easytab_mobile/screens/change_password_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 
@@ -28,6 +29,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   String? base64ProfileImage;
   String? _profilePictureError;
   bool _removeProfileImage = false;
+  bool _isSaving = false;
+  bool _isChangingPassword = false;
 
   @override
   void initState() {
@@ -50,12 +53,29 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   Future _pickFile() async {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png'],
       );
 
       if (result != null) {
         var file = result.files.first;
         var bytes = await file.xFile.readAsBytes();
+        if (!mounted) return;
+        final isJpeg =
+            bytes.length >= 3 &&
+            bytes[0] == 0xff &&
+            bytes[1] == 0xd8 &&
+            bytes[2] == 0xff;
+        final isPng =
+            bytes.length >= 8 &&
+            bytes.take(8).join(',') == '137,80,78,71,13,10,26,10';
+        if (bytes.length > 300 * 1024 || (!isJpeg && !isPng)) {
+          setState(
+            () => _profilePictureError =
+                ApiClientException.imageValidationMessage,
+          );
+          return;
+        }
         final base64String = base64Encode(bytes);
 
         setState(() {
@@ -65,7 +85,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         });
       }
     } catch (e) {
-      alertBox(context, "Error", e.toString());
+      if (mounted) showFeedback(context, userError(e), error: true);
     }
   }
 
@@ -73,7 +93,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     final shouldRemove = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Brisanje slike'),
+        title: dialogTitle(dialogContext, 'Brisanje slike'),
         content: const Text('Da li ste sigurni da želite obrisati sliku?'),
         actions: [
           TextButton(
@@ -100,6 +120,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.user.id == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Uredi profil')),
+        body: const Center(
+          child: Text('Profil nije učitan. Vratite se i pokušajte ponovo.'),
+        ),
+      );
+    }
     return Scaffold(
       body: Column(
         children: [
@@ -121,14 +149,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           ),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: _buildSaveButton(context),
+            child: _buildSaveButton(),
           ),
         ],
       ),
     );
   }
 
-  ElevatedButton _buildSaveButton(BuildContext context) {
+  ElevatedButton _buildSaveButton() {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: const Color(0xFF1E40AF),
@@ -136,69 +164,93 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      onPressed: () async {
-        _formKey.currentState?.save();
+      onPressed: _isSaving
+          ? null
+          : () async {
+              _formKey.currentState?.save();
 
-        try {
-          if (_formKey.currentState!.validate()) {
-            Map<String, dynamic> request = Map.of(_formKey.currentState!.value);
+              try {
+                if (_formKey.currentState!.validate()) {
+                  if (_profilePictureError != null) return;
+                  setState(() => _isSaving = true);
+                  Map<String, dynamic> request = Map.of(
+                    _formKey.currentState!.value,
+                  );
+                  for (final field in [
+                    'firstName',
+                    'lastName',
+                    'email',
+                    'username',
+                    'phoneNumber',
+                  ]) {
+                    if (request[field] is String) {
+                      request[field] = (request[field] as String).trim();
+                    }
+                  }
 
-            if (request['birthDate'] is DateTime) {
-              request['birthDate'] = (request['birthDate'] as DateTime)
-                  .toIso8601String();
-            }
+                  if (request['birthDate'] is DateTime) {
+                    request['birthDate'] = (request['birthDate'] as DateTime)
+                        .toIso8601String();
+                  }
 
-            if (base64ProfileImage != null) {
-              request['profilePicture'] = base64ProfileImage;
-            } else if (_removeProfileImage) {
-              request['profilePicture'] = '';
-            }
+                  if (base64ProfileImage != null) {
+                    request['profilePicture'] = base64ProfileImage;
+                  } else if (_removeProfileImage) {
+                    request['profilePicture'] = '';
+                  }
 
-            await _userProvider.update(widget.user.id!, request);
+                  await _userProvider.update(widget.user.id!, request);
 
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Profil uspješno ažuriran"),
-                  backgroundColor: Colors.green,
-                ),
-              );
-              Navigator.pop(context, 'reload');
-            }
-          }
-        } on Exception catch (e) {
-          final imageError = e is ApiClientException
-              ? e.imageValidationErrors['profilePicture']
-              : null;
-          if (mounted && imageError != null) {
-            setState(() => _profilePictureError = imageError);
-          } else if (mounted) {
-            alertBox(context, "Greška", e.toString());
-          }
-        }
-      },
-      child: const Text("Sačuvaj promjene", style: TextStyle(fontSize: 16)),
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Profil uspješno ažuriran"),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    Navigator.pop(context, 'reload');
+                  }
+                }
+              } on Exception catch (e) {
+                final imageError = e is ApiClientException
+                    ? e.imageValidationErrors['profilePicture']
+                    : null;
+                if (mounted && imageError != null) {
+                  setState(() => _profilePictureError = imageError);
+                } else if (mounted &&
+                    !FormValidation.showApiErrors(_formKey.currentState, e)) {
+                  showFeedback(context, userError(e), error: true);
+                }
+              } finally {
+                if (mounted) setState(() => _isSaving = false);
+              }
+            },
+      child: Text(
+        _isSaving ? 'Čuvanje promjena…' : 'Sačuvaj promjene',
+        style: const TextStyle(fontSize: 16),
+      ),
     );
   }
 
   FormBuilder _buildForm() {
     return FormBuilder(
       key: _formKey,
+      enabled: !_isSaving,
       initialValue: _initalValue,
       child: Column(
         children: [
           InkWell(
-            onTap: _pickFile,
+            onTap: _isSaving ? null : _pickFile,
             child: CircleAvatar(
-              backgroundImage: base64ProfileImage != null
-                  ? imageFromBase64WithouthDimensions(base64ProfileImage!)
-                  : const AssetImage('assets/images/no-image.png'),
+              backgroundImage:
+                  ImageUtils.imageProvider(base64ProfileImage) ??
+                  const AssetImage('assets/images/no-image.png'),
               radius: 90,
             ),
           ),
           if (base64ProfileImage != null)
             TextButton.icon(
-              onPressed: _confirmRemoveProfileImage,
+              onPressed: _isSaving ? null : _confirmRemoveProfileImage,
               icon: const Icon(Icons.delete),
               label: const Text('Obriši sliku'),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -211,11 +263,30 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
+          SwitchListTile(
+            title: const Text('Promijeni lozinku'),
+            subtitle: const Text(
+              'Otvara posebnu formu uz potvrdu stare lozinke. Profil sačuvajte zasebno.',
+            ),
+            value: _isChangingPassword,
+            onChanged: _isSaving
+                ? null
+                : (_) async {
+                    setState(() => _isChangingPassword = true);
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChangePasswordScreen(user: widget.user),
+                      ),
+                    );
+                    if (mounted) setState(() => _isChangingPassword = false);
+                  },
+          ),
           FormBuilderTextField(
             name: "firstName",
             decoration: const InputDecoration(labelText: "Ime"),
             validator: (value) {
-              if (value == null || value.isEmpty) {
+              if (value == null || value.trim().isEmpty) {
                 return "Ime je obavezno";
               }
               return null;
@@ -226,7 +297,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             name: "lastName",
             decoration: const InputDecoration(labelText: "Prezime"),
             validator: (value) {
-              if (value == null || value.isEmpty) {
+              if (value == null || value.trim().isEmpty) {
                 return "Prezime je obavezno";
               }
               return null;
@@ -237,7 +308,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             name: "username",
             decoration: const InputDecoration(labelText: "Korisničko ime"),
             validator: (value) {
-              if (value == null || value.isEmpty) {
+              if (value == null || value.trim().isEmpty) {
                 return "Korisničko ime je obavezno";
               }
               return null;
@@ -246,23 +317,22 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           const SizedBox(height: 20),
           FormBuilderTextField(
             name: "email",
-            decoration: const InputDecoration(labelText: "Email"),
-            validator: (value) {
-              if (value == null || value.isEmpty) {
-                return "Email je obavezan";
-              } else if (!RegExp(
-                r"^[a-zA-Z0-9.a-zA-Z0-9.!#$%&'*+-/=?^_`{|}~]+@[a-zA-Z0-9]+\.[a-zA-Z]+",
-              ).hasMatch(value)) {
-                return "Invalid email";
-              } else {
-                return null;
-              }
-            },
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: "Email",
+              errorMaxLines: 4,
+            ),
+            validator: FormValidation.email,
           ),
           const SizedBox(height: 20),
           FormBuilderTextField(
             name: "phoneNumber",
-            decoration: const InputDecoration(labelText: "Broj telefona"),
+            decoration: const InputDecoration(
+              labelText: 'Broj telefona (opcionalno)',
+              errorMaxLines: 4,
+            ),
+            keyboardType: TextInputType.phone,
+            validator: FormValidation.phone,
           ),
           const SizedBox(height: 20),
           FormBuilderDateTimePicker(
@@ -272,17 +342,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             decoration: const InputDecoration(labelText: "Datum rođenja"),
             firstDate: DateTime(1900),
             lastDate: DateTime.now(),
-            validator: FormBuilderValidators.compose([
-              FormBuilderValidators.required(errorText: 'Obavezno polje'),
-              (value) {
-                if (value == null) return null;
-                int age = DateTime.now().year - value.year;
-                if (age < 18 || value.isAfter(DateTime.now())) {
-                  return 'Morate imati 18+ godina';
-                }
-                return null;
-              },
-            ]),
+            validator: FormValidation.adult,
           ),
         ],
       ),
@@ -306,12 +366,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             child: const Icon(Icons.arrow_back, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 16),
-          Text(
-            "Uredi profil",
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+          Expanded(
+            child: Text(
+              "Uredi profil",
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

@@ -46,7 +46,7 @@ class AuthProvider extends ChangeNotifier {
 
   AuthProvider() {
     _baseUrl = const String.fromEnvironment(
-      "BASE_URL",
+      "API_BASE_URL",
       defaultValue: "http://10.0.2.2:5241",
     );
   }
@@ -88,13 +88,14 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> renewSession() async {
-    if (_refreshToken == null) return false;
+    final sessionRefreshToken = _refreshToken;
+    if (sessionRefreshToken == null) return false;
 
     try {
       var url = "$_baseUrl/Access/LoginWithRefreshToken";
       var uri = Uri.parse(url);
       var headers = createHeaders();
-      var body = jsonEncode({"refreshToken": _refreshToken});
+      var body = jsonEncode({"refreshToken": sessionRefreshToken});
 
       http.Response response = await http.post(
         uri,
@@ -102,6 +103,7 @@ class AuthProvider extends ChangeNotifier {
         body: body,
       );
 
+      if (!_isAuthenticated || _refreshToken != sessionRefreshToken) return false;
       if (response.statusCode >= 200 && response.statusCode <= 299) {
         var data = jsonDecode(response.body);
         _accessToken = data['accessToken'];
@@ -163,6 +165,7 @@ class AuthProvider extends ChangeNotifier {
     final parsed = ApiErrorParser.messageFromBody(response.body);
     throw ApiClientException(
       parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+      validationErrors: ApiErrorParser.validationErrorsFromBody(response.body),
     );
   }
 
@@ -186,16 +189,13 @@ class AuthProvider extends ChangeNotifier {
 
     throw ApiClientException(
       parsed ?? 'Nešto se desilo, molimo pokušajte kasnije.',
+      validationErrors: ApiErrorParser.validationErrorsFromBody(response.body),
     );
   }
 
   Map<String, String> createHeaders() {
     var headers = {"Content-Type": "application/json"};
     return headers;
-  }
-
-  static void clear() {
-    currentUser = null;
   }
 
   Future<void> logout({bool notifyServer = true}) async {

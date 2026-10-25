@@ -17,13 +17,12 @@ class LocaleImageGalleryModal extends StatefulWidget {
     required List<LocaleImage> images,
     int initialIndex = 0,
   }) {
+    if (images.isEmpty) return Future.value();
     return showDialog(
       context: context,
       barrierColor: Colors.black87,
-      builder: (_) => LocaleImageGalleryModal(
-        images: images,
-        initialIndex: initialIndex,
-      ),
+      builder: (_) =>
+          LocaleImageGalleryModal(images: images, initialIndex: initialIndex),
     );
   }
 
@@ -39,7 +38,9 @@ class _LocaleImageGalleryModalState extends State<LocaleImageGalleryModal> {
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialIndex.clamp(0, widget.images.length - 1);
+    _currentIndex = widget.images.isEmpty
+        ? 0
+        : widget.initialIndex.clamp(0, widget.images.length - 1);
     _pageController = PageController(initialPage: _currentIndex);
   }
 
@@ -82,6 +83,11 @@ class _LocaleImageGalleryModalState extends State<LocaleImageGalleryModal> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
+                IconButton(
+                  tooltip: 'Nazad',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                ),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -92,16 +98,17 @@ class _LocaleImageGalleryModalState extends State<LocaleImageGalleryModal> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${_currentIndex + 1} / ${widget.images.length}',
+                    widget.images.isEmpty
+                        ? 'Nema slika'
+                        : '${_currentIndex + 1} / ${widget.images.length}',
                     style: const TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ),
                 IconButton(
+                  tooltip: 'Zatvori',
                   onPressed: () => Navigator.pop(context),
                   icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.black54,
-                  ),
+                  style: IconButton.styleFrom(backgroundColor: Colors.black54),
                 ),
               ],
             ),
@@ -111,21 +118,29 @@ class _LocaleImageGalleryModalState extends State<LocaleImageGalleryModal> {
               bottom: MediaQuery.of(context).padding.bottom + 24,
               left: 0,
               right: 0,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(widget.images.length, (i) {
-                  final isActive = i == _currentIndex;
-                  return AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: isActive ? 10 : 7,
-                    height: isActive ? 10 : 7,
-                    decoration: BoxDecoration(
-                      color: isActive ? Colors.white : Colors.white38,
-                      shape: BoxShape.circle,
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(widget.images.length, (i) {
+                        final isActive = i == _currentIndex;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          width: isActive ? 10 : 7,
+                          height: isActive ? 10 : 7,
+                          decoration: BoxDecoration(
+                            color: isActive ? Colors.white : Colors.white38,
+                            shape: BoxShape.circle,
+                          ),
+                        );
+                      }),
                     ),
-                  );
-                }),
+                  ),
+                ),
               ),
             ),
         ],
@@ -137,7 +152,11 @@ class _LocaleImageGalleryModalState extends State<LocaleImageGalleryModal> {
     return Container(
       color: const Color(0xFF1E293B),
       child: const Center(
-        child: Icon(Icons.broken_image_outlined, size: 64, color: Colors.white54),
+        child: Icon(
+          Icons.broken_image_outlined,
+          size: 64,
+          color: Colors.white54,
+        ),
       ),
     );
   }

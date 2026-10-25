@@ -8,7 +8,6 @@ class LocaleImageProvider extends BaseProvider<LocaleImage> {
   LocaleImage fromJson(json) => LocaleImage.fromJson(json);
 
   Future<List<LocaleImage>> getByLocale(int localeId) async {
-    final result = await get(filter: {'LocaleId': localeId});
-    return result.items ?? [];
+    return getLookupItems(filter: {'LocaleId': localeId});
   }
 }

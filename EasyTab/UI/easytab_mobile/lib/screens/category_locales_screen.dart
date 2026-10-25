@@ -4,6 +4,7 @@ import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/locale_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class CategoryLocalesScreen extends StatefulWidget {
   final int categoryId;
@@ -21,6 +22,9 @@ class CategoryLocalesScreen extends StatefulWidget {
 class _CategoryLocalesScreenState extends State<CategoryLocalesScreen> {
   late LocaleProvider _localeProvider;
   bool _isLoading = true;
+  String? _loadError;
+  final _searchController = TextEditingController();
+  int _requestVersion = 0;
   List<Locale> _locales = [];
   int _totalCount = 0;
   int _currentPage = 0;
@@ -34,7 +38,11 @@ class _CategoryLocalesScreenState extends State<CategoryLocalesScreen> {
   }
 
   Future<void> _loadLocales() async {
-    setState(() => _isLoading = true);
+    final version = ++_requestVersion;
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
       final result = await _localeProvider.get(
         filter: {
@@ -42,16 +50,21 @@ class _CategoryLocalesScreenState extends State<CategoryLocalesScreen> {
           "Page": _currentPage + 1,
           "PageSize": _pageSize,
           "IncludeTotalCount": true,
+          'Name': _searchController.text.trim(),
         },
       );
+      if (!mounted || version != _requestVersion) return;
       setState(() {
         _locales = result.items ?? [];
         _totalCount = result.totalCount ?? 0;
         _isLoading = false;
       });
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-      debugPrint('Error loading locales: $e');
+      if (!mounted || version != _requestVersion) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = userError(e);
+      });
     }
   }
 
@@ -61,6 +74,12 @@ class _CategoryLocalesScreenState extends State<CategoryLocalesScreen> {
   }
 
   int get _totalPages => PaginationUtils.totalPages(_totalCount, _pageSize);
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _goToPage(int page) {
     if (page < 0 || page >= _totalPages) return;
@@ -93,29 +112,63 @@ class _CategoryLocalesScreenState extends State<CategoryLocalesScreen> {
         ),
         centerTitle: false, // tekst lijevo, odmah iza strelice
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _locales.isEmpty
-          ? _buildEmpty()
-          : RefreshIndicator(
-              onRefresh: _handleRefresh,
-              child: ListView.builder(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 16,
-                  horizontal: 16,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                labelText: 'Naziv lokala',
+                suffixIcon: IconButton(
+                  tooltip: 'Pretraži',
+                  icon: const Icon(Icons.search),
+                  onPressed: _handleRefresh,
                 ),
-                itemCount: _locales.length + 1,
-                itemBuilder: (context, index) {
-                  if (index == _locales.length) {
-                    return _buildPagination();
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: _LocaleCard(locale: _locales[index]),
-                  );
-                },
               ),
+              onSubmitted: (_) => _handleRefresh(),
             ),
+          ),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _loadError != null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(_loadError!),
+                        TextButton(
+                          onPressed: _loadLocales,
+                          child: const Text('Pokušaj ponovo'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _locales.isEmpty
+                ? _buildEmpty()
+                : RefreshIndicator(
+                    onRefresh: _handleRefresh,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 16,
+                      ),
+                      itemCount: _locales.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == _locales.length) {
+                          return _buildPagination();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _LocaleCard(locale: _locales[index]),
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -190,8 +243,8 @@ class _LocaleCard extends StatelessWidget {
             // Informacije
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: SizedBox(
-                height: 84,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 84),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

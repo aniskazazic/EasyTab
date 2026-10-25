@@ -10,6 +10,7 @@ import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/locale_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class SearchLocalesScreen extends StatefulWidget {
   const SearchLocalesScreen({super.key});
@@ -27,13 +28,19 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   bool _isLoading = true;
+  bool _isLoadingFilters = true;
   bool _filtersExpanded = true;
   bool _hasSearched = false;
+  String? _loadError;
+  String? _filterError;
+  int _requestVersion = 0;
   List<Locale> _locales = [];
   List<Category> _categories = [];
   List<Country> _countries = [];
-  List<City> _allCities = [];
   List<City> _filteredCities = [];
+  bool _isLoadingCities = false;
+  String? _cityError;
+  int _cityRequestVersion = 0;
 
   int? _selectedCategoryId;
   int? _selectedCountryId;
@@ -51,7 +58,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
     _categoryProvider = context.read<CategoryProvider>();
     _countryProvider = context.read<CountryProvider>();
     _cityProvider = context.read<CityProvider>();
-    _loadDropdowns();
+    _loadInitialData();
   }
 
   @override
@@ -60,43 +67,41 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
     super.dispose();
   }
 
+  Future<void> _loadInitialData() async {
+    await Future.wait<void>([_loadDropdowns(), _loadLocales()]);
+  }
+
   Future<void> _loadDropdowns() async {
-    setState(() => _isLoading = true);
+    setState(() => _isLoadingFilters = true);
     try {
-      final lookupFilter = {"Page": 1, "PageSize": 100};
-      final categoryResult = await _categoryProvider.get(filter: lookupFilter);
-      final countryResult = await _countryProvider.get(filter: lookupFilter);
-      final cityResult = await _cityProvider.get(filter: lookupFilter);
+      final results = await Future.wait([
+        _categoryProvider.getLookupItems(),
+        _countryProvider.getLookupItems(),
+      ]);
 
       if (!mounted) return;
 
       setState(() {
-        _categories = categoryResult.items ?? [];
-        _countries = countryResult.items ?? [];
-        _allCities = cityResult.items ?? [];
-        _filteredCities = _allCities;
+        _categories = results[0] as List<Category>;
+        _countries = results[1] as List<Country>;
+        _filterError = null;
       });
-      if (mounted) setState(() => _isLoading = false);
-
-      // Ako nema nijednog filtera, učitaj sve lokacije (po paginaciji)
-      final noFilters =
-          _searchController.text.trim().isEmpty &&
-          _selectedCategoryId == null &&
-          _selectedCountryId == null &&
-          _selectedCityId == null &&
-          _selectedRating == null;
-      if (noFilters) {
-        setState(() => _currentPage = 0);
-        _loadLocales();
-      }
+      if (mounted) setState(() => _isLoadingFilters = false);
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-      debugPrint('Error loading filters: $e');
+      if (!mounted) return;
+      setState(() {
+        _isLoadingFilters = false;
+        _filterError = userError(e);
+      });
     }
   }
 
   Future<void> _loadLocales() async {
-    setState(() => _isLoading = true);
+    final version = ++_requestVersion;
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
       final filter = <String, dynamic>{
         "Page": _currentPage + 1,
@@ -113,15 +118,18 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
 
       final result = await _localeProvider.get(filter: filter);
 
-      if (!mounted) return;
+      if (!mounted || version != _requestVersion) return;
       setState(() {
         _locales = result.items ?? [];
         _totalCount = result.totalCount ?? 0;
         _isLoading = false;
       });
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
-      debugPrint('Error loading locales: $e');
+      if (!mounted || version != _requestVersion) return;
+      setState(() {
+        _isLoading = false;
+        _loadError = userError(e);
+      });
     }
   }
 
@@ -155,13 +163,16 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
   }
 
   void _clearFilters() {
+    _cityRequestVersion++;
     _searchController.clear();
     setState(() {
       _selectedCategoryId = null;
       _selectedCountryId = null;
       _selectedCityId = null;
       _selectedRating = null;
-      _filteredCities = _allCities;
+      _filteredCities = [];
+      _isLoadingCities = false;
+      _cityError = null;
       _currentPage = 0;
       _hasSearched = false;
     });
@@ -169,15 +180,33 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
     _loadLocales();
   }
 
-  void _onCountryChanged(int? countryId) {
+  Future<void> _onCountryChanged(int? countryId) async {
+    final version = ++_cityRequestVersion;
     setState(() {
       _selectedCountryId = countryId;
       _selectedCityId = null;
-      _filteredCities = countryId == null
-          ? _allCities
-          : _allCities.where((c) => c.countryId == countryId).toList();
+      _filteredCities = [];
+      _cityError = null;
+      _isLoadingCities = countryId != null;
       _currentPage = 0;
     });
+    if (countryId == null) return;
+    try {
+      final cities = await _cityProvider.getLookupItems(
+        filter: {'CountryId': countryId},
+      );
+      if (!mounted || version != _cityRequestVersion) return;
+      setState(() {
+        _filteredCities = cities;
+        _isLoadingCities = false;
+      });
+    } catch (e) {
+      if (!mounted || version != _cityRequestVersion) return;
+      setState(() {
+        _cityError = userError(e);
+        _isLoadingCities = false;
+      });
+    }
   }
 
   void _onCategoryChanged(int? categoryId) {
@@ -205,51 +234,82 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
-      body: Column(
-        children: [
-          _buildSearchHeader(),
-          if (_filtersExpanded) _buildFilters(),
-          if (_hasSearched && !_isLoading)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Pronađeno: $_totalCount ${_totalCount == 1 ? 'lokal' : 'lokala'}',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Colors.grey.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
+      body: RefreshIndicator(
+        onRefresh: _handleRefresh,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  _buildSearchHeader(),
+                  if (_filterError != null)
+                    ListTile(
+                      title: Text(_filterError!),
+                      trailing: TextButton(
+                        onPressed: _loadDropdowns,
+                        child: const Text('Ponovi filtere'),
+                      ),
+                    ),
+                  if (_isLoadingFilters) const LinearProgressIndicator(),
+                  if (_filtersExpanded &&
+                      !_isLoadingFilters &&
+                      _filterError == null)
+                    _buildFilters(),
+                  if (_hasSearched && !_isLoading && _loadError == null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Pronađeno: $_totalCount ${_totalCount == 1 ? 'lokal' : 'lokala'}',
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _locales.isEmpty
-                ? _buildEmpty()
-                : RefreshIndicator(
-                    onRefresh: _handleRefresh,
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+            if (_isLoading)
+              const SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (_loadError != null)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_loadError!),
+                      TextButton(
+                        onPressed: _loadLocales,
+                        child: const Text('Pokušaj ponovo'),
                       ),
-                      itemCount: _locales.length + 1,
-                      itemBuilder: (context, index) {
-                        if (index == _locales.length) {
-                          return _buildPagination();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: _LocaleCard(locale: _locales[index]),
-                        );
-                      },
-                    ),
+                    ],
                   ),
-          ),
-        ],
+                ),
+              )
+            else if (_locales.isEmpty)
+              SliverFillRemaining(hasScrollBody: false, child: _buildEmpty())
+            else
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    if (index == _locales.length) return _buildPagination();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _LocaleCard(locale: _locales[index]),
+                    );
+                  }, childCount: _locales.length + 1),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -304,6 +364,7 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
                   ),
                 ),
                 onChanged: (_) => setState(() {}),
+                onSubmitted: (_) => _searchLocales(),
               ),
             ),
           ),
@@ -447,7 +508,17 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
               label: 'Grad',
               icon: Icons.location_city_outlined,
               value: _selectedCityId,
-              hint: 'Svi gradovi',
+              hint: _selectedCountryId == null
+                  ? 'Prvo odaberite državu'
+                  : 'Svi gradovi',
+              helperText: _selectedCountryId == null
+                  ? 'Prvo odaberite državu.'
+                  : _isLoadingCities
+                  ? 'Učitavanje gradova…'
+                  : _cityError ??
+                        (_filteredCities.isEmpty
+                            ? 'Odabrana država nema dostupnih gradova.'
+                            : null),
               items: [
                 const DropdownMenuItem<int>(
                   value: null,
@@ -460,8 +531,19 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
                   ),
                 ),
               ],
-              onChanged: _onCityChanged,
+              onChanged:
+                  _selectedCountryId == null ||
+                      _isLoadingCities ||
+                      _cityError != null ||
+                      _filteredCities.isEmpty
+                  ? null
+                  : _onCityChanged,
             ),
+            if (_cityError != null)
+              TextButton(
+                onPressed: () => _onCountryChanged(_selectedCountryId),
+                child: const Text('Ponovi učitavanje gradova'),
+              ),
             const SizedBox(height: 10),
             _buildDropdown<int>(
               label: 'Prosječna ocjena',
@@ -497,7 +579,8 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
     required T? value,
     required String hint,
     required List<DropdownMenuItem<T>> items,
-    required ValueChanged<T?> onChanged,
+    required ValueChanged<T?>? onChanged,
+    String? helperText,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -506,12 +589,14 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
           children: [
             Icon(icon, size: 15, color: Colors.grey.shade500),
             const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-                fontWeight: FontWeight.w500,
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -520,6 +605,8 @@ class _SearchLocalesScreenState extends State<SearchLocalesScreen> {
         DropdownButtonFormField<T>(
           value: value,
           decoration: InputDecoration(
+            helperText: helperText,
+            helperMaxLines: 3,
             filled: true,
             fillColor: const Color(0xFFF8FAFC),
             contentPadding: const EdgeInsets.symmetric(
@@ -629,8 +716,8 @@ class _LocaleCard extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              child: SizedBox(
-                height: 84,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 84),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

@@ -10,6 +10,7 @@ import 'package:easytab_mobile/widgets/recommended_locales_section.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class HomeScreen extends StatefulWidget {
   final RouteObserver<ModalRoute<void>>? routeObserver;
@@ -28,6 +29,8 @@ class _HomeScreenState extends State<HomeScreen>
   late RecommendationProvider _recommendationProvider;
   ModalRoute<void>? _route;
   bool _isLoading = true;
+  bool _isRefreshing = false;
+  String? _loadError;
   Map<Category, List<model.Locale>> _groupedLocales = {};
   Map<int, MemoryImage> _logoImages = {};
 
@@ -80,10 +83,13 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Future<void> _loadHome() async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
     await Future.wait<void>([
       _loadLocales(),
       _recommendationProvider.refresh(),
     ]);
+    _isRefreshing = false;
     if (mounted) setState(() => _isLoading = false);
   }
 
@@ -97,10 +103,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _loadLocales() async {
     try {
-      final categoriesResult = await _categoryProvider.get(
-        filter: {'PageSize': 100},
-      );
-      final categories = (categoriesResult.items ?? [])
+      final categories = (await _categoryProvider.getLookupItems())
           .where((category) => category.id != null)
           .toList();
       final localeResults = await Future.wait(
@@ -139,10 +142,11 @@ class _HomeScreenState extends State<HomeScreen>
         setState(() {
           _groupedLocales = grouped;
           _logoImages = logoImages;
+          _loadError = null;
         });
       }
     } catch (e) {
-      debugPrint('Error loading locales: $e');
+      if (mounted) setState(() => _loadError = userError(e));
     }
   }
 
@@ -162,7 +166,9 @@ class _HomeScreenState extends State<HomeScreen>
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(top: 20, bottom: 8),
                   children: [
-                    if (RecommendationProvider.isAvailable && recommendations.isNotEmpty)
+                    if (_loadError != null) _buildLoadError(),
+                    if (RecommendationProvider.isAvailable &&
+                        recommendations.isNotEmpty)
                       RecommendedLocalesSection(locales: recommendations),
                     for (final entry in _groupedLocales.entries)
                       _CategoryCarousel(
@@ -178,6 +184,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildEmpty() {
+    if (_loadError != null) return Center(child: _buildLoadError());
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -192,6 +199,14 @@ class _HomeScreenState extends State<HomeScreen>
       ),
     );
   }
+
+  Widget _buildLoadError() => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(_loadError!, textAlign: TextAlign.center),
+      TextButton(onPressed: _loadHome, child: const Text('Pokušaj ponovo')),
+    ],
+  );
 }
 
 class _CategoryCarousel extends StatefulWidget {
@@ -229,12 +244,14 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                widget.category.name ?? '',
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
+              Expanded(
+                child: Text(
+                  widget.category.name ?? '',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
               TextButton(
@@ -263,7 +280,7 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
 
         const SizedBox(height: 12),
         SizedBox(
-          height: 268,
+          height: 176 + MediaQuery.textScalerOf(context).scale(110),
           child: PageView.builder(
             controller: _pageController,
             itemCount: widget.locales.length,
@@ -312,10 +329,7 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
 class _LocaleCard extends StatelessWidget {
   final model.Locale locale;
   final MemoryImage? logoImage;
-  const _LocaleCard({
-    required this.locale,
-    required this.logoImage,
-  });
+  const _LocaleCard({required this.locale, required this.logoImage});
 
   @override
   Widget build(BuildContext context) {
@@ -362,7 +376,7 @@ class _LocaleCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: SizedBox(
-                height: 84,
+                height: MediaQuery.textScalerOf(context).scale(110),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

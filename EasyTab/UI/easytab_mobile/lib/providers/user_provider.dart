@@ -11,23 +11,15 @@ class UserProvider extends BaseProvider<User> {
     return User.fromJson(json);
   }
 
-  Future<dynamic> changePassword(dynamic data) async {
+  Future<void> changePassword(Map<String, dynamic> data) async {
     var url = "${BaseProvider.baseUrl}/$endpoint/ChangePassword";
 
     var uri = Uri.parse(url);
     var jsonRequest = jsonEncode(data);
-    var headers = createHeaders();
-
-    http.Response response = await http.put(
-      uri,
-      headers: headers,
-      body: jsonRequest,
+    final response = await sendRequestWithRetry(
+      () => http.put(uri, headers: createHeaders(), body: jsonRequest),
     );
-
-    if (isValidResponse(response)) {
-    } else {
-      throw Exception("Neuspješna promjena passworda");
-    }
+    validateResponse(response);
   }
 
   Future<List<User>> getOwners() async {

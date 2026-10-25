@@ -10,6 +10,7 @@ import 'package:easytab_mobile/main.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class SettingsUserScreen extends StatefulWidget {
   const SettingsUserScreen({super.key});
@@ -32,20 +33,31 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
   }
 
   Future<void> initData() async {
+    if (!mounted) return;
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
     try {
-      var id = AuthProvider.accessTokenDecoded?['Id'];
+      final id = AuthProvider.currentUserId;
       if (id == null) {
-        throw Exception("User ID not found in token");
+        setState(() {
+          errorMessage = 'Prijavite se ponovo za pregled profila.';
+          isLoading = false;
+        });
+        return;
       }
-      var result = await _userProvider.getById(int.parse(id));
+      var result = await _userProvider.getById(id);
 
+      if (!mounted) return;
       setState(() {
         user = result;
         isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        errorMessage = e.toString();
+        errorMessage = userError(e);
         isLoading = false;
       });
     }
@@ -58,16 +70,24 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
         child: isLoading
             ? Center(child: CircularProgressIndicator())
             : errorMessage != null
-            ? Center(child: Text("Greška: $errorMessage"))
+            ? Center(
+                child: Column(
+                  children: [
+                    Text(errorMessage!),
+                    TextButton(
+                      onPressed: initData,
+                      child: const Text('Pokušaj ponovo'),
+                    ),
+                  ],
+                ),
+              )
             : Column(
                 children: [
                   const SizedBox(height: 20),
                   CircleAvatar(
-                    backgroundImage: user.profilePicture != null
-                        ? imageFromBase64WithouthDimensions(
-                            user.profilePicture!,
-                          )
-                        : const AssetImage('assets/images/no-image.png'),
+                    backgroundImage:
+                        ImageUtils.imageProvider(user.profilePicture) ??
+                        const AssetImage('assets/images/no-image.png'),
                     radius: 70,
                   ),
                   Text(
@@ -75,7 +95,7 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   Text(
-                    user.username ?? "No username",
+                    user.username ?? 'Korisničko ime nije dostupno',
                     style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 20),
@@ -93,6 +113,7 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
         elevation: 10,
         child: ListView(
           shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           children: [
             if (!AuthProvider.isWorker)
               ListTile(
@@ -124,7 +145,7 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
             ),
             ListTile(
               leading: Icon(Icons.lock_outline),
-              title: Text("Promjeni lozinku"),
+              title: Text("Promijeni lozinku"),
               onTap: () async {
                 var refresh = await Navigator.push(
                   context,
@@ -146,7 +167,7 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
                 final leave = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
-                    title: Text("Odjava"),
+                    title: dialogTitle(ctx, 'Odjava'),
                     content: Text(
                       "Da li ste sigurni da zelite da se odjavite?",
                     ),

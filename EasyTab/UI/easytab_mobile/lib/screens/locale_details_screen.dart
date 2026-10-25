@@ -13,6 +13,8 @@ import 'package:easytab_mobile/screens/reservation_screen.dart';
 import 'package:easytab_mobile/widgets/locale_image_gallery_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
+import 'package:easytab_mobile/providers/table_provider.dart';
 
 class LocaleDetailScreen extends StatefulWidget {
   final model.Locale locale;
@@ -36,6 +38,10 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   List<LocaleImage> _localeImages = [];
   bool _isTogglingFav = false;
   bool _hasUserReview = false;
+  String? _imagesError;
+  String? _reviewsError;
+  String? _reservationReason = 'Provjera dostupnosti rezervacije…';
+  final Set<int> _pendingReactions = {};
 
   List<Review> _reviews = [];
   int _reviewTotalCount = 0;
@@ -73,12 +79,39 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   }
 
   Future<void> _loadAll() async {
+    if (locale.id == null) return;
     await Future.wait([
       _loadReviews(),
       _loadCanReview(),
       _checkFavourite(),
       _loadLocaleImages(),
+      _loadReservationPrerequisites(),
     ]);
+  }
+
+  Future<void> _loadReservationPrerequisites() async {
+    String? reason;
+    if (_currentUserId == null) {
+      reason = 'Prijavite se za rezervaciju stola.';
+    } else if (locale.isDeleted == true) {
+      reason = 'Ovaj lokal više nije dostupan za rezervacije.';
+    } else if (locale.startOfWorkingHours == null ||
+        locale.endOfWorkingHours == null ||
+        (locale.lengthOfReservation ?? 0) <= 0) {
+      reason = 'Lokal nema postavljeno radno vrijeme ili trajanje rezervacije.';
+    } else {
+      try {
+        final result = await context.read<TableProvider>().get(
+          filter: {'LocaleId': locale.id, 'Page': 1, 'PageSize': 1},
+        );
+        if (result.items?.isNotEmpty != true) {
+          reason = 'Lokal nema postavljene stolove za rezervaciju.';
+        }
+      } catch (e) {
+        reason = 'Nije moguće provjeriti stolove. Pokušajte ponovo.';
+      }
+    }
+    if (mounted) setState(() => _reservationReason = reason);
   }
 
   Future<void> _loadCanReview() async {
@@ -117,12 +150,15 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
 
   Future<void> _loadLocaleImages() async {
     if (locale.id == null) return;
-    setState(() => _isLoadingImages = true);
+    setState(() {
+      _isLoadingImages = true;
+      _imagesError = null;
+    });
     try {
       final images = await _localeImageProvider.getByLocale(locale.id!);
       if (mounted) setState(() => _localeImages = images);
     } catch (e) {
-      debugPrint('Error loading locale images: $e');
+      if (mounted) setState(() => _imagesError = userError(e));
     } finally {
       if (mounted) setState(() => _isLoadingImages = false);
     }
@@ -139,7 +175,10 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
 
   Future<void> _loadReviews() async {
     if (locale.id == null) return;
-    setState(() => _isLoadingReviews = true);
+    setState(() {
+      _isLoadingReviews = true;
+      _reviewsError = null;
+    });
     try {
       final results = await Future.wait([
         _reviewProvider.getByLocale(
@@ -150,16 +189,18 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
         ),
         _reviewProvider.getAverage(locale.id!),
         _reviewProvider.getRatingCounts(locale.id!),
+        if (_currentUserId != null)
+          _reactionProvider.ensureUserReactionsLoaded(_currentUserId!),
       ]);
 
       final reviewResult = results[0] as SearchResult<Review>;
       var reviews = reviewResult.items ?? [];
 
       if (_currentUserId != null) {
-        await _reactionProvider.ensureUserReactionsLoaded(_currentUserId!);
         reviews = reviews.map(_mergeUserReaction).toList();
       }
 
+      if (!mounted) return;
       setState(() {
         _reviews = reviews;
         _reviewTotalCount = reviewResult.totalCount ?? 0;
@@ -170,7 +211,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
         );
       });
     } catch (e) {
-      debugPrint('Error loading reviews: $e');
+      if (mounted) setState(() => _reviewsError = userError(e));
     } finally {
       if (mounted) setState(() => _isLoadingReviews = false);
     }
@@ -187,11 +228,20 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   }
 
   Future<void> _toggleFavourite() async {
-    if (_isTogglingFav || _currentUserId == null) return;
+    if (_isTogglingFav || _currentUserId == null || locale.id == null) return;
     setState(() => _isTogglingFav = true);
 
     try {
       if (_favouriteProvider.favouriteLocaleIds.contains(locale.id)) {
+        if (!await confirmAction(
+          context,
+          'Uklanjanje iz omiljenih',
+          'Želite li ukloniti ${locale.name ?? 'lokal'} iz omiljenih?',
+          'Ukloni',
+        )) {
+          return;
+        }
+        if (!mounted) return;
         // Ukloni
         await _favouriteProvider.removeFavourite(locale.id!);
         if (mounted) {
@@ -217,7 +267,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Toggle favourite error: $e');
+      if (mounted) showFeedback(context, userError(e), error: true);
     } finally {
       if (mounted) setState(() => _isTogglingFav = false);
     }
@@ -229,11 +279,22 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
       final isFav = await _favouriteProvider.isFavourited(locale.id!);
       if (mounted) _favouriteProvider.setFavouriteStatus(locale.id!, isFav);
     } catch (e) {
-      debugPrint('Error checking favourite: $e');
+      if (mounted) {
+        showFeedback(
+          context,
+          'Nije moguće provjeriti omiljene lokale.',
+          error: true,
+        );
+      }
     }
   }
 
   void _goToAddReview({Review? existingReview}) {
+    if (locale.id == null ||
+        _currentUserId == null ||
+        (existingReview == null && !_canReview)) {
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -249,28 +310,31 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   void _confirmDelete(Review review) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Brisanje recenzije'),
+      builder: (dialogContext) => AlertDialog(
+        title: dialogTitle(dialogContext, 'Brisanje recenzije'),
         content: const Text(
           'Da li ste sigurni da želite obrisati ovu recenziju?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Otkaži'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               try {
                 await _reviewProvider.deleteReview(review.id!);
-                _loadReviews();
+                if (!mounted) return;
+                showFeedback(context, 'Recenzija je uspješno obrisana.');
+                _reviewCurrentPage = 0;
+                _refreshAfterReviewSave();
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(
                     context,
-                  ).showSnackBar(SnackBar(content: Text(e.toString())));
+                  ).showSnackBar(SnackBar(content: Text(userError(e))));
                 }
               }
             },
@@ -308,6 +372,8 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
 
   Future<void> _handleReaction(Review review, bool isLike) async {
     if (review.userId == _currentUserId || _currentUserId == null) return;
+    final id = review.id;
+    if (id == null || !_pendingReactions.add(id)) return;
 
     final currentReaction = review.userReaction ?? 0;
     final togglingOff =
@@ -329,11 +395,12 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
         _reactionProvider.updateUserReaction(review.id!, isLike ? 1 : -1);
       }
     } catch (e) {
-      debugPrint('Reaction error: $e');
       if (mounted) {
         setState(() => _reviews = previousReviews);
-        await _reactionProvider.loadUserReactions(_currentUserId!);
+        showFeedback(context, userError(e), error: true);
       }
+    } finally {
+      _pendingReactions.remove(id);
     }
   }
 
@@ -398,6 +465,14 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (locale.id == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Detalji lokala')),
+        body: const Center(
+          child: Text('Lokal nije dostupan. Vratite se na pregled lokala.'),
+        ),
+      );
+    }
     final favouriteProvider = context.watch<FavouriteProvider>();
     final isFavourite =
         locale.id != null &&
@@ -408,7 +483,9 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
       body: Stack(
         children: [
           SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 100),
+            padding: EdgeInsets.only(
+              bottom: _reservationReason == null ? 100 : 220,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -461,8 +538,6 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
               ],
             ),
           ),
-
-          // Rezerviši dugme
           Positioned(
             bottom: 0,
             left: 0,
@@ -475,31 +550,47 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 20,
                 MediaQuery.of(context).padding.bottom + 12,
               ),
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ReservationScreen(locale: locale),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_reservationReason != null) ...[
+                    Text(_reservationReason!, textAlign: TextAlign.center),
+                    TextButton(
+                      onPressed: _loadReservationPrerequisites,
+                      child: const Text('Provjeri ponovo'),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E40AF),
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                  ],
+                  ElevatedButton(
+                    onPressed: _reservationReason != null
+                        ? null
+                        : () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ReservationScreen(locale: locale),
+                              ),
+                            );
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E40AF),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Rezerviši stol',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Rezerviši stol',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                ],
               ),
             ),
           ),
@@ -561,7 +652,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 const Icon(Icons.star, color: Color(0xFFFBBF24), size: 20),
                 const SizedBox(width: 4),
                 Text(
-                  '$_averageRating  ($_reviewTotalCount recenzije)',
+                  '${_averageRating.toStringAsFixed(2)}  ($_reviewTotalCount recenzije)',
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -672,6 +763,16 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
               height: 110,
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             )
+          else if (_imagesError != null)
+            Column(
+              children: [
+                Text(_imagesError!),
+                TextButton(
+                  onPressed: _loadLocaleImages,
+                  child: const Text('Ponovi učitavanje slika'),
+                ),
+              ],
+            )
           else if (!hasImages)
             _buildGalleryEmptyState()
           else
@@ -721,7 +822,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Trenutno nema slika lokala.',
+            'Galerija nije dostupna jer lokal nema slika.',
             style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
           ),
         ],
@@ -773,7 +874,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 Column(
                   children: [
                     Text(
-                      _averageRating.toStringAsFixed(1),
+                      _averageRating.toStringAsFixed(2),
                       style: const TextStyle(
                         fontSize: 40,
                         fontWeight: FontWeight.w700,
@@ -856,8 +957,10 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               const Text(
                 'Recenzije gostiju',
@@ -896,6 +999,8 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                         ),
                       ),
                     ),
+                    if (_isCheckingReviewEligibility)
+                      const Text('Provjera uslova za recenziju…'),
                     if (!_isCheckingReviewEligibility &&
                         !_canReview &&
                         _reviewEligibilityReason != null)
@@ -997,6 +1102,16 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
           const SizedBox(height: 12),
           _isLoadingReviews
               ? const Center(child: CircularProgressIndicator())
+              : _reviewsError != null
+              ? Column(
+                  children: [
+                    Text(_reviewsError!),
+                    TextButton(
+                      onPressed: _loadReviews,
+                      child: const Text('Ponovi učitavanje recenzija'),
+                    ),
+                  ],
+                )
               : _reviews.isEmpty
               ? Center(
                   child: Text(

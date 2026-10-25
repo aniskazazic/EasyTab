@@ -23,6 +23,20 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   static String? get baseUrl => _baseUrl;
   String get endpoint => _endpoint;
 
+  Future<List<T>> getLookupItems({
+    Map<String, dynamic> filter = const {},
+  }) async {
+    final items = <T>[];
+    for (var page = 1; ; page++) {
+      final result = await get(
+        filter: {...filter, 'Page': page, 'PageSize': 100},
+      );
+      final batch = result.items ?? <T>[];
+      items.addAll(batch);
+      if (batch.length < 100) return items;
+    }
+  }
+
   Future<SearchResult<T>> get({dynamic filter}) async {
     var url = "$baseUrl/$_endpoint";
 
@@ -215,6 +229,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
       if (success) {
         // Retry original request since token has been refreshed
         response = await requestBuilder();
+        if (response.statusCode == 401) {
+          await SessionManager().logoutAndRedirect();
+        }
       } else {
         throw ApiClientException('Niste autorizirani. Prijavite se ponovo.');
       }

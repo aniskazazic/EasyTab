@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
-import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:provider/provider.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -16,8 +16,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   late AuthProvider authProvider;
   final _formKey = GlobalKey<FormBuilderState>();
 
-  String? confirmPasswordError;
-  String? dateError;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
@@ -31,7 +29,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _handleRegister() async {
     var isValid = _formKey.currentState!.saveAndValidate();
 
-    if (!isValid || confirmPasswordError != null || dateError != null) return;
+    if (!isValid) return;
 
     setState(() => _isLoading = true);
 
@@ -42,10 +40,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       req['birthDate'] = dob.toIso8601String().split('T')[0];
 
       await authProvider.register({
-        'firstName': req['firstName'],
-        'lastName': req['lastName'],
-        'username': req['username'],
-        'email': req['email'],
+        'firstName': (req['firstName'] as String).trim(),
+        'lastName': (req['lastName'] as String).trim(),
+        'username': (req['username'] as String).trim(),
+        'email': (req['email'] as String).trim(),
         'password': req['password'],
         'passwordConfirmation': req['confirmPassword'],
         'phoneNumber': req['phone'],
@@ -54,74 +52,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (mounted) _showSuccess();
     } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      if (!mounted) return;
+      if (!FormValidation.showApiErrors(
+        _formKey.currentState,
+        e,
+        aliases: {
+          'phonenumber': 'phone',
+          'passwordconfirmation': 'confirmPassword',
+        },
+      )) {
+        _showError(userError(e));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
   }
 
   void _showError(String message) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Greška'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: Color(0xFF1E40AF))),
-          ),
-        ],
-      ),
-    );
+    showFeedback(context, message, error: true);
   }
 
   void _showSuccess() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(
-              Icons.check_circle_rounded,
-              color: Color(0xFF1E40AF),
-              size: 24,
-            ),
-            SizedBox(width: 8),
-            Text('Uspješno'),
-          ],
-        ),
-        content: const Text('Registracija uspješna! Možete se prijaviti.'),
-        actions: [
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              gradient: const LinearGradient(
-                colors: [Color(0xFF1E40AF), Color(0xFF3B82F6)],
-              ),
-            ),
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shadowColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context);
-              },
-              child: const Text(
-                'Prijava',
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
-        ],
-      ),
+    Navigator.pop(context);
+    showFeedback(
+      context,
+      'Registracija je uspješna. Prijavite se svojim podacima.',
     );
   }
 
@@ -200,9 +155,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _buildHeader(Size size) {
     return Container(
-      height: size.height * 0.25,
+      constraints: BoxConstraints(minHeight: size.height * 0.25),
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -243,27 +198,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Kreirajte račun',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Kreirajte račun',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'Pridružite se EasyTab zajednici',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 12.5,
+                    const SizedBox(height: 2),
+                    Text(
+                      'Pridružite se EasyTab zajednici',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 12.5,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -292,6 +249,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       padding: const EdgeInsets.only(top: 32, bottom: 32, left: 24, right: 24),
       child: FormBuilder(
         key: _formKey,
+        enabled: !_isLoading,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -324,6 +282,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               'Korisničko ime',
               'username',
               icon: Icons.alternate_email_rounded,
+              validator: FormValidation.username,
             ),
             const SizedBox(height: 14),
 
@@ -337,17 +296,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               format: dateOnlyFormatter,
               firstDate: DateTime(1900),
               lastDate: DateTime.now(),
-              validator: FormBuilderValidators.compose([
-                FormBuilderValidators.required(errorText: 'Obavezno polje'),
-                (value) {
-                  if (value == null) return null;
-                  int age = DateTime.now().year - value.year;
-                  if (age < 18 || value.isAfter(DateTime.now())) {
-                    return 'Morate imati 18+ godina';
-                  }
-                  return null;
-                },
-              ]),
+              validator: FormValidation.adult,
             ),
 
             const SizedBox(height: 24),
@@ -358,10 +307,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _sectionTitle('Kontakt', Icons.contact_mail_rounded),
             const SizedBox(height: 12),
 
-            _inputField('Email adresa', 'email', icon: Icons.email_outlined),
+            _inputField(
+              'Email adresa',
+              'email',
+              icon: Icons.email_outlined,
+              validator: FormValidation.email,
+              keyboard: TextInputType.emailAddress,
+            ),
             const SizedBox(height: 14),
 
-            _inputField('Broj telefona', 'phone', icon: Icons.phone_outlined),
+            _inputField(
+              'Broj telefona (opcionalno)',
+              'phone',
+              icon: Icons.phone_outlined,
+              validator: FormValidation.phone,
+              keyboard: TextInputType.phone,
+            ),
 
             const SizedBox(height: 24),
             _sectionDivider(),
@@ -387,10 +348,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 onPressed: () =>
                     setState(() => _obscurePassword = !_obscurePassword),
               ),
-              validator: (val) {
-                if (val == null || val.isEmpty) return 'Obavezno polje';
-                return null;
-              },
+              validator: FormValidation.password,
             ),
             const SizedBox(height: 14),
 
@@ -474,25 +432,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 20),
 
             // Login link
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Već imate račun? ',
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                ),
-                GestureDetector(
-                  onTap: () => Navigator.pop(context),
-                  child: const Text(
-                    'Prijavi se',
-                    style: TextStyle(
-                      color: Color(0xFF1E40AF),
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
+            SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                children: [
+                  Text(
+                    'Već imate račun? ',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Text(
+                      'Prijavi se',
+                      style: TextStyle(
+                        color: Color(0xFF1E40AF),
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -512,12 +473,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           child: Icon(icon, color: const Color(0xFF1E40AF), size: 16),
         ),
         const SizedBox(width: 10),
-        Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 14,
-            color: Color(0xFF0F172A),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+            ),
           ),
         ),
       ],
@@ -560,9 +523,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       keyboardType: keyboard,
       onChanged: onChanged,
       style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
-      validator:
-          validator ??
-          FormBuilderValidators.required(errorText: 'Obavezno polje'),
+      validator: validator ?? FormValidation.requiredText,
       decoration: _decoration(hint, icon, suffix, errorText),
     );
   }
@@ -574,6 +535,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String? errorText,
   ]) {
     return InputDecoration(
+      errorMaxLines: 4,
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
       errorText: errorText,

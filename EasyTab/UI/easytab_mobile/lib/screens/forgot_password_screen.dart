@@ -1,6 +1,8 @@
 import 'package:easytab_mobile/models/reset_password_request.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
+import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -24,6 +26,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool _isLoading = false;
   bool _obscureNewPassword = true;
   bool _obscureConfirmPassword = true;
+  String? _codeError;
 
   @override
   void dispose() {
@@ -35,64 +38,23 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   void _showError(String message) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Greška'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK', style: TextStyle(color: Color(0xFF1E40AF))),
-          ),
-        ],
-      ),
-    );
+    showFeedback(context, message, error: true);
   }
 
   void _showSuccess() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(
-              Icons.check_circle_rounded,
-              color: Color(0xFF1E40AF),
-              size: 24,
-            ),
-            SizedBox(width: 8),
-            Text('Uspješno'),
-          ],
-        ),
-        content: const Text(
-          'Lozinka je uspješno promijenjena. Možete se prijaviti novom lozinkom.',
-        ),
-        actions: [
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E40AF),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(context); // close dialog
-                Navigator.pop(context); // back to login
-              },
-              child: const Text('Prijavi se'),
-            ),
-          ),
-        ],
-      ),
+    Navigator.pop(context);
+    showFeedback(
+      context,
+      'Lozinka je uspješno promijenjena. Prijavite se novom lozinkom.',
     );
+  }
+
+  void _returnToEmail() {
+    _codeError = null;
+    _currentStep = 1;
+    _codeController.clear();
+    _newPasswordController.clear();
+    _confirmPasswordController.clear();
   }
 
   Future<void> _handleSendCode() async {
@@ -112,7 +74,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Kod za oporavak lozinke je poslan na vaš email.'),
+            content: Text(
+              'Ako postoji račun s tom adresom, kod za oporavak je poslan.',
+            ),
             backgroundColor: Color(0xFF1E40AF),
             duration: Duration(seconds: 4),
           ),
@@ -120,7 +84,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       }
     } catch (e) {
       if (mounted) {
-        _showError(e.toString().replaceAll('Exception: ', ''));
+        _showError(userError(e));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -148,7 +112,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       }
     } catch (e) {
       if (mounted) {
-        _showError(e.toString().replaceAll('Exception: ', ''));
+        if (e is ApiClientException &&
+            e.message ==
+                'Neispravan ili istekao kod za poništavanje lozinke.') {
+          setState(() => _codeError = e.message);
+          _step2FormKey.currentState?.validate();
+        } else {
+          _showError(userError(e));
+        }
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -164,14 +135,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Novi kod je poslan na vaš email.'),
+            content: Text(
+              'Ako postoji račun s tom adresom, novi kod je poslan.',
+            ),
             backgroundColor: Color(0xFF1E40AF),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        _showError(e.toString().replaceAll('Exception: ', ''));
+        _showError(userError(e));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -184,6 +157,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     Widget? suffix,
   }) {
     return InputDecoration(
+      errorMaxLines: 4,
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
       prefixIcon: Icon(icon, color: const Color(0xFF1E40AF), size: 20),
@@ -284,7 +258,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           IconButton(
             onPressed: () {
               if (_currentStep == 2) {
-                setState(() => _currentStep = 1);
+                setState(_returnToEmail);
               } else {
                 Navigator.pop(context);
               }
@@ -362,16 +336,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               'Unesite vaš email',
               Icons.email_outlined,
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Email je obavezan.';
-              }
-              final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
-              if (!emailRegex.hasMatch(value.trim())) {
-                return 'Email adresa nije ispravnog formata.';
-              }
-              return null;
-            },
+            validator: FormValidation.email,
           ),
           const SizedBox(height: 24),
 
@@ -488,6 +453,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _codeController,
+            enabled: !_isLoading,
+            onChanged: (_) {
+              if (_codeError != null) {
+                setState(() => _codeError = null);
+                _step2FormKey.currentState?.validate();
+              }
+            },
             keyboardType: TextInputType.number,
             maxLength: 6,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -508,7 +480,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               if (value.trim().length != 6) {
                 return 'Kod mora imati 6 cifara.';
               }
-              return null;
+              return _codeError;
             },
           ),
           const SizedBox(height: 16),
@@ -647,9 +619,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               TextButton(
-                onPressed: _isLoading
-                    ? null
-                    : () => setState(() => _currentStep = 1),
+                onPressed: _isLoading ? null : () => setState(_returnToEmail),
                 child: const Text(
                   'Promijeni email',
                   style: TextStyle(color: Color(0xFF64748B), fontSize: 13),
