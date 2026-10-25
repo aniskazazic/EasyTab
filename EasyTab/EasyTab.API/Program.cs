@@ -53,6 +53,7 @@ builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ICityService, CityService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
 builder.Services.AddScoped<ILocaleService, LocaleService>();
+builder.Services.AddScoped<IRecommendationService, RecommendationService>();
 builder.Services.AddScoped<ILocaleAccessService, LocaleAccessService>();
 builder.Services.AddScoped<DbSeeder>();
 builder.Services.AddScoped<IZoneService, ZoneService>();

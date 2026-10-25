@@ -14,7 +14,24 @@ namespace EasyTab.API.Controllers
     [Authorization]
     public class LocaleController :BaseCRUDController<Locales, LocaleSearchObject, LocaleInsertRequest, LocaleUpdateRequest>
     {
-            public LocaleController(ILocaleService service) : base(service) {  }
+        private readonly IRecommendationService _recommendationService;
+
+        public LocaleController(ILocaleService service, IRecommendationService recommendationService) : base(service)
+        {
+            _recommendationService = recommendationService;
+        }
+
+        /// <summary>Vraća do tri lokala uz objašnjenje preporuke za prijavljenog korisnika.</summary>
+        [HttpGet("recommended")]
+        [Authorization(RoleNames.Korisnik)]
+        [ProducesResponseType(typeof(IReadOnlyList<RecommendedLocaleResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        public async Task<ActionResult<IReadOnlyList<RecommendedLocaleResponse>>> Recommended(
+            CancellationToken cancellationToken)
+        {
+            return Ok(await _recommendationService.GetRecommendedAsync(cancellationToken));
+        }
 
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public override Task<Locales> Create([FromBody] LocaleInsertRequest request) => base.Create(request);

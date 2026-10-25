@@ -1,0 +1,15 @@
+@baseUrl = {{$processEnv API_BASE_URL}}
+@userToken = {{$processEnv EASYTAB_USER_TOKEN}}
+@otherRoleToken = {{$processEnv EASYTAB_OTHER_ROLE_TOKEN}}
+
+### Korisnik: do tri preporuke s objašnjenjem
+GET {{baseUrl}}/Locale/recommended
+Authorization: Bearer {{userToken}}
+Accept: application/json
+
+### Bez tokena: 401
+GET {{baseUrl}}/Locale/recommended
+
+### Druga uloga: 403
+GET {{baseUrl}}/Locale/recommended
+Authorization: Bearer {{otherRoleToken}}
