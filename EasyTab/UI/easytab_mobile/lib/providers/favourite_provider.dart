@@ -5,7 +5,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 
 class FavouriteProvider extends BaseProvider<Favourite> {
-  FavouriteProvider() : super('Favourites');
+  final void Function()? onInteractionChanged;
+
+  FavouriteProvider({this.onInteractionChanged}) : super('Favourites');
 
   @override
   Favourite fromJson(json) => Favourite.fromJson(json);
@@ -61,6 +63,7 @@ class FavouriteProvider extends BaseProvider<Favourite> {
       myFavourites.add(fav);
       favouriteLocaleIds.add(localeId);
       notifyListeners();
+      onInteractionChanged?.call();
       return fav;
     }
     throw Exception('Greška pri dodavanju favorita');
@@ -80,6 +83,7 @@ class FavouriteProvider extends BaseProvider<Favourite> {
     myFavourites.removeWhere((f) => f.localeId == localeId);
     favouriteLocaleIds.remove(localeId);
     notifyListeners();
+    onInteractionChanged?.call();
   }
 
   // Pomoćna metoda za provjeru da li je favorit

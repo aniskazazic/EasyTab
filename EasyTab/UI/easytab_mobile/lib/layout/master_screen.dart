@@ -19,6 +19,14 @@ class MasterScreen extends StatefulWidget {
 
 class _MasterScreenState extends State<MasterScreen> {
   int _currentIndex = 0;
+  final _homeRefresh = ValueNotifier<int>(0);
+  final _homeRouteObserver = RouteObserver<ModalRoute<void>>();
+
+  @override
+  void dispose() {
+    _homeRefresh.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -45,6 +53,7 @@ class _MasterScreenState extends State<MasterScreen> {
       offstage: _currentIndex != index,
       child: Navigator(
         key: _navigatorKeys[index],
+        observers: index == 0 ? [_homeRouteObserver] : [],
         onGenerateRoute: (RouteSettings settings) {
           return MaterialPageRoute(
             settings: settings,
@@ -58,7 +67,10 @@ class _MasterScreenState extends State<MasterScreen> {
   Widget _getScreenForIndex(int index) {
     switch (index) {
       case 0:
-        return const HomeScreen();
+        return HomeScreen(
+          routeObserver: _homeRouteObserver,
+          refreshSignal: _homeRefresh,
+        );
       case 1:
         return const SearchLocalesScreen();
       case 2:
@@ -76,6 +88,8 @@ class _MasterScreenState extends State<MasterScreen> {
     setState(() {
       _currentIndex = index;
     });
+
+    if (index == 0) _homeRefresh.value++;
 
     if (index == 3) {
       final userId = AuthProvider.currentUserId;

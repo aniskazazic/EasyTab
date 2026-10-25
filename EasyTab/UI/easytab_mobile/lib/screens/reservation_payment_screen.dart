@@ -3,6 +3,7 @@ import 'package:easytab_mobile/models/create_order_response.dart';
 import 'package:easytab_mobile/models/reservation_checkout_request.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/payment_provider.dart';
+import 'package:easytab_mobile/providers/recommendation_provider.dart';
 import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/screens/paypal_checkout_screen.dart';
 import 'package:flutter/material.dart';
@@ -76,6 +77,7 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
       _message = null;
     });
     final reservations = context.read<ReservationProvider>();
+    final recommendations = context.read<RecommendationProvider>();
     try {
       if (!confirmed &&
           !await confirmReservationPayment(context, widget.price)) {
@@ -107,6 +109,7 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
           'Naplata nije potvrđena. Provjerite status ponovnim pokušajem.',
         );
       }
+      recommendations.invalidate();
       if (mounted) {
         setState(() {
           _paid = true;

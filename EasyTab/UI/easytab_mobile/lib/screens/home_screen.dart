@@ -2,22 +2,31 @@ import 'package:easytab_mobile/models/category.dart';
 import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/providers/category_provider.dart';
 import 'package:easytab_mobile/providers/locale_provider.dart';
+import 'package:easytab_mobile/providers/recommendation_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/category_locales_screen.dart';
 import 'package:easytab_mobile/screens/locale_details_screen.dart';
+import 'package:easytab_mobile/widgets/recommended_locales_section.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final RouteObserver<ModalRoute<void>>? routeObserver;
+  final ValueListenable<int>? refreshSignal;
+
+  const HomeScreen({super.key, this.routeObserver, this.refreshSignal});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with RouteAware, WidgetsBindingObserver {
   late CategoryProvider _categoryProvider;
   late LocaleProvider _localeProvider;
+  late RecommendationProvider _recommendationProvider;
+  ModalRoute<void>? _route;
   bool _isLoading = true;
   Map<Category, List<model.Locale>> _groupedLocales = {};
   Map<int, MemoryImage> _logoImages = {};
@@ -27,7 +36,63 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _categoryProvider = context.read<CategoryProvider>();
     _localeProvider = context.read<LocaleProvider>();
-    _loadLocales();
+    _recommendationProvider = context.read<RecommendationProvider>();
+    widget.refreshSignal?.addListener(_refreshHome);
+    WidgetsBinding.instance.addObserver(this);
+    _loadHome();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of<void>(context);
+    if (route != null && route != _route) {
+      widget.routeObserver?.unsubscribe(this);
+      widget.routeObserver?.subscribe(this, route);
+      _route = route;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.refreshSignal != widget.refreshSignal) {
+      oldWidget.refreshSignal?.removeListener(_refreshHome);
+      widget.refreshSignal?.addListener(_refreshHome);
+    }
+    if (oldWidget.routeObserver != widget.routeObserver) {
+      oldWidget.routeObserver?.unsubscribe(this);
+      final route = _route;
+      if (route != null) widget.routeObserver?.subscribe(this, route);
+    }
+  }
+
+  @override
+  void didPopNext() => _refreshHome();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshHome();
+  }
+
+  void _refreshHome() {
+    _loadHome();
+  }
+
+  Future<void> _loadHome() async {
+    await Future.wait<void>([
+      _loadLocales(),
+      _recommendationProvider.refresh(),
+    ]);
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  @override
+  void dispose() {
+    widget.routeObserver?.unsubscribe(this);
+    widget.refreshSignal?.removeListener(_refreshHome);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   Future<void> _loadLocales() async {
@@ -74,36 +139,38 @@ class _HomeScreenState extends State<HomeScreen> {
         setState(() {
           _groupedLocales = grouped;
           _logoImages = logoImages;
-          _isLoading = false;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
       debugPrint('Error loading locales: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final recommendations = context.watch<RecommendationProvider>().items;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
-            : _groupedLocales.isEmpty
+            : _groupedLocales.isEmpty && recommendations.isEmpty
             ? _buildEmpty()
             : RefreshIndicator(
-                onRefresh: _loadLocales,
+                onRefresh: _loadHome,
                 child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(top: 20, bottom: 8),
-                  children: _groupedLocales.entries.map((entry) {
-                    return _CategoryCarousel(
-                      category: entry.key,
-                      locales: entry.value,
-                      logoImages: _logoImages,
-                      onLocaleOpened: _loadLocales,
-                    );
-                  }).toList(),
+                  children: [
+                    if (RecommendationProvider.isAvailable && recommendations.isNotEmpty)
+                      RecommendedLocalesSection(locales: recommendations),
+                    for (final entry in _groupedLocales.entries)
+                      _CategoryCarousel(
+                        category: entry.key,
+                        locales: entry.value,
+                        logoImages: _logoImages,
+                      ),
+                  ],
                 ),
               ),
       ),
@@ -131,13 +198,11 @@ class _CategoryCarousel extends StatefulWidget {
   final Category category;
   final List<model.Locale> locales;
   final Map<int, MemoryImage> logoImages;
-  final Future<void> Function() onLocaleOpened;
 
   const _CategoryCarousel({
     required this.category,
     required this.locales,
     required this.logoImages,
-    required this.onLocaleOpened,
   });
 
   @override
@@ -173,7 +238,7 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
                 ),
               ),
               TextButton(
-                onPressed: () => Navigator.push(
+                onPressed: () => Navigator.push<void>(
                   context,
                   MaterialPageRoute(
                     builder: (_) => CategoryLocalesScreen(
@@ -207,7 +272,6 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
               return _LocaleCard(
                 locale: widget.locales[index],
                 logoImage: widget.logoImages[widget.locales[index].id],
-                onLocaleOpened: widget.onLocaleOpened,
               );
             },
           ),
@@ -248,22 +312,19 @@ class _CategoryCarouselState extends State<_CategoryCarousel> {
 class _LocaleCard extends StatelessWidget {
   final model.Locale locale;
   final MemoryImage? logoImage;
-  final Future<void> Function() onLocaleOpened;
   const _LocaleCard({
     required this.locale,
     required this.logoImage,
-    required this.onLocaleOpened,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () async {
-        await Navigator.push(
+      onTap: () {
+        Navigator.push<void>(
           context,
           MaterialPageRoute(builder: (_) => LocaleDetailScreen(locale: locale)),
         );
-        await onLocaleOpened();
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 20),

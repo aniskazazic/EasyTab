@@ -10,6 +10,7 @@ import 'package:easytab_mobile/providers/localeimage_provider.dart';
 import 'package:easytab_mobile/providers/notification_provider.dart';
 import 'package:easytab_mobile/providers/owner_provider.dart';
 import 'package:easytab_mobile/providers/reaction_provider.dart';
+import 'package:easytab_mobile/providers/recommendation_provider.dart';
 import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/providers/review_provider.dart';
 import 'package:easytab_mobile/providers/table_provider.dart';
@@ -32,9 +33,18 @@ void main() {
         ChangeNotifierProvider(create: (_) => CountryProvider()),
         ChangeNotifierProvider(create: (_) => LocaleProvider()),
         ChangeNotifierProvider(create: (_) => LocaleImageProvider()),
-        ChangeNotifierProvider(create: (_) => ReviewProvider()),
+        ChangeNotifierProvider(create: (_) => RecommendationProvider()),
+        ChangeNotifierProvider(
+          create: (context) => ReviewProvider(
+            onInteractionChanged: context.read<RecommendationProvider>().invalidate,
+          ),
+        ),
         ChangeNotifierProvider(create: (_) => ReactionProvider()),
-        ChangeNotifierProvider(create: (_) => FavouriteProvider()),
+        ChangeNotifierProvider(
+          create: (context) => FavouriteProvider(
+            onInteractionChanged: context.read<RecommendationProvider>().invalidate,
+          ),
+        ),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => TableProvider()),
         ChangeNotifierProvider(create: (_) => ZoneProvider()),

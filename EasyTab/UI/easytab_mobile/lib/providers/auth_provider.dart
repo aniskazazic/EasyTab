@@ -41,6 +41,9 @@ class AuthProvider extends ChangeNotifier {
   static bool get isWorker =>
       currentUser?.userRoles?.any((r) => r.role?.name == 'Radnik') ?? false;
 
+  static bool get isCustomer =>
+      currentUser?.userRoles?.any((r) => r.role?.name == 'Korisnik') ?? false;
+
   AuthProvider() {
     _baseUrl = const String.fromEnvironment(
       "BASE_URL",

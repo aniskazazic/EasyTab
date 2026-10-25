@@ -6,7 +6,9 @@ import 'package:easytab_mobile/providers/base_provider.dart';
 import 'package:http/http.dart' as http;
 
 class ReviewProvider extends BaseProvider<Review> {
-  ReviewProvider() : super('Reviews');
+  final void Function()? onInteractionChanged;
+
+  ReviewProvider({this.onInteractionChanged}) : super('Reviews');
 
   @override
   Review fromJson(json) => Review.fromJson(json);
@@ -69,12 +71,14 @@ class ReviewProvider extends BaseProvider<Review> {
     required int rating,
     required String description,
   }) async {
-    return await insert({
+    final review = await insert({
       'localeId': localeId,
       'userId': userId,
       'rating': rating,
       'description': description,
     });
+    onInteractionChanged?.call();
+    return review;
   }
 
   Future<Review> editReview({
@@ -82,10 +86,12 @@ class ReviewProvider extends BaseProvider<Review> {
     required int rating,
     required String description,
   }) async {
-    return await update(reviewId, {
+    final review = await update(reviewId, {
       'rating': rating,
       'description': description,
     });
+    onInteractionChanged?.call();
+    return review;
   }
 
   Future<void> deleteReview(int reviewId) async {
@@ -98,5 +104,6 @@ class ReviewProvider extends BaseProvider<Review> {
     if (!isValidResponse(response)) {
       throw Exception('Greška pri brisanju recenzije');
     }
+    onInteractionChanged?.call();
   }
 }
