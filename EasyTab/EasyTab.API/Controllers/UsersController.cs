@@ -1,13 +1,10 @@
-﻿using Azure.Core;
 using EasyTab.API.Controllers.BaseControllers;
 using EasyTab.API.Filters;
 using EasyTab.Model;
-using EasyTab.Model.Access;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
 using EasyTab.Services.Interfaces;
-using EasyTab.Services.Services;
 using Microsoft.AspNetCore.Mvc;
 
 
@@ -21,6 +18,7 @@ namespace EasyTab.API.Controllers
         private readonly IUserService _userService;
         public UsersController(IUserService service) : base(service) { _userService = service; }
 
+        [Authorization(RoleNames.Admin)]
         public override Task<PagedResult<Users>> Get([FromQuery] UserSearchObject? search = null)
         {
             return base.Get(search);

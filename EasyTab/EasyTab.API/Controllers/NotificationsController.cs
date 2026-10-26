@@ -23,9 +23,9 @@ namespace EasyTab.API.Controllers
         /// Dohvata sve notifikacije za određenog korisnika
         /// </summary>
         [HttpGet]
-        public async Task<IActionResult> GetByUserId()
+        public async Task<IActionResult> GetByUserId([FromQuery] int page = 1, [FromQuery] int pageSize = 100)
         {
-            var notifications = await _notificationService.GetByUserIdAsync();
+            var notifications = await _notificationService.GetByUserIdAsync(page, pageSize);
             return Ok(notifications);
         }
 

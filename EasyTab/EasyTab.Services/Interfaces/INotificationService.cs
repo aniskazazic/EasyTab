@@ -6,7 +6,7 @@ namespace EasyTab.Services.Interfaces
 {
     public interface INotificationService
     {
-        Task<List<Notifications>> GetByUserIdAsync();
+        Task<List<Notifications>> GetByUserIdAsync(int page = 1, int pageSize = 100);
         Task<PagedResult<Notifications>> GetAllAsync(NotificationSearchObject search);
         Task MarkAsReadAsync(int notificationId);
         Task MarkAllAsReadAsync();

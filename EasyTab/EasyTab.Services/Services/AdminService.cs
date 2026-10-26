@@ -25,6 +25,8 @@ namespace EasyTab.Services.Services
         }
         public async Task<AdminLocalePageResponse> GetAllLocales(string? search, bool showDeleted, int page, int pageSize)
         {
+            page = Math.Max(page, 0);
+            pageSize = Math.Clamp(pageSize, 1, 100);
 
             var query = _db.Locales
                 .Include(l => l.City).ThenInclude(c => c.Country)
@@ -41,7 +43,7 @@ namespace EasyTab.Services.Services
 
             var result = await query
                 .OrderBy(c => c.Id)
-                .Skip(page * pageSize)
+                .Skip((int)Math.Min((long)page * pageSize, int.MaxValue))
                 .Take(pageSize)
                 .Select(c => new AdminLocaleListItemResponse
                 {

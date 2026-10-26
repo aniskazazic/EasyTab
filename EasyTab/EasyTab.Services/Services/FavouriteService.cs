@@ -134,8 +134,10 @@ namespace EasyTab.Services.Services
             return newResponse;
         }
 
-        public async Task<List<Favourites>> GetByUserAsync()
+        public async Task<List<Favourites>> GetByUserAsync(int page = 1, int pageSize = 100)
         {
+            page = Math.Max(page, 1);
+            pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
             var userId = _currentUser.UserId;
             _logger.LogDebug("Fetching favourites. UserId: {UserId}", userId);
             var favouriteList = await Context.Favourites
@@ -144,6 +146,10 @@ namespace EasyTab.Services.Services
                            .Include(f => f.Locale)
                              .ThenInclude(l => l.City)
                            .Where(f => f.UserId == userId && f.IsActive)
+                           .OrderByDescending(f => f.DateAdded)
+                           .ThenByDescending(f => f.Id)
+                           .Skip((int)Math.Min(((long)page - 1) * pageSize, int.MaxValue))
+                           .Take(pageSize)
                            .ToListAsync();
 
             var result = favouriteList.Select(x =>

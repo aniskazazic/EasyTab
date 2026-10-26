@@ -262,14 +262,19 @@ namespace EasyTab.Services.Services
             return counts;
         }
 
-        public async Task<List<Reviews>> GetByLocaleId(int localeId)
+        public async Task<List<Reviews>> GetByLocaleId(int localeId, int page = 1, int pageSize = 100)
         {
+            page = Math.Max(page, 1);
+            pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
             var entities = await Context.Reviews
                 .Include(r => r.User)
                 .Include(r => r.Locale)
                 .Include(r => r.Reactions)
                 .Where(r => r.LocaleId == localeId && !r.IsDeleted)
                 .OrderByDescending(r => r.DateAdded)
+                .ThenByDescending(r => r.Id)
+                .Skip((int)Math.Min(((long)page - 1) * pageSize, int.MaxValue))
+                .Take(pageSize)
                 .ToListAsync();
 
             var dtos = entities.Select(e => MapToResponse(e)).ToList();

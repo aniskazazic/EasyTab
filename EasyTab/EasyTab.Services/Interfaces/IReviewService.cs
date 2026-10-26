@@ -17,6 +17,6 @@ namespace EasyTab.Services.Interfaces
         Task<ReviewAverage> GetAverageRatingAsync(int localeId);
         Task<ReviewRatingCount> GetRatingCountsAsync(int localeId);
 
-        Task<List<Reviews>> GetByLocaleId(int localeId);
+        Task<List<Reviews>> GetByLocaleId(int localeId, int page = 1, int pageSize = 100);
     }
 }

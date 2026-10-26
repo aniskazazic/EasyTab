@@ -4,7 +4,6 @@ using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.Interfaces;
-using EasyTab.Services.Services;
 using Microsoft.AspNetCore.Mvc;
 using EasyTab.Model;
 
@@ -12,7 +11,7 @@ namespace EasyTab.API.Controllers
 {
     [ApiController]
     [Route("[controller]")]
-    public class ReservationsController : BaseCRUDController<Reservations, ReservationSearchObject, ReservationInsertRequest, ReservationUpdateRequest>
+    public class ReservationsController : BaseController<Reservations, ReservationSearchObject>
     {
         private readonly IReservationService _reservationService;
         public ReservationsController(IReservationService service) : base(service)
@@ -20,14 +19,10 @@ namespace EasyTab.API.Controllers
             _reservationService = service;
         }
 
+        [HttpPost]
         [Authorization]
-        public override Task<Reservations> Create([FromBody] ReservationInsertRequest request) => base.Create(request);
-
-        [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
-        public override Task<Reservations?> Update(int id, [FromBody] ReservationUpdateRequest request) => base.Update(id, request);
-
-        [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
-        public override Task<bool> Delete(int id) => base.Delete(id);
+        public Task<Reservations> Create([FromBody] ReservationInsertRequest request)
+            => _reservationService.CreateAsync(request);
 
         [HttpGet("payment-summary")]
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]

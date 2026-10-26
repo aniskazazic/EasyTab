@@ -21,12 +21,17 @@ namespace EasyTab.Services.Services
             _currentUser = currentUser;
         }
 
-        public async Task<List<Notifications>> GetByUserIdAsync()
+        public async Task<List<Notifications>> GetByUserIdAsync(int page = 1, int pageSize = 100)
         {
+            page = Math.Max(page, 1);
+            pageSize = Math.Clamp(pageSize, 1, 100);
             var userId = _currentUser.UserId;
             var notifications = await _context.Notifications
                 .Where(n => n.UserId == userId)
                 .OrderByDescending(n => n.CreatedAt)
+                .ThenByDescending(n => n.Id)
+                .Skip((int)Math.Min(((long)page - 1) * pageSize, int.MaxValue))
+                .Take(pageSize)
                 .ToListAsync();
 
             return _mapper.Map<List<Notifications>>(notifications);

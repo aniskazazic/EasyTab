@@ -1,9 +1,7 @@
 using EasyTab.Model.Exceptions;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using EasyTab.Model;
 
 namespace EasyTab.Services.Services
@@ -11,17 +9,31 @@ namespace EasyTab.Services.Services
     public class LocaleAccessService : ILocaleAccessService
     {
         private readonly _220030Context _context;
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ICurrentUserService _currentUser;
 
-        public LocaleAccessService(_220030Context context, IHttpContextAccessor httpContextAccessor)
+        public LocaleAccessService(_220030Context context, ICurrentUserService currentUser)
         {
             _context = context;
-            _httpContextAccessor = httpContextAccessor;
+            _currentUser = currentUser;
         }
 
         public Task EnsureCanManageLocaleAsync(int localeId)
         {
             return EnsureAccessAsync(localeId, allowWorker: true);
+        }
+
+        public IQueryable<int> GetAccessibleLocaleIds()
+        {
+            var locales = _context.Locales.AsNoTracking();
+            if (_currentUser.IsAdmin)
+                return locales.Select(locale => locale.Id);
+
+            var userId = _currentUser.UserId;
+            return locales.Where(locale =>
+                (_currentUser.Role == RoleNames.Vlasnik && locale.OwnerId == userId) ||
+                (_currentUser.Role == RoleNames.Radnik && locale.Workers.Any(worker =>
+                    worker.UserId == userId && !worker.IsDeleted)))
+                .Select(locale => locale.Id);
         }
 
         public Task EnsureCanManageLocaleAsOwnerAsync(int localeId)
@@ -49,17 +61,10 @@ namespace EasyTab.Services.Services
 
         private async Task EnsureAccessAsync(int localeId, bool allowWorker)
         {
-            var user = _httpContextAccessor.HttpContext?.User;
-            var userIdValue = user?.FindFirst("Id")?.Value
-                ?? user?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = _currentUser.UserId;
+            var role = _currentUser.Role;
 
-            if (!int.TryParse(userIdValue, out var userId))
-                throw new UnauthorizedAccessException("Korisnički identitet nije pronađen u tokenu.");
-
-            var role = user?.FindFirst("Role")?.Value
-                ?? user?.FindFirst(ClaimTypes.Role)?.Value;
-
-            if (role == RoleNames.Admin)
+            if (_currentUser.IsAdmin)
                 return;
 
             var isOwner = role == RoleNames.Vlasnik && await _context.Locales
@@ -69,7 +74,7 @@ namespace EasyTab.Services.Services
                 .AnyAsync(worker => worker.LocaleId == localeId && worker.UserId == userId && !worker.IsDeleted);
 
             if (!isOwner && !isWorker)
-                throw new UserException("Nemate dozvolu za upravljanje ovim lokalom.");
+                throw new ForbiddenException("Nemate dozvolu za upravljanje ovim lokalom.");
         }
     }
 }

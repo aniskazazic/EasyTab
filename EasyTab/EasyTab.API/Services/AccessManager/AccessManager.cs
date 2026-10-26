@@ -35,7 +35,7 @@ namespace EasyTab.API.Services.AccessManager
 
             var user = await _userService.GetByUsernameAsync(request.Username);
 
-            if (user == null || !_cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password))
+            if (user == null || user.IsDeleted || !_cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password))
             {
                 throw new UserException("Pogrešno korisničko ime ili lozinka.");
             }

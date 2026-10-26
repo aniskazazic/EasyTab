@@ -73,8 +73,6 @@ namespace EasyTab.Services.Services
                 request.ContentType,
                 nameof(request.Base64Content));
 
-            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(entity.LocaleId);
-            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             // Provjera da li lokal postoji
             var localeExists = await Context.Locales.AnyAsync(x => x.Id == request.LocaleId);
             if (!localeExists)
@@ -83,6 +81,17 @@ namespace EasyTab.Services.Services
             }
 
             await Task.CompletedTask;
+        }
+
+        public override async Task<LocaleImages?> UpdateAsync(int id, LocaleImageUpdateRequest request)
+        {
+            var image = await Context.LocaleImages.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id)
+                ?? throw new NotFoundException("Slika lokala nije pronađena.");
+
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(image.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
+
+            return await base.UpdateAsync(id, request);
         }
 
         public override async Task<bool> DeleteAsync(int id)

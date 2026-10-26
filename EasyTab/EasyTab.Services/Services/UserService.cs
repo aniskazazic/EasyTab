@@ -29,6 +29,7 @@ namespace EasyTab.Services.Services
         private readonly IValidator<ForgotPasswordRequest> _forgotPasswordValidator;
         private readonly IValidator<ResetPasswordRequest> _resetPasswordValidator;
         private readonly IValidator<UserPasswordChangeRequest> _changePasswordValidator;
+        private readonly ICurrentUserService _currentUser;
 
         public UserService(
             _220030Context context,
@@ -41,7 +42,8 @@ namespace EasyTab.Services.Services
             IHttpContextAccessor httpContextAccessor,
             IValidator<ForgotPasswordRequest> forgotPasswordValidator,
             IValidator<ResetPasswordRequest> resetPasswordValidator,
-            IValidator<UserPasswordChangeRequest> changePasswordValidator)
+            IValidator<UserPasswordChangeRequest> changePasswordValidator,
+            ICurrentUserService currentUser)
             : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
@@ -51,6 +53,7 @@ namespace EasyTab.Services.Services
             _forgotPasswordValidator = forgotPasswordValidator;
             _resetPasswordValidator = resetPasswordValidator;
             _changePasswordValidator = changePasswordValidator;
+            _currentUser = currentUser;
         }
 
         protected override IQueryable<User> ApplyFilter(IQueryable<User> query, UserSearchObject? searchObject)
@@ -94,11 +97,22 @@ namespace EasyTab.Services.Services
 
         public override async Task<PagedResult<Users>> GetAsync(UserSearchObject search)
         {
+            if (!_currentUser.IsAdmin)
+                throw new ForbiddenException("Nemate dozvolu za pregled korisnika.");
+
             var result = await base.GetAsync(search);
             foreach (var user in result.Items)
                 user.ProfilePicture = null;
 
             return result;
+        }
+
+        public override Task<Users?> GetByIdAsync(int id)
+        {
+            if (!_currentUser.IsAdmin && _currentUser.UserId != id)
+                throw new ForbiddenException("Nemate dozvolu za pregled drugog korisnika.");
+
+            return base.GetByIdAsync(id);
         }
 
         public override async Task<Users> CreateAsync(UserInsertRequest request)

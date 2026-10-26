@@ -15,6 +15,6 @@ namespace EasyTab.Services.Interfaces
         Task<Favourites> AddToFavouritesAsync(int localeId);
         Task RemoveFromFavouritesAsync(int localeId);
         Task<bool> IsFavouritedAsync(int localeId);
-        Task<List<Favourites>> GetByUserAsync();
+        Task<List<Favourites>> GetByUserAsync(int page = 1, int pageSize = 100);
     }
 }

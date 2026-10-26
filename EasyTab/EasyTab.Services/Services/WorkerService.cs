@@ -11,7 +11,6 @@ using EasyTab.Services.Validators;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,14 +21,14 @@ namespace EasyTab.Services.Services
     public class WorkerService : BaseCRUDService<Workers, WorkerSearchObject, Worker, WorkerInsertRequest, WorkerUpdateRequest>, IWorkerService
     {
         private readonly ICryptoService _cryptoService;
-        private readonly ILogger<WorkerService> _logger;
         private readonly ILocaleAccessService _localeAccessService;
+        private readonly ICurrentUserService _currentUser;
 
-        public WorkerService(_220030Context context, IMapper mapper, ILogger<WorkerService> logger, ICryptoService cryptoService, IValidator<WorkerInsertRequest> insertValidator, IValidator<WorkerUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) : base(context, mapper,insertValidator,updateValidator)
+        public WorkerService(_220030Context context, IMapper mapper, ICryptoService cryptoService, IValidator<WorkerInsertRequest> insertValidator, IValidator<WorkerUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser) : base(context, mapper,insertValidator,updateValidator)
         {
             _cryptoService = cryptoService;
-            _logger = logger;
             _localeAccessService = localeAccessService;
+            _currentUser = currentUser;
         }
 
         protected override IQueryable<Worker> ApplyFilter(IQueryable<Worker> query, WorkerSearchObject? search)
@@ -38,6 +37,9 @@ namespace EasyTab.Services.Services
                          .Include(x => x.Locale);
 
             query = query.Where(x => !x.IsDeleted);
+
+            var localeIds = _localeAccessService.GetAccessibleLocaleIds();
+            query = query.Where(worker => localeIds.Contains(worker.LocaleId));
 
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.LocaleId == search.LocaleId);
@@ -89,14 +91,15 @@ namespace EasyTab.Services.Services
 
         public override async Task<Workers> CreateAsync(WorkerInsertRequest request)
         {
+            await _insertValidator.ValidateAndThrowAsync(request);
             ImageContentValidator.ValidateOptionalImage(
                 request.ProfilePicture,
                 nameof(request.ProfilePicture));
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
 
-            var existingUser = Context.Users
-                .FirstOrDefault(x => x.Email == request.Email || x.Username == request.Username);
+            var existingUser = await Context.Users
+                .FirstOrDefaultAsync(x => x.Email == request.Email || x.Username == request.Username);
 
             if (existingUser != null)
                 throw new UserException("Korisnik sa ovim emailom ili korisničkim imenom već postoji!");
@@ -132,7 +135,7 @@ namespace EasyTab.Services.Services
             Context.Workers.Add(worker);
 
 
-            if (request.RoleIds != null && request.RoleIds.Any())
+            if (_currentUser.IsAdmin && request.RoleIds != null && request.RoleIds.Any())
             {
                 foreach (var roleId in request.RoleIds)
                 {
@@ -148,15 +151,13 @@ namespace EasyTab.Services.Services
             }
             else
             {
-                var workerRole = Context.Roles.FirstOrDefault(r => r.Name == RoleNames.Radnik);
-                if (workerRole != null)
+                var workerRole = await Context.Roles.FirstOrDefaultAsync(r => r.Name == RoleNames.Radnik)
+                    ?? throw new UserException("Rola radnika nije pronađena.");
+                Context.UserRoles.Add(new UserRole
                 {
-                    Context.UserRoles.Add(new UserRole
-                    {
-                        User = user,
-                        RoleId = workerRole.Id
-                    });
-                }
+                    User = user,
+                    RoleId = workerRole.Id
+                });
             }
 
             await Context.SaveChangesAsync();
@@ -191,6 +192,8 @@ namespace EasyTab.Services.Services
             if (worker == null) return null;
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(worker.LocaleId);
+
+            await _updateValidator.ValidateAndThrowAsync(request);
 
             var user = worker.User;
 
@@ -238,17 +241,11 @@ namespace EasyTab.Services.Services
                 .AsNoTracking()
                 .FirstOrDefaultAsync(x => x.Id == id);
 
-            return worker == null ? null : MapToResponse(worker);
-        }
+            if (worker == null)
+                return null;
 
-        protected override async Task BeforeInsert(Worker entity, WorkerInsertRequest request)
-        {
-            await Task.CompletedTask;
-        }
-
-        protected override async Task BeforeUpdate(Worker entity, WorkerUpdateRequest request)
-        {
-            await Task.CompletedTask;
+            await _localeAccessService.EnsureCanManageLocaleAsync(worker.LocaleId);
+            return MapToResponse(worker);
         }
 
         public override async Task<bool> DeleteAsync(int id)

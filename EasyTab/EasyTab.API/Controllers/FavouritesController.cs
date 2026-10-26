@@ -40,9 +40,9 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpGet("by-user/")]
-        public async Task<IActionResult> GetByUser()
+        public async Task<IActionResult> GetByUser([FromQuery] int page = 1, [FromQuery] int pageSize = 100)
         {
-            var result = await _favouriteService.GetByUserAsync();
+            var result = await _favouriteService.GetByUserAsync(page, pageSize);
             return Ok(result);
         }
     }

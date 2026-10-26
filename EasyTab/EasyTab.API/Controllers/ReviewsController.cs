@@ -50,9 +50,9 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpGet("by-locale/{localeId}")]
-        public async Task<IActionResult> GetReviewsByLocaleId(int localeId)
+        public async Task<IActionResult> GetReviewsByLocaleId(int localeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 100)
         {
-            var reviews = await _reviewService.GetByLocaleId(localeId);
+            var reviews = await _reviewService.GetByLocaleId(localeId, page, pageSize);
             return Ok(reviews);
         }
     }
