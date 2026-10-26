@@ -11,8 +11,8 @@ class ReservationPriceField extends StatelessWidget {
       return '$formatMessage (najviše 2 decimale).';
     }
     final price = double.tryParse(normalized);
-    if (price == null || !price.isFinite || price < 0.05 || price > 1000) {
-      return 'Cijena mora biti od 0.05 do 1000 KM. $formatMessage.';
+    if (price == null || !price.isFinite || price < 1 || price > 100) {
+      return 'Cijena mora biti od 1 do 100 KM. $formatMessage.';
     }
     return null;
   }
@@ -26,7 +26,7 @@ class ReservationPriceField extends StatelessWidget {
         labelText: 'Cijena rezervacije (KM)',
         hintText: 'Unesite iznos u KM, npr. 5.00',
         helperText:
-            'Cijena se naplaćuje pri rezervaciji. Promjena cijene ne utiče na već plaćene rezervacije.',
+            'Dozvoljeni iznos: 1–100 KM. Cijena se naplaćuje pri rezervaciji. Promjena ne utiče na već plaćene rezervacije.',
         helperMaxLines: 3,
         errorMaxLines: 3,
         border: OutlineInputBorder(),

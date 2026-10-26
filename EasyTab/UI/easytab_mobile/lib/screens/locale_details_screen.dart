@@ -735,23 +735,27 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                'Galerija lokala',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
+              const Expanded(
+                child: Text(
+                  'Galerija lokala',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
-              TextButton(
-                onPressed: hasImages ? _openGallery : null,
-                child: Text(
-                  'Prikaži sve',
-                  style: TextStyle(
-                    color: hasImages
-                        ? const Color(0xFF1E40AF)
-                        : Colors.grey.shade400,
-                    fontSize: 13,
+              Flexible(
+                child: TextButton(
+                  onPressed: hasImages ? _openGallery : null,
+                  child: Text(
+                    'Prikaži sve',
+                    style: TextStyle(
+                      color: hasImages
+                          ? const Color(0xFF1E40AF)
+                          : Colors.grey.shade400,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ),
@@ -806,13 +810,15 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   Widget _buildGalleryEmptyState() {
     return Container(
       width: double.infinity,
-      height: 110,
+      constraints: const BoxConstraints(minHeight: 110),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
@@ -823,6 +829,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
           const SizedBox(height: 8),
           Text(
             'Galerija nije dostupna jer lokal nema slika.',
+            textAlign: TextAlign.center,
             style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
           ),
         ],
@@ -840,7 +847,7 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
   }
 
   Widget _buildRatingsSection() {
-    final total = _reviews.length;
+    final total = _reviewTotalCount;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -868,10 +875,9 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                 ),
               ],
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final summary = Column(
                   children: [
                     Text(
                       _averageRating.toStringAsFixed(2),
@@ -891,44 +897,60 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
                       ),
                     ),
                   ],
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    children: _ratingCounts.entries.map((entry) {
-                      final pct = total > 0 ? entry.value / total : 0.0;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 3),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 58,
-                              child: Text(
-                                entry.key,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade500,
-                                ),
+                );
+                final distribution = Column(
+                  children: _ratingCounts.entries.map((entry) {
+                    final pct = total > 0 ? entry.value / total : 0.0;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 58,
+                            child: Text(
+                              entry.key,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade500,
                               ),
                             ),
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  value: pct.toDouble(),
-                                  backgroundColor: Colors.grey.shade200,
-                                  color: _barColor(entry.key),
-                                  minHeight: 8,
-                                ),
+                          ),
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: LinearProgressIndicator(
+                                value: pct.toDouble(),
+                                backgroundColor: Colors.grey.shade200,
+                                color: _barColor(entry.key),
+                                minHeight: 8,
                               ),
                             ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                );
+                if (constraints.maxWidth < 330 ||
+                    MediaQuery.textScalerOf(context).scale(12) > 16) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      summary,
+                      const SizedBox(height: 16),
+                      distribution,
+                    ],
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    summary,
+                    const SizedBox(width: 20),
+                    Expanded(child: distribution),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -957,68 +979,72 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            spacing: 12,
-            runSpacing: 8,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Recenzije gostiju',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF0F172A),
+              const Expanded(
+                child: Text(
+                  'Recenzije gostiju',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
+              const SizedBox(width: 12),
               if (!_hasUserReview)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _canReview ? () => _goToAddReview() : null,
-                      icon: const Icon(Icons.edit_outlined, size: 14),
-                      label: const Text(
-                        'Napiši recenziju',
-                        style: TextStyle(fontSize: 12),
-                      ),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _canReview
-                            ? const Color(0xFF1E40AF)
-                            : Colors.grey,
-                        side: BorderSide(
-                          color: _canReview
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _canReview ? () => _goToAddReview() : null,
+                        icon: const Icon(Icons.edit_outlined, size: 14),
+                        label: const Text(
+                          'Napiši recenziju',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: _canReview
                               ? const Color(0xFF1E40AF)
                               : Colors.grey,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                    if (_isCheckingReviewEligibility)
-                      const Text('Provjera uslova za recenziju…'),
-                    if (!_isCheckingReviewEligibility &&
-                        !_canReview &&
-                        _reviewEligibilityReason != null)
-                      SizedBox(
-                        width: 190,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            _reviewEligibilityReason!,
-                            textAlign: TextAlign.end,
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey.shade600,
-                            ),
+                          side: BorderSide(
+                            color: _canReview
+                                ? const Color(0xFF1E40AF)
+                                : Colors.grey,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
                         ),
                       ),
-                  ],
+                      if (_isCheckingReviewEligibility)
+                        const Text('Provjera uslova za recenziju…'),
+                      if (!_isCheckingReviewEligibility &&
+                          !_canReview &&
+                          _reviewEligibilityReason != null)
+                        SizedBox(
+                          width: 190,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              _reviewEligibilityReason!,
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
             ],
           ),

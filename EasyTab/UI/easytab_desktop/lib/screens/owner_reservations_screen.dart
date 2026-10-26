@@ -5,6 +5,7 @@ import 'package:easytab_desktop/providers/notification_provider.dart';
 import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
+import 'package:easytab_desktop/widgets/cancellation_reason_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -291,76 +292,21 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   Future<void> _cancelReservation(Reservation reservation) async {
     if (reservation.id == null || _cancelling.contains(reservation.id)) return;
 
-    final reasonController = TextEditingController();
-
-    final confirmed = await showDialog<bool>(
+    final reason = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Expanded(child: Text('Otkaži rezervaciju')),
-            IconButton(
-              tooltip: 'Zatvori',
-              onPressed: () => Navigator.pop(ctx, false),
-              icon: const Icon(Icons.close),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Unesite razlog otkazivanja rezervacije za stol "${reservation.tableName ?? 'Stol'}":',
-            ),
-            if (reservation.isPaid)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(
-                  'Otkazivanjem slijedi povrat ${reservation.paidAmountKm?.toStringAsFixed(2) ?? "-"} KM korisniku.',
-                ),
-              ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(
-                hintText: 'Npr. Popunjen kapacitet, radovi u lokalu...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 2,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Odustani'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text(
-              'Otkaži rezervaciju',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
+      builder: (_) => CancellationReasonDialog(
+        description:
+            'Unesite razlog otkazivanja rezervacije za stol "${reservation.tableName ?? 'Stol'}":',
+        hint: 'Npr. Popunjen kapacitet, radovi u lokalu...',
+        refundMessage: reservation.isPaid
+            ? 'Otkazivanjem slijedi povrat ${reservation.paidAmountKm?.toStringAsFixed(2) ?? "-"} KM korisniku.'
+            : null,
       ),
     );
-
-    if (confirmed != true) {
-      reasonController.dispose();
-      return;
-    }
-
-    final reason = reasonController.text.trim().isNotEmpty
-        ? reasonController.text.trim()
-        : 'Otkazano od strane vlasnika';
-
+    if (!mounted || reason == null) return;
     try {
       setState(() => _cancelling.add(reservation.id!));
       await _reservationProvider.cancelReservation(reservation.id!, reason);
-      reasonController.dispose();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -375,7 +321,6 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
         _loadReservations();
       }
     } catch (e) {
-      reasonController.dispose();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

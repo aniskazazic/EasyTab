@@ -7,6 +7,8 @@ import 'package:easytab_mobile/screens/reservation_payment_screen.dart';
 import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class ReservationDetailsScreen extends StatefulWidget {
   final model.Locale locale;
@@ -32,8 +34,9 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
   List<TimeSlot> _slots = [];
   bool _slotsLoading = false;
   String? _slotsError;
+  int _slotRequestVersion = 0;
 
-  final ReservationProvider _reservationProvider = ReservationProvider();
+  late ReservationProvider _reservationProvider;
 
   model.Locale get locale => widget.locale;
   Tables get table => widget.selectedTable;
@@ -41,16 +44,12 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
   @override
   void initState() {
     super.initState();
+    _reservationProvider = context.read<ReservationProvider>();
     _loadSlots();
   }
 
-  @override
-  void dispose() {
-    _reservationProvider.dispose();
-    super.dispose();
-  }
-
   Future<void> _loadSlots() async {
+    final version = ++_slotRequestVersion;
     final tableId = table.id;
     if (tableId == null) return;
 
@@ -58,6 +57,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
       _slotsLoading = true;
       _slotsError = null;
       _selectedSlotIndex = null;
+      _slots = [];
     });
 
     try {
@@ -65,15 +65,15 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
         tableId,
         _selectedDate,
       );
-      if (!mounted) return;
+      if (!mounted || version != _slotRequestVersion) return;
       setState(() {
         _slots = slots;
         _slotsLoading = false;
       });
-    } catch (_) {
-      if (!mounted) return;
+    } catch (e) {
+      if (!mounted || version != _slotRequestVersion) return;
       setState(() {
-        _slotsError = 'Greška pri učitavanju termina.';
+        _slotsError = userError(e);
         _slotsLoading = false;
       });
     }
@@ -99,7 +99,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
         );
       },
     );
-    if (picked != null && picked != _selectedDate) {
+    if (mounted && picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
         _selectedSlotIndex = null;
@@ -135,6 +135,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
             request: request,
             price: locale.reservationPrice!,
             localeName: locale.name ?? 'Rezervacija',
+            localeLogo: locale.logo,
           ),
         ),
       );
@@ -152,27 +153,30 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (table.id == null || locale.id == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Rezervacija')),
+        body: const Center(
+          child: Text(
+            'Stol ili lokal nije dostupan. Vratite se na izbor stola.',
+          ),
+        ),
+      );
+    }
     return PopScope(
       canPop: !_isProcessing,
       child: Scaffold(
         backgroundColor: const Color(0xFFF5F7FA),
-        body: Column(
-          children: [
-            _buildHeader(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.only(bottom: 110),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTableInfoBanner(),
-                    _buildDateAndGuestsSection(),
-                    _buildTimeSlotsSection(),
-                  ],
-                ),
-              ),
-            ),
-          ],
+        body: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              _buildTableInfoBanner(),
+              _buildDateAndGuestsSection(),
+              _buildTimeSlotsSection(),
+            ],
+          ),
         ),
         bottomNavigationBar: _buildPayButton(),
       ),
@@ -205,25 +209,27 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Rezervišite - "${table.name ?? 'Stol'}"',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rezervišite - "${table.name ?? 'Stol'}"',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  Text(
-                    locale.name ?? '',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.85),
-                      fontSize: 13.5,
+                    Text(
+                      locale.name ?? '',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.85),
+                        fontSize: 13.5,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -320,68 +326,59 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
   }
 
   Widget _buildDateAndGuestsSection() {
-    final guestsText = _fmtGuestCount(table.numberOfGuests);
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Column(
         children: [
-          Expanded(
-            child: _SectionCard(
-              label: 'Datum',
-              child: GestureDetector(
-                onTap: _isProcessing ? null : _pickDate,
-                behavior: HitTestBehavior.opaque,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.calendar_today_outlined,
-                      size: 20,
-                      color: Color(0xFF1E40AF),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      formatDateOnly(_selectedDate),
-                      style: const TextStyle(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF0F172A),
-                      ),
-                    ),
-                    const Icon(
-                      Icons.arrow_drop_down_rounded,
-                      color: Color(0xFF64748B),
-                      size: 22,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SectionCard(
-              label: 'Broj gostiju',
+          _SectionCard(
+            label: 'Datum',
+            child: InkWell(
+              onTap: _isProcessing ? null : _pickDate,
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.people_outline,
+                    Icons.calendar_today_outlined,
                     size: 20,
                     color: Color(0xFF1E40AF),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    guestsText,
+                  Expanded(
+                    child: Text(
+                      formatDateOnly(_selectedDate),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 16.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_drop_down_rounded),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SectionCard(
+            label: 'Broj gostiju',
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.people_outline,
+                  size: 20,
+                  color: Color(0xFF1E40AF),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _fmtGuestCount(table.numberOfGuests),
+                    textAlign: TextAlign.center,
                     style: const TextStyle(
                       fontSize: 16.5,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -420,11 +417,11 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _slots.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: MediaQuery.sizeOf(context).width < 380 ? 2 : 3,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                childAspectRatio: 2.2,
+                mainAxisExtent: MediaQuery.textScalerOf(context).scale(48),
               ),
               itemBuilder: (context, i) {
                 final slot = _slots[i];
@@ -585,13 +582,15 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            locale.reservationPrice == null
-                ? 'Cijena nije dostupna; plaćanje je onemogućeno.'
+            (locale.reservationPrice ?? 0) <= 0
+                ? 'Cijena nije dostupna ili nije veća od 0 KM; plaćanje je onemogućeno.'
                 : 'Cijena: ${locale.reservationPrice!.toStringAsFixed(2)} KM',
           ),
           const Text(paymentCurrencyNote, textAlign: TextAlign.center),
           if (_selectedSlotIndex == null)
             const Text('Odaberite termin za plaćanje.'),
+          if (_isProcessing)
+            const Text('Obrada zahtjeva je u toku. Molimo sačekajte.'),
         ],
       ),
     );
@@ -632,7 +631,10 @@ class _SectionCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          SizedBox(height: 30, child: child),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 30),
+            child: child,
+          ),
         ],
       ),
     );

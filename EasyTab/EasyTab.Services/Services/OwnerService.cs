@@ -139,7 +139,10 @@ namespace EasyTab.Services.Services
                 .AsQueryable();
 
             var isOwner = await _db.Locales.AnyAsync(l => l.OwnerId == userId);
-            var worker = await _db.Workers.FirstOrDefaultAsync(w => w.UserId == userId);
+            var worker = await _db.Workers.FirstOrDefaultAsync(w => w.UserId == userId && !w.IsDeleted);
+
+            if (!isOwner && worker == null)
+                throw new ForbiddenException("Niste dodijeljeni lokalu. Obratite se vlasniku lokala.");
 
             if (isOwner)
                 query = query.Where(x => x.ReservationDate.Date == selectedDate &&

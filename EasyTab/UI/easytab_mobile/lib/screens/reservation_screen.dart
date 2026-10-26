@@ -7,6 +7,7 @@ import 'package:easytab_mobile/providers/zone_provider.dart';
 import 'package:easytab_mobile/screens/reservation_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class ReservationScreen extends StatefulWidget {
   final model.Locale locale;
@@ -33,6 +34,14 @@ class _ReservationScreenState extends State<ReservationScreen> {
   static const double _tableSize = 80.0;
 
   model.Locale get locale => widget.locale;
+  String? get _unavailableReason =>
+      _selectedTable?.id == null ||
+          (locale.lengthOfReservation ?? 0) <= 0 ||
+          locale.startOfWorkingHours == null ||
+          locale.endOfWorkingHours == null ||
+          (locale.reservationPrice ?? 0) <= 0
+      ? 'Rezervacija nije dostupna: nedostaju podaci stola, radno vrijeme, trajanje ili cijena rezervacije.'
+      : null;
 
   @override
   void initState() {
@@ -43,7 +52,13 @@ class _ReservationScreenState extends State<ReservationScreen> {
   }
 
   Future<void> _loadData() async {
-    if (locale.id == null) return;
+    if (locale.id == null) {
+      setState(() {
+        _isLoading = false;
+        _error = 'Lokal nije dostupan. Vratite se na pregled lokala.';
+      });
+      return;
+    }
     setState(() {
       _isLoading = true;
       _error = null;
@@ -57,11 +72,15 @@ class _ReservationScreenState extends State<ReservationScreen> {
         setState(() {
           _tables = results[0] as List<Tables>;
           _zones = results[1] as List<Zone>;
+          _selectedTable = null;
+          if (_tables.isEmpty) {
+            _error = 'Lokal nema postavljenih stolova za rezervaciju.';
+          }
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _error = 'Greška pri učitavanju podataka.');
+        setState(() => _error = userError(e));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -79,6 +98,10 @@ class _ReservationScreenState extends State<ReservationScreen> {
 
   void _proceedToDetails() {
     if (_selectedTable == null) return;
+    if (_unavailableReason != null) {
+      showFeedback(context, _unavailableReason!, error: true);
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -148,13 +171,15 @@ class _ReservationScreenState extends State<ReservationScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Text(
-                'Rezervišite stol',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2,
+              const Expanded(
+                child: Text(
+                  'Rezervišite stol',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
                 ),
               ),
             ],
@@ -275,9 +300,7 @@ class _ReservationScreenState extends State<ReservationScreen> {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: _tables.isEmpty && _zones.isEmpty
-                  ? _buildEmptyFloorPlan()
-                  : _buildFloorPlan(),
+              child: _buildFloorPlan(),
             ),
           ),
           if (_selectedTable != null) ...[
@@ -305,30 +328,6 @@ class _ReservationScreenState extends State<ReservationScreen> {
         Icons.table_restaurant,
         size: size * 0.55,
         color: const Color(0xFF3B82F6),
-      ),
-    );
-  }
-
-  Widget _buildEmptyFloorPlan() {
-    return Container(
-      height: 280,
-      color: const Color(0xFFF8FAFC),
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.table_restaurant_outlined,
-              size: 48,
-              color: Color(0xFFCBD5E1),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'Nema postavljenih stolova',
-              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -440,7 +439,9 @@ class _ReservationScreenState extends State<ReservationScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _tableImage(table.numberOfGuests, _tableSize - 16),
+                  Expanded(
+                    child: _tableImage(table.numberOfGuests, _tableSize - 16),
+                  ),
                   if ((table.name ?? '').isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -591,35 +592,43 @@ class _ReservationScreenState extends State<ReservationScreen> {
         20,
         MediaQuery.of(context).padding.bottom + 12,
       ),
-      child: ElevatedButton(
-        onPressed: _proceedToDetails,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1E40AF),
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          elevation: 0,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Odaberi termin',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_unavailableReason != null)
+            Text(_unavailableReason!, textAlign: TextAlign.center),
+          ElevatedButton(
+            onPressed: _unavailableReason == null ? _proceedToDetails : null,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
               ),
+              elevation: 0,
             ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.arrow_forward_rounded,
-              color: Colors.white,
-              size: 18,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text(
+                  'Odaberi termin',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.arrow_forward_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

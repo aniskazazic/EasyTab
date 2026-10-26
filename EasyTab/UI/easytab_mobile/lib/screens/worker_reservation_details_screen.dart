@@ -2,6 +2,8 @@ import 'package:easytab_mobile/models/reservation.dart';
 import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class WorkerReservationDetailsScreen extends StatefulWidget {
   final Reservation reservation;
@@ -16,22 +18,37 @@ class WorkerReservationDetailsScreen extends StatefulWidget {
 class _WorkerReservationDetailsScreenState
     extends State<WorkerReservationDetailsScreen> {
   static const _blue = Color(0xFF1E40AF);
-  late final Future<Reservation> _reservationFuture;
-  late final Future<List<String>> _allowedActionsFuture;
+  late Future<Reservation> _reservationFuture;
+  Future<List<String>> _allowedActionsFuture = Future.value([]);
   bool _isCancelling = false;
 
   @override
   void initState() {
     super.initState();
-    final reservationId = widget.reservation.id;
-    _reservationFuture = reservationId == null
-        ? Future.value(widget.reservation)
-        : ReservationProvider().getById(reservationId);
-    _allowedActionsFuture = reservationId == null
-        ? Future.value([])
-        : ReservationProvider().getAllowedActions(reservationId);
+    _reservationFuture = _loadDetails();
   }
 
+  Future<Reservation> _loadDetails() async {
+    final id = widget.reservation.id;
+    if (id == null) return widget.reservation;
+    final provider = context.read<ReservationProvider>();
+    late Reservation details;
+    late List<String> actions;
+    await Future.wait<void>([
+      provider.getById(id).then<void>((value) {
+        details = value;
+      }),
+      provider.getAllowedActions(id).then<void>((value) {
+        actions = value;
+      }),
+    ]);
+    _allowedActionsFuture = Future.value(actions);
+    return details;
+  }
+
+  void _reload() => setState(() {
+    _reservationFuture = _loadDetails();
+  });
   String _formatDate(DateTime? date) {
     if (date == null) return '-';
     return formatDateOnly(date);
@@ -90,7 +107,8 @@ class _WorkerReservationDetailsScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Potvrda otkazivanja'),
+        scrollable: true,
+        title: dialogTitle(dialogContext, 'Potvrda otkazivanja'),
         content: Text('Da li želite otkazati rezervaciju?\n\nRazlog: $reason'),
         actions: [
           TextButton(
@@ -112,16 +130,25 @@ class _WorkerReservationDetailsScreenState
 
     setState(() => _isCancelling = true);
     try {
-      await ReservationProvider().cancelReservation(details.id!, reason);
+      await context.read<ReservationProvider>().cancelReservation(
+        details.id!,
+        reason,
+      );
       if (!mounted) return;
       setState(() => _isCancelling = false);
+      showFeedback(
+        context,
+        details.isPaid
+            ? 'Rezervacija je otkazana. Povrat novca je obrađen.'
+            : 'Rezervacija je uspješno otkazana.',
+      );
       Navigator.pop(context, true);
     } catch (error) {
       if (!mounted) return;
       setState(() => _isCancelling = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Greška pri otkazivanju: $error')));
+      ).showSnackBar(SnackBar(content: Text(userError(error))));
     }
   }
 
@@ -149,39 +176,38 @@ class _WorkerReservationDetailsScreenState
           ),
         ],
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: _blue,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month_outlined),
-            activeIcon: Icon(Icons.calendar_month),
-            label: 'Rezervacije',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_outlined),
-            activeIcon: Icon(Icons.settings),
-            label: 'Postavke',
-          ),
-        ],
-      ),
     );
   }
 
   Widget _buildDetails(Reservation details, bool hasError) {
+    if (hasError || details.id == null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Detalji rezervacije nisu dostupni. Pokušajte ponovo.'),
+            TextButton(onPressed: _reload, child: const Text('Pokušaj ponovo')),
+          ],
+        ),
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(28, 18, 28, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (hasError)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Detalji nisu osvježeni sa servera. Prikazani su podaci iz liste.',
-                style: TextStyle(color: Colors.orange),
+          Row(
+            children: [
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: ImageUtils.buildImage(details.localeLogo),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(details.localeName ?? 'Lokal')),
+            ],
+          ),
+          const SizedBox(height: 12),
           _buildReservationStatus(details),
           const SizedBox(height: 18),
           _InfoCard(
@@ -411,7 +437,7 @@ class _WorkerReservationDetailsScreenState
 
   Widget _buildTitleRow(BuildContext context) {
     return Container(
-      height: 56,
+      constraints: const BoxConstraints(minHeight: 56),
       color: _blue,
       child: Row(
         children: [
@@ -428,12 +454,14 @@ class _WorkerReservationDetailsScreenState
             icon: const Icon(Icons.arrow_back_rounded),
           ),
           const SizedBox(width: 12),
-          const Text(
-            'Detalji rezervacije',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 21,
-              fontWeight: FontWeight.w500,
+          const Expanded(
+            child: Text(
+              'Detalji rezervacije',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 21,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -463,7 +491,7 @@ class _CancellationReasonDialogState extends State<_CancellationReasonDialog> {
   void _continue() {
     final reason = _controller.text.trim();
     if (reason.isEmpty) {
-      setState(() => _validationMessage = 'Razlog je obavezan.');
+      setState(() => _validationMessage = 'Razlog otkazivanja je obavezan.');
       return;
     }
     Navigator.pop(context, reason);
@@ -472,15 +500,23 @@ class _CancellationReasonDialogState extends State<_CancellationReasonDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Razlog otkazivanja'),
+      scrollable: true,
+      title: dialogTitle(context, 'Razlog otkazivanja'),
       content: TextField(
         controller: _controller,
         autofocus: true,
         maxLength: 1000,
+        onChanged: (_) {
+          if (_validationMessage != null) {
+            setState(() => _validationMessage = null);
+          }
+        },
         maxLines: 3,
         decoration: InputDecoration(
+          labelText: 'Razlog otkazivanja (obavezno)',
           hintText: 'Unesite razlog',
           errorText: _validationMessage,
+          errorMaxLines: 3,
           border: const OutlineInputBorder(),
         ),
       ),

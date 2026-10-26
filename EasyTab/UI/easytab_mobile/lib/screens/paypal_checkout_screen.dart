@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class PayPalCheckoutScreen extends StatefulWidget {
   final String approvalUrl;
@@ -90,7 +91,8 @@ class _PayPalCheckoutScreenState extends State<PayPalCheckoutScreen> {
     final close = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Prekinuti plaćanje?'),
+        scrollable: true,
+        title: dialogTitle(ctx, 'Prekinuti plaćanje?'),
         content: const Text(
           'Plaćanje je u toku. Bez potvrđene naplate rezervacija neće biti kreirana.',
         ),

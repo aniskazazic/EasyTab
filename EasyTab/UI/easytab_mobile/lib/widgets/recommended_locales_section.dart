@@ -27,7 +27,7 @@ class RecommendedLocalesSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          for (final locale in locales)
+          for (final locale in locales.take(3))
             _RecommendationCard(key: ValueKey(locale.id), locale: locale),
         ],
       ),

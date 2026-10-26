@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/providers/notification_provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class WorkerHomeScreen extends StatefulWidget {
   const WorkerHomeScreen({super.key});
@@ -25,20 +27,26 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   static const int _pageSize = 5;
   bool _isLoading = true;
   String? _error;
+  int _requestVersion = 0;
+  late NotificationProvider _notifications;
 
   @override
   void initState() {
     super.initState();
+    _notifications = context.read<NotificationProvider>();
+    _notifications.addListener(_onNotification);
     _loadReservations();
   }
 
   @override
   void dispose() {
+    _notifications.removeListener(_onNotification);
     _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _loadReservations({int page = 0}) async {
+    final version = ++_requestVersion;
     setState(() {
       _isLoading = true;
       _error = null;
@@ -50,20 +58,31 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         page: page,
         pageSize: _pageSize,
       );
-      if (mounted) {
+      if (!mounted || version != _requestVersion) return;
+      if (page > 0 && (result.items?.isEmpty ?? true)) {
+        await _loadReservations();
+        return;
+      }
+      if (mounted && version == _requestVersion) {
         setState(() {
           _reservations = result.items ?? [];
           _totalCount = result.totalCount ?? 0;
           _currentPage = page;
         });
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Greška pri učitavanju rezervacija.');
+    } catch (e) {
+      if (mounted && version == _requestVersion) {
+        setState(() => _error = userError(e));
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted && version == _requestVersion) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
+
+  void _onNotification() {
+    if (mounted) _loadReservations(page: _currentPage);
   }
 
   Future<void> _applySearch() async {
@@ -85,76 +104,90 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white,
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(34, 36, 22, 30),
-            child: Row(
+  Widget build(BuildContext context) => ColoredBox(
+    color: Colors.white,
+    child: RefreshIndicator(
+      onRefresh: () => _loadReservations(page: _currentPage),
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    maxLength: 50,
-                    inputFormatters: [LengthLimitingTextInputFormatter(50)],
-                    decoration: InputDecoration(
-                      hintText: 'Pretraga',
-                      prefixIcon: const Icon(Icons.search),
-                      counterText: '',
-                      filled: true,
-                      fillColor: const Color(0xFFE0E0E0),
-                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(22),
-                        borderSide: const BorderSide(color: Colors.black54),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(34, 36, 22, 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextField(
+                          onSubmitted: (_) => _applySearch(),
+                          controller: _searchController,
+                          maxLength: 50,
+                          inputFormatters: [
+                            LengthLimitingTextInputFormatter(50),
+                          ],
+                          decoration: InputDecoration(
+                            hintText: 'Pretraga',
+                            prefixIcon: const Icon(Icons.search),
+                            counterText: '',
+                            filled: true,
+                            fillColor: const Color(0xFFE0E0E0),
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 0,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(22),
+                              borderSide: const BorderSide(
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        onPressed: _pickDate,
+                        icon: const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 18,
+                        ),
+                        label: Text(formatDateOnly(_selectedDate)),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.black87,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 13,
+                          ),
+                          side: const BorderSide(color: Colors.black54),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(22),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(34, 0, 22, 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _applySearch,
+                      icon: const Icon(Icons.search),
+                      label: const Text('Pretraži'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1E40AF),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(22),
+                        ),
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                OutlinedButton.icon(
-                  onPressed: _pickDate,
-                  icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                  label: Text(formatDateOnly(_selectedDate)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.black87,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 13,
-                    ),
-                    side: const BorderSide(color: Colors.black54),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(34, 0, 22, 20),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _applySearch,
-                icon: const Icon(Icons.search),
-                label: const Text('Pretraži'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E40AF),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Column(
-              children: [
                 if (!_isLoading && _error == null)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(32, 0, 32, 12),
@@ -162,53 +195,75 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                       alignment: Alignment.centerLeft,
                       child: Text(
                         'Pronađeno: $_totalCount ${_reservationLabel(_totalCount)}',
-                        style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontWeight: FontWeight.w600,
-                        ),
                       ),
                     ),
-                  ),
-                Expanded(child: _buildReservations()),
-                if (!_isLoading && _error == null)
-                  PaginationUtils.buildPageControls(
-                    currentPage: _currentPage,
-                    totalCount: _totalCount,
-                    pageSize: _pageSize,
-                    onPageChanged: (page) => _loadReservations(page: page),
                   ),
               ],
             ),
           ),
+          if (_isLoading)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_error != null)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(_error!, textAlign: TextAlign.center),
+                    TextButton(
+                      onPressed: () => _loadReservations(page: _currentPage),
+                      child: const Text('Pokušaj ponovo'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_reservations.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  _searchedQuery.isEmpty
+                      ? 'Nema rezervacija za datum ${DateFormat('dd.MM.yyyy').format(_searchedDate)}.'
+                      : 'Nema rezervacija za "$_searchedQuery" na datum ${DateFormat('dd.MM.yyyy').format(_searchedDate)}.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else ...[
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _ReservationCard(
+                      reservation: _reservations[index],
+                      onReservationChanged: () =>
+                          _loadReservations(page: _currentPage),
+                    ),
+                  ),
+                  childCount: _reservations.length,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: PaginationUtils.buildPageControls(
+                currentPage: _currentPage,
+                totalCount: _totalCount,
+                pageSize: _pageSize,
+                onPageChanged: (page) => _loadReservations(page: page),
+              ),
+            ),
+          ],
         ],
       ),
-    );
-  }
-
-  Widget _buildReservations() {
-    if (_isLoading) return const Center(child: CircularProgressIndicator());
-    if (_error != null) {
-      return Center(child: Text(_error!));
-    }
-    if (_reservations.isEmpty) {
-      final query = _searchedQuery;
-      final date = DateFormat('dd.MM.yyyy').format(_searchedDate);
-      final message = query.isEmpty
-          ? 'Nema rezervacija za datum $date.'
-          : 'Nema rezervacija za "$query" na datum $date.';
-      return Center(child: Text(message, textAlign: TextAlign.center));
-    }
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      itemCount: _reservations.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (_, index) => _ReservationCard(
-        reservation: _reservations[index],
-        onReservationChanged: () => _loadReservations(page: _currentPage),
-      ),
-    );
-  }
-
+    ),
+  );
   String _reservationLabel(int count) {
     if (count == 1) return 'rezervacija';
     if (count >= 2 && count <= 4) return 'rezervacije';
@@ -295,6 +350,15 @@ class _ReservationCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: ImageUtils.buildImage(reservation.localeLogo),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -336,29 +400,32 @@ class _ReservationCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                decoration: BoxDecoration(
-                  color: stateColor.withAlpha(24),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_stateIcon(state), size: 14, color: stateColor),
-                    const SizedBox(width: 4),
-                    Text(
-                      state.isEmpty ? 'Nepoznato' : state,
-                      style: TextStyle(
-                        color: stateColor,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(
+                color: stateColor.withAlpha(24),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_stateIcon(state), size: 14, color: stateColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    state.isEmpty ? 'Nepoznato' : state,
+                    style: TextStyle(
+                      color: stateColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           Container(
@@ -422,6 +489,14 @@ class _ReservationCard extends StatelessWidget {
             alignment: Alignment.centerRight,
             child: InkWell(
               onTap: () async {
+                if (reservation.id == null) {
+                  showFeedback(
+                    context,
+                    'Rezervacija više nije dostupna. Osvježite pregled.',
+                    error: true,
+                  );
+                  return;
+                }
                 final cancelled = await Navigator.push<bool>(
                   context,
                   MaterialPageRoute(
@@ -440,12 +515,15 @@ class _ReservationCard extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'Detalji rezervacije',
-                      style: TextStyle(
-                        color: Color(0xFF1E40AF),
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: Text(
+                        'Detalji rezervacije',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          color: Color(0xFF1E40AF),
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     SizedBox(width: 3),

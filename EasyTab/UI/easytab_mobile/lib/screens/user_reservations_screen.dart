@@ -6,6 +6,7 @@ import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class UserReservationsScreen extends StatefulWidget {
   const UserReservationsScreen({super.key});
@@ -28,7 +29,9 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
     _reservationProvider = context.read<ReservationProvider>();
     _notifications = context.read<NotificationProvider>();
     _notifications.addListener(_onNotification);
-    _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadData();
+    });
   }
 
   @override
@@ -67,59 +70,64 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
     if (_busy) return;
     setState(() => _busy = true);
     var enteredReason = '';
+    final reasonFormKey = GlobalKey<FormState>();
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
+        scrollable: true,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
-            SizedBox(width: 10),
-            Text(
-              'Otkaži rezervaciju',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Jeste li sigurni da želite otkazati rezervaciju za "${reservation.localeName ?? 'Lokal'}"?',
-              style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
-            ),
-            if (reservation.isPaid)
-              const Text(
-                'Rezervacija je plaćena; nakon otkazivanja slijedi povrat novca',
+        title: dialogTitle(ctx, 'Otkaži rezervaciju'),
+        content: Form(
+          key: reasonFormKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Jeste li sigurni da želite otkazati rezervaciju za "${reservation.localeName ?? 'Lokal'}"?',
+                style: const TextStyle(fontSize: 14, color: Color(0xFF475569)),
               ),
-            const SizedBox(height: 16),
-            const Text(
-              'Razlog otkazivanja (opcionalno):',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF334155),
-              ),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              onChanged: (value) => enteredReason = value.trim(),
-              maxLines: 2,
-              decoration: InputDecoration(
-                hintText: 'Npr. Promjena planova...',
-                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+              if (reservation.isPaid)
+                const Text(
+                  'Rezervacija je plaćena; nakon otkazivanja slijedi povrat novca',
                 ),
-                contentPadding: const EdgeInsets.all(12),
+              const SizedBox(height: 16),
+              const Text(
+                'Razlog otkazivanja (obavezno):',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF334155),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 6),
+              TextFormField(
+                maxLength: 1000,
+                onChanged: (value) => enteredReason = value.trim(),
+                validator: (value) => (value ?? '').trim().isEmpty
+                    ? 'Razlog otkazivanja je obavezan.'
+                    : null,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: 'Npr. Promjena planova...',
+                  errorMaxLines: 3,
+                  hintStyle: TextStyle(
+                    color: Colors.grey.shade400,
+                    fontSize: 13,
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -130,7 +138,11 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
             ),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () {
+              if (reasonFormKey.currentState!.validate()) {
+                Navigator.pop(ctx, true);
+              }
+            },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
               shape: RoundedRectangleBorder(
@@ -155,11 +167,10 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
     }
 
     try {
-      final reason = enteredReason.isNotEmpty
-          ? enteredReason
-          : 'Korisnik otkazao rezervaciju';
-
-      await _reservationProvider.cancelReservation(reservation.id!, reason);
+      await _reservationProvider.cancelReservation(
+        reservation.id!,
+        enteredReason,
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -278,14 +289,13 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
   }
 
   Widget _buildUpcomingTab(ReservationProvider provider) {
-    if (provider.isLoadingUpcoming && provider.upcomingReservations.isEmpty) {
+    if (provider.isLoadingUpcoming) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF1E40AF)),
       );
     }
 
-    if (provider.errorUpcoming != null &&
-        provider.upcomingReservations.isEmpty) {
+    if (provider.errorUpcoming != null) {
       return _buildErrorView(provider.errorUpcoming!, _loadUpcoming);
     }
 
@@ -303,8 +313,19 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
       onRefresh: _loadUpcoming,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
-        itemCount: provider.upcomingReservations.length,
+        itemCount: provider.upcomingReservations.length + 1,
         itemBuilder: (context, index) {
+          if (index == provider.upcomingReservations.length) {
+            return PaginationUtils.buildPageControls(
+              currentPage: provider.upcomingPage,
+              totalCount: provider.upcomingTotal,
+              pageSize: ReservationProvider.pageSize,
+              onPageChanged: (page) {
+                final id = AuthProvider.currentUserId;
+                if (id != null) provider.loadUpcoming(id, page: page);
+              },
+            );
+          }
           final res = provider.upcomingReservations[index];
           return _buildReservationCard(res, isUpcoming: true);
         },
@@ -313,13 +334,13 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
   }
 
   Widget _buildPastTab(ReservationProvider provider) {
-    if (provider.isLoadingPast && provider.pastReservations.isEmpty) {
+    if (provider.isLoadingPast) {
       return const Center(
         child: CircularProgressIndicator(color: Color(0xFF1E40AF)),
       );
     }
 
-    if (provider.errorPast != null && provider.pastReservations.isEmpty) {
+    if (provider.errorPast != null) {
       return _buildErrorView(provider.errorPast!, _loadPast);
     }
 
@@ -337,8 +358,19 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
       onRefresh: _loadPast,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 30),
-        itemCount: provider.pastReservations.length,
+        itemCount: provider.pastReservations.length + 1,
         itemBuilder: (context, index) {
+          if (index == provider.pastReservations.length) {
+            return PaginationUtils.buildPageControls(
+              currentPage: provider.pastPage,
+              totalCount: provider.pastTotal,
+              pageSize: ReservationProvider.pageSize,
+              onPageChanged: (page) {
+                final id = AuthProvider.currentUserId;
+                if (id != null) provider.loadPast(id, page: page);
+              },
+            );
+          }
           final res = provider.pastReservations[index];
           return _buildReservationCard(res, isUpcoming: false);
         },

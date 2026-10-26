@@ -10,8 +10,7 @@ class TableProvider extends BaseProvider<Tables> {
   Tables fromJson(json) => Tables.fromJson(json);
 
   Future<List<Tables>> getByLocale(int localeId) async {
-    var result = await get(filter: {"LocaleId": localeId});
-    return result.items ?? [];
+    return getLookupItems(filter: {'LocaleId': localeId});
   }
 
   Future<void> saveLayout(int localeId, List<Tables> tables) async {

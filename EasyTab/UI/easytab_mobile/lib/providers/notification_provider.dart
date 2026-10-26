@@ -154,7 +154,9 @@ class NotificationProvider extends BaseProvider<AppNotification> {
       final url = '${BaseProvider.baseUrl}/Notifications';
       final uri = Uri.parse(url);
 
-      final response = await http.get(uri, headers: createHeaders());
+      final response = await sendRequestWithRetry(
+        () => http.get(uri, headers: createHeaders()),
+      );
       validateResponse(response);
 
       final List<dynamic> data = jsonDecode(response.body);
@@ -176,12 +178,15 @@ class NotificationProvider extends BaseProvider<AppNotification> {
     }
   }
 
-  Future<void> markAsRead(int notificationId) async {
+  Future<bool> markAsRead(int notificationId) async {
+    error = null;
     try {
       final url = '${BaseProvider.baseUrl}/Notifications/$notificationId/read';
       final uri = Uri.parse(url);
 
-      final response = await http.put(uri, headers: createHeaders());
+      final response = await sendRequestWithRetry(
+        () => http.put(uri, headers: createHeaders()),
+      );
       validateResponse(response);
 
       final index = notifications.indexWhere((n) => n.id == notificationId);
@@ -197,17 +202,23 @@ class NotificationProvider extends BaseProvider<AppNotification> {
         );
         notifyListeners();
       }
+      return true;
     } catch (e) {
-      debugPrint('Greška pri označavanju notifikacije: $e');
+      error = 'Obavijest nije označena kao pročitana. Pokušajte ponovo.';
+      notifyListeners();
+      return false;
     }
   }
 
-  Future<void> markAllAsRead() async {
+  Future<bool> markAllAsRead() async {
+    error = null;
     try {
       final url = '${BaseProvider.baseUrl}/Notifications/read-all';
       final uri = Uri.parse(url);
 
-      final response = await http.put(uri, headers: createHeaders());
+      final response = await sendRequestWithRetry(
+        () => http.put(uri, headers: createHeaders()),
+      );
       validateResponse(response);
 
       notifications = notifications.map((n) {
@@ -222,8 +233,11 @@ class NotificationProvider extends BaseProvider<AppNotification> {
       }).toList();
 
       notifyListeners();
+      return true;
     } catch (e) {
-      debugPrint('Greška pri označavanju svih notifikacija: $e');
+      error = 'Obavijesti nisu označene kao pročitane. Pokušajte ponovo.';
+      notifyListeners();
+      return false;
     }
   }
 }

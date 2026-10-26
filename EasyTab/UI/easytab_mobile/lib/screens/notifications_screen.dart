@@ -5,6 +5,7 @@ import 'package:easytab_mobile/providers/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -15,12 +16,16 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   late NotificationProvider _notificationProvider;
+  bool _onlyUnread = false;
+  bool _marking = false;
 
   @override
   void initState() {
     super.initState();
     _notificationProvider = context.read<NotificationProvider>();
-    _loadNotifications();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadNotifications();
+    });
   }
 
   Future<void> _loadNotifications() async {
@@ -29,16 +34,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  Future<void> _markAllAsRead() async {
-    if (AuthProvider.currentUserId != null) {
-      await _notificationProvider.markAllAsRead();
+  Future<void> _markRead([int? id]) async {
+    if (_marking) return;
+    setState(() => _marking = true);
+    try {
+      final success = id == null
+          ? await _notificationProvider.markAllAsRead()
+          : await _notificationProvider.markAsRead(id);
+      if (mounted) {
+        showFeedback(
+          context,
+          success
+              ? (id == null
+                    ? 'Sve obavijesti su označene kao pročitane.'
+                    : 'Obavijest je označena kao pročitana.')
+              : _notificationProvider.error ?? 'Označavanje nije uspjelo.',
+          error: !success,
+        );
+      }
+    } catch (e) {
+      if (mounted) showFeedback(context, userError(e), error: true);
+    } finally {
+      if (mounted) setState(() => _marking = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<NotificationProvider>();
-    final notifications = provider.notifications;
+    final notifications = provider.notifications
+        .where((item) => !_onlyUnread || item.isRead != true)
+        .toList();
     final unreadCount = provider.unreadCount;
 
     return Scaffold(
@@ -58,7 +84,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         actions: [
           if (unreadCount > 0)
             TextButton(
-              onPressed: _markAllAsRead,
+              onPressed: _marking ? null : () => _markRead(),
               child: const Text(
                 'Označi sve',
                 style: TextStyle(
@@ -71,30 +97,50 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: provider.isLoading && notifications.isEmpty
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF1E40AF)),
-            )
-          : provider.error != null && notifications.isEmpty
-          ? _buildErrorView(provider.error!)
-          : notifications.isEmpty
-          ? _buildEmptyView()
-          : RefreshIndicator(
-              color: const Color(0xFF1E40AF),
-              onRefresh: _loadNotifications,
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 16,
-                ),
-                itemCount: notifications.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final item = notifications[index];
-                  return _buildNotificationCard(item);
-                },
+      body: Column(
+        children: [
+          FilterChip(
+            label: const Text('Samo nepročitane'),
+            selected: _onlyUnread,
+            onSelected: (value) => setState(() => _onlyUnread = value),
+          ),
+          if (_marking) const LinearProgressIndicator(),
+          if (provider.error != null && provider.notifications.isNotEmpty)
+            ListTile(
+              title: Text(provider.error!),
+              trailing: TextButton(
+                onPressed: _loadNotifications,
+                child: const Text('Ponovi'),
               ),
             ),
+          Expanded(
+            child: provider.isLoading && notifications.isEmpty
+                ? const Center(
+                    child: CircularProgressIndicator(color: Color(0xFF1E40AF)),
+                  )
+                : provider.error != null && notifications.isEmpty
+                ? _buildErrorView(provider.error!)
+                : notifications.isEmpty
+                ? _buildEmptyView()
+                : RefreshIndicator(
+                    color: const Color(0xFF1E40AF),
+                    onRefresh: _loadNotifications,
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
+                      ),
+                      itemCount: notifications.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final item = notifications[index];
+                        return _buildNotificationCard(item);
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -103,11 +149,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final dateFormatted = _formatDate(item.createdAt);
 
     return InkWell(
-      onTap: () {
-        if (isUnread && item.id != null) {
-          _notificationProvider.markAsRead(item.id!);
-        }
-      },
+      onTap: isUnread && item.id != null && !_marking
+          ? () => _markRead(item.id!)
+          : null,
       borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -146,6 +190,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
               ],
             ),
+            Text(
+              isUnread
+                  ? 'Dodirnite za označavanje kao pročitano.'
+                  : 'Pročitano',
+              style: const TextStyle(fontSize: 11),
+            ),
             const SizedBox(height: 6),
             Text(
               item.message ?? '',
@@ -180,10 +230,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final diff = now.difference(local);
     if (diff.inMinutes < 1) return 'Upravo sada';
     if (diff.inMinutes < 60) return 'Prije ${diff.inMinutes} min';
-    if (diff.inHours < 24 && now.day == local.day) {
+    if (DateUtils.isSameDay(now, local)) {
       return 'Danas u ${DateFormat('HH:mm').format(local)}';
     }
-    if (diff.inDays < 2) {
+    if (DateUtils.isSameDay(
+      local,
+      DateTime(now.year, now.month, now.day - 1),
+    )) {
       return 'Jučer u ${DateFormat('HH:mm').format(local)}';
     }
 
@@ -191,73 +244,83 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _buildEmptyView() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: const BoxDecoration(
-                color: Color(0xFFEFF6FF),
-                shape: BoxShape.circle,
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEFF6FF),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.notifications_none_rounded,
+                  size: 40,
+                  color: Color(0xFF1E40AF),
+                ),
               ),
-              child: const Icon(
-                Icons.notifications_none_rounded,
-                size: 40,
-                color: Color(0xFF1E40AF),
+              const SizedBox(height: 20),
+              Text(
+                _onlyUnread
+                    ? 'Nema obavijesti za odabrane kriterije.'
+                    : 'Nemate obavijesti',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF0F172A),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Nemate novih obavijesti',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A),
+              const SizedBox(height: 8),
+              const Text(
+                'Sve važne informacije o vašim rezervacijama prikazivat će se ovdje.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13.5, color: Color(0xFF64748B)),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Sve važne informacije o vašim rezervacijama prikazivat će se ovdje.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, color: Color(0xFF64748B)),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildErrorView(String msg) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 52, color: Color(0xFFCBD5E1)),
-            const SizedBox(height: 14),
-            Text(
-              msg,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadNotifications,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E40AF),
+    return SingleChildScrollView(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 52,
+                color: Color(0xFFCBD5E1),
               ),
-              child: const Text(
-                'Pokušaj ponovo',
-                style: TextStyle(color: Colors.white),
+              const SizedBox(height: 14),
+              Text(
+                msg,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF64748B), fontSize: 14),
               ),
-            ),
-          ],
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadNotifications,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1E40AF),
+                ),
+                child: const Text(
+                  'Pokušaj ponovo',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

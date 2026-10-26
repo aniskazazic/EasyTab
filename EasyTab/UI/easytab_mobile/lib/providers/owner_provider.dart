@@ -42,9 +42,11 @@ class OwnerProvider extends BaseProvider<Locale> {
     };
     if (query.trim().isNotEmpty) params['q'] = query.trim();
 
-    final response = await http.get(
-      Uri.parse('$base/Owner/reservations').replace(queryParameters: params),
-      headers: createHeaders(),
+    final response = await sendRequestWithRetry(
+      () => http.get(
+        Uri.parse('$base/Owner/reservations').replace(queryParameters: params),
+        headers: createHeaders(),
+      ),
     );
     validateResponse(response);
     final data = jsonDecode(response.body) as Map<String, dynamic>;

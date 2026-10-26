@@ -10,8 +10,7 @@ class ZoneProvider extends BaseProvider<Zone> {
   Zone fromJson(json) => Zone.fromJson(json);
 
   Future<List<Zone>> getByLocale(int localeId) async {
-    var result = await get(filter: {"LocaleId": localeId});
-    return result.items ?? [];
+    return getLookupItems(filter: {'LocaleId': localeId});
   }
 
   Future<void> saveLayout(int localeId, List<Zone> zones) async {

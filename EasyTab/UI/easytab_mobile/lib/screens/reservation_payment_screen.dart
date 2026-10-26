@@ -8,6 +8,8 @@ import 'package:easytab_mobile/providers/reservation_provider.dart';
 import 'package:easytab_mobile/screens/paypal_checkout_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:easytab_mobile/widgets/form_feedback.dart';
+import 'package:easytab_mobile/providers/utils.dart';
 
 const paymentCurrencyNote =
     'Naplata se vrši u EUR po fiksnom kursu 1 EUR = 1,95583 KM';
@@ -19,7 +21,8 @@ Future<bool> confirmReservationPayment(
     await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Potvrda plaćanja'),
+        scrollable: true,
+        title: dialogTitle(ctx, 'Potvrda plaćanja'),
         content: Text(
           'Plaćate ${price.toStringAsFixed(2)} KM za rezervaciju.\n\n$paymentCurrencyNote',
         ),
@@ -41,11 +44,13 @@ class ReservationPaymentScreen extends StatefulWidget {
   final ReservationCheckoutRequest request;
   final double price;
   final String localeName;
+  final String? localeLogo;
   const ReservationPaymentScreen({
     super.key,
     required this.request,
     required this.price,
     required this.localeName,
+    this.localeLogo,
   });
 
   @override
@@ -144,7 +149,9 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
     child: Scaffold(
       appBar: AppBar(
         title: const Text('Plaćanje rezervacije'),
-        leading: BackButton(
+        leading: IconButton(
+          tooltip: 'Nazad',
+          icon: const Icon(Icons.arrow_back),
           onPressed: _busy ? null : () => Navigator.pop(context),
         ),
         actions: [
@@ -159,12 +166,30 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
         padding: const EdgeInsets.all(24),
         child: ListView(
           children: [
-            Text(
-              widget.localeName,
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              children: [
+                SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: ImageUtils.buildImage(widget.localeLogo),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    widget.localeName,
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 24),
             if (_paid) ...[
+              if (_busy) ...[
+                const LinearProgressIndicator(),
+                const Text(
+                  'Osvježavanje podataka rezervacije je u toku. Molimo sačekajte.',
+                ),
+              ],
               const Icon(Icons.check_circle, color: Colors.green, size: 64),
               Text(
                 'Plaćeno · ${_paidAmount!.toStringAsFixed(2)} KM',

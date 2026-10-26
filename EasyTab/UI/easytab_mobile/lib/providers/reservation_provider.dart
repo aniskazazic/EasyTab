@@ -19,23 +19,44 @@ class ReservationProvider extends BaseProvider<Reservation> {
   bool isLoadingPast = false;
   String? errorUpcoming;
   String? errorPast;
+  int upcomingPage = 0;
+  int pastPage = 0;
+  int upcomingTotal = 0;
+  int pastTotal = 0;
+  static const pageSize = 10;
+  int _upcomingVersion = 0;
+  int _pastVersion = 0;
 
   Future<void> loadAll(int userId) async {
     await Future.wait([loadUpcoming(userId), loadPast(userId)]);
   }
 
-  Future<List<Reservation>> loadUpcoming(int userId) async {
+  Future<List<Reservation>> loadUpcoming(int userId, {int? page}) async {
+    final version = ++_upcomingVersion;
+    if (page != null) upcomingPage = page;
     isLoadingUpcoming = true;
     errorUpcoming = null;
     notifyListeners();
 
     try {
-      final result = await get(filter: {'UserId': userId, 'IsUpcoming': true});
+      final result = await get(
+        filter: {
+          'IsUpcoming': true,
+          'Page': upcomingPage + 1,
+          'PageSize': pageSize,
+        },
+      );
+      if (version != _upcomingVersion) return upcomingReservations;
       upcomingReservations = result.items ?? [];
+      upcomingTotal = result.totalCount ?? 0;
+      if (upcomingReservations.isEmpty && upcomingPage > 0) {
+        return loadUpcoming(userId, page: 0);
+      }
       isLoadingUpcoming = false;
       notifyListeners();
       return upcomingReservations;
     } catch (e) {
+      if (version != _upcomingVersion) return upcomingReservations;
       errorUpcoming = 'Greška pri učitavanju aktivnih rezervacija.';
       isLoadingUpcoming = false;
       notifyListeners();
@@ -43,18 +64,32 @@ class ReservationProvider extends BaseProvider<Reservation> {
     }
   }
 
-  Future<List<Reservation>> loadPast(int userId) async {
+  Future<List<Reservation>> loadPast(int userId, {int? page}) async {
+    final version = ++_pastVersion;
+    if (page != null) pastPage = page;
     isLoadingPast = true;
     errorPast = null;
     notifyListeners();
 
     try {
-      final result = await get(filter: {'UserId': userId, 'IsUpcoming': false});
+      final result = await get(
+        filter: {
+          'IsUpcoming': false,
+          'Page': pastPage + 1,
+          'PageSize': pageSize,
+        },
+      );
+      if (version != _pastVersion) return pastReservations;
       pastReservations = result.items ?? [];
+      pastTotal = result.totalCount ?? 0;
+      if (pastReservations.isEmpty && pastPage > 0) {
+        return loadPast(userId, page: 0);
+      }
       isLoadingPast = false;
       notifyListeners();
       return pastReservations;
     } catch (e) {
+      if (version != _pastVersion) return pastReservations;
       errorPast = 'Greška pri učitavanju prošlih rezervacija.';
       isLoadingPast = false;
       notifyListeners();
@@ -69,7 +104,9 @@ class ReservationProvider extends BaseProvider<Reservation> {
         '${BaseProvider.baseUrl}/Reservations/available-slots?tableId=$tableId&date=$dateStr';
     final uri = Uri.parse(url);
 
-    final response = await http.get(uri, headers: createHeaders());
+    final response = await sendRequestWithRetry(
+      () => http.get(uri, headers: createHeaders()),
+    );
     validateResponse(response);
 
     final List<dynamic> data = jsonDecode(response.body);
@@ -100,7 +137,9 @@ class ReservationProvider extends BaseProvider<Reservation> {
 
   Future<List<String>> getAllowedActions(int id) async {
     final url = '${BaseProvider.baseUrl}/Reservations/allowed-actions/$id';
-    final response = await http.get(Uri.parse(url), headers: createHeaders());
+    final response = await sendRequestWithRetry(
+      () => http.get(Uri.parse(url), headers: createHeaders()),
+    );
     validateResponse(response);
 
     final data = jsonDecode(response.body) as List<dynamic>;

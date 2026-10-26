@@ -1,21 +1,18 @@
 import 'dart:convert';
 import 'package:easytab_mobile/models/favourite.dart';
 import 'package:easytab_mobile/providers/base_provider.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:http/http.dart' as http;
 
 class FavouriteProvider extends BaseProvider<Favourite> {
   final void Function()? onInteractionChanged;
-
   FavouriteProvider({this.onInteractionChanged}) : super('Favourites');
-
   @override
   Favourite fromJson(json) => Favourite.fromJson(json);
-
   List<Favourite> myFavourites = [];
   final Set<int> favouriteLocaleIds = {};
 
   void clear() {
+    myFavourites.clear();
     favouriteLocaleIds.clear();
     notifyListeners();
   }
@@ -27,73 +24,60 @@ class FavouriteProvider extends BaseProvider<Favourite> {
     if (changed) notifyListeners();
   }
 
-  // GET /Favourites/by-user
   Future<List<Favourite>> getMyFavourites() async {
-    final url = '${BaseProvider.baseUrl}/Favourites/by-user/';
-    debugPrint('Favourites URL: $url');
-    final response = await http.get(Uri.parse(url), headers: createHeaders());
-    debugPrint('Response status: ${response.statusCode}');
-    debugPrint('Response body: ${response.body}');
-
-    if (response.statusCode == 200) {
-      final List data = jsonDecode(response.body);
-      myFavourites = data.map((json) => Favourite.fromJson(json)).toList();
-      favouriteLocaleIds
-        ..clear()
-        ..addAll(
-          myFavourites.map((favourite) => favourite.localeId).whereType<int>(),
-        );
-      notifyListeners();
-      return myFavourites;
-    } else {
-      throw Exception('Greška pri učitavanju favorita: ${response.statusCode}');
-    }
+    final uri = Uri.parse('${BaseProvider.baseUrl}/Favourites/by-user/');
+    final response = await sendRequestWithRetry(
+      () => http.get(uri, headers: createHeaders()),
+    );
+    validateResponse(response);
+    final data = jsonDecode(response.body) as List;
+    myFavourites = data.map((json) => Favourite.fromJson(json)).toList();
+    favouriteLocaleIds
+      ..clear()
+      ..addAll(myFavourites.map((f) => f.localeId).whereType<int>());
+    notifyListeners();
+    return myFavourites;
   }
 
-  // POST /Favourites/add?localeId=
   Future<Favourite> addFavourite(int localeId) async {
-    final url = '${BaseProvider.baseUrl}/Favourites/add?localeId=$localeId';
-    final response = await http.post(
-      Uri.parse(url),
-      headers: createHeaders(),
-      body: jsonEncode({}),
+    final uri = Uri.parse(
+      '${BaseProvider.baseUrl}/Favourites/add?localeId=$localeId',
     );
-    if (response.statusCode == 200) {
-      final fav = Favourite.fromJson(jsonDecode(response.body));
-      myFavourites.add(fav);
-      favouriteLocaleIds.add(localeId);
-      notifyListeners();
-      onInteractionChanged?.call();
-      return fav;
-    }
-    throw Exception('Greška pri dodavanju favorita');
+    final response = await sendRequestWithRetry(
+      () => http.post(uri, headers: createHeaders(), body: jsonEncode({})),
+    );
+    validateResponse(response);
+    final favourite = Favourite.fromJson(jsonDecode(response.body));
+    myFavourites.removeWhere((f) => f.localeId == localeId);
+    myFavourites.add(favourite);
+    favouriteLocaleIds.add(localeId);
+    notifyListeners();
+    onInteractionChanged?.call();
+    return favourite;
   }
 
-  // DELETE /Favourites/remove?localeId=
   Future<void> removeFavourite(int localeId) async {
-    final url = '${BaseProvider.baseUrl}/Favourites/remove?localeId=$localeId';
-    final response = await http.delete(
-      Uri.parse(url),
-      headers: createHeaders(),
+    final uri = Uri.parse(
+      '${BaseProvider.baseUrl}/Favourites/remove?localeId=$localeId',
     );
-    if (response.statusCode != 200) {
-      throw Exception('Greška pri uklanjanju favorita');
-    }
-
+    final response = await sendRequestWithRetry(
+      () => http.delete(uri, headers: createHeaders()),
+    );
+    validateResponse(response);
     myFavourites.removeWhere((f) => f.localeId == localeId);
     favouriteLocaleIds.remove(localeId);
     notifyListeners();
     onInteractionChanged?.call();
   }
 
-  // Pomoćna metoda za provjeru da li je favorit
   Future<bool> isFavourited(int localeId) async {
-    final url =
-        '${BaseProvider.baseUrl}/Favourites/is-favourited?localeId=$localeId';
-    final response = await http.get(Uri.parse(url), headers: createHeaders());
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body) as bool;
-    }
-    return false;
+    final uri = Uri.parse(
+      '${BaseProvider.baseUrl}/Favourites/is-favourited?localeId=$localeId',
+    );
+    final response = await sendRequestWithRetry(
+      () => http.get(uri, headers: createHeaders()),
+    );
+    validateResponse(response);
+    return jsonDecode(response.body) as bool;
   }
 }

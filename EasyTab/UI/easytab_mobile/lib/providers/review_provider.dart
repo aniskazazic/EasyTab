@@ -15,7 +15,9 @@ class ReviewProvider extends BaseProvider<Review> {
 
   Future<ReviewEligibility> canReview(int localeId) async {
     final url = '${BaseProvider.baseUrl}/Reviews/can-review?localeId=$localeId';
-    final response = await http.get(Uri.parse(url), headers: createHeaders());
+    final response = await sendRequestWithRetry(
+      () => http.get(Uri.parse(url), headers: createHeaders()),
+    );
     validateResponse(response);
     return ReviewEligibility.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -41,7 +43,10 @@ class ReviewProvider extends BaseProvider<Review> {
 
   Future<double> getAverage(int localeId) async {
     final url = '${BaseProvider.baseUrl}/Reviews/average/$localeId';
-    final response = await http.get(Uri.parse(url), headers: createHeaders());
+    final response = await sendRequestWithRetry(
+      () => http.get(Uri.parse(url), headers: createHeaders()),
+    );
+    validateResponse(response);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return (data['averageRating'] as num?)?.toDouble() ?? 0.0;
@@ -51,7 +56,10 @@ class ReviewProvider extends BaseProvider<Review> {
 
   Future<Map<String, int>> getRatingCounts(int localeId) async {
     final url = '${BaseProvider.baseUrl}/Reviews/rating-counts/$localeId';
-    final response = await http.get(Uri.parse(url), headers: createHeaders());
+    final response = await sendRequestWithRetry(
+      () => http.get(Uri.parse(url), headers: createHeaders()),
+    );
+    validateResponse(response);
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return {
@@ -67,13 +75,11 @@ class ReviewProvider extends BaseProvider<Review> {
 
   Future<Review> addReview({
     required int localeId,
-    required int userId,
     required int rating,
     required String description,
   }) async {
     final review = await insert({
       'localeId': localeId,
-      'userId': userId,
       'rating': rating,
       'description': description,
     });
@@ -97,13 +103,10 @@ class ReviewProvider extends BaseProvider<Review> {
   Future<void> deleteReview(int reviewId) async {
     // Koristi soft-delete endpoint
     final url = '${BaseProvider.baseUrl}/Reviews/soft-delete/$reviewId';
-    final response = await http.delete(
-      Uri.parse(url),
-      headers: createHeaders(),
+    final response = await sendRequestWithRetry(
+      () => http.delete(Uri.parse(url), headers: createHeaders()),
     );
-    if (!isValidResponse(response)) {
-      throw Exception('Greška pri brisanju recenzije');
-    }
+    validateResponse(response);
     onInteractionChanged?.call();
   }
 }
