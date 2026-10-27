@@ -93,6 +93,11 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     throw Exception("Method not implemented");
   }
 
+  bool isValidResponse(Response response) {
+    validateResponse(response);
+    return true;
+  }
+
   /// Throws [ApiClientException] with a message from the API when status is not successful.
   void validateResponse(Response response) {
     if (response.statusCode < 299) {
