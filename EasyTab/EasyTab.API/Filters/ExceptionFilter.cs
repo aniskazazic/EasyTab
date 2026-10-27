@@ -16,7 +16,7 @@ namespace EasyTab.API.Filters
 
         public override void OnException(ExceptionContext context)
         {
-            _logger.LogError(context.Exception, "An exception occurred.");
+            _logger.LogError(context.Exception, "Došlo je do greške.");
 
             // FluentValidation exceptions should be converted into model state errors
             if (context.Exception is FluentValidation.ValidationException fvEx)
@@ -28,44 +28,46 @@ namespace EasyTab.API.Filters
                 }
 
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                _logger.LogWarning(context.Exception, "Validation failed for request.");
+                _logger.LogWarning(context.Exception, "Validacija zahtjeva nije uspjela.");
 
             }
             else if (context.Exception is UserException ue)
             {
                 context.ModelState.AddModelError("userError", ue.Message);
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                _logger.LogWarning("User rule: {Message}", ue.Message);
+                _logger.LogWarning("Korisničko pravilo: {Message}", ue.Message);
             }
             else if (context.Exception is InvalidRefreshTokenException invalidRefreshTokenException)
             {
                 context.ModelState.AddModelError("refreshTokenError", invalidRefreshTokenException.Message);
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                _logger.LogWarning("Invalid refresh token: {Message}", invalidRefreshTokenException.Message);
+                _logger.LogWarning("Nevažeći token za obnovu: {Message}", invalidRefreshTokenException.Message);
             }
             else if (context.Exception is ForbiddenException forbiddenException)
             {
                 context.ModelState.AddModelError("authorizationError", forbiddenException.Message);
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Forbidden;
-                _logger.LogWarning("Forbidden: {Message}", forbiddenException.Message);
+                _logger.LogWarning("Pristup zabranjen: {Message}", forbiddenException.Message);
             }
             else if (context.Exception is UnauthorizedAccessException unauthorizedAccessException)
             {
                 context.ModelState.AddModelError("authorizationError", unauthorizedAccessException.Message);
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.Forbidden;
-                _logger.LogWarning("Authorization failed: {Message}", unauthorizedAccessException.Message);
+                _logger.LogWarning("Autorizacija nije uspjela: {Message}", unauthorizedAccessException.Message);
             }
             else if (context.Exception is NotFoundException || context.Exception is KeyNotFoundException)
             {
-                context.ModelState.AddModelError("notFound", context.Exception.Message);
+                context.ModelState.AddModelError("notFound", context.Exception is NotFoundException
+                    ? context.Exception.Message
+                    : "Traženi podatak nije pronađen.");
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                _logger.LogWarning("Resource not found: {Message}", context.Exception.Message);
+                _logger.LogWarning("Podatak nije pronađen: {Message}", context.Exception.Message);
             }
             else
             {
-                context.ModelState.AddModelError("serverError", "Server side error, please check logs.");
+                context.ModelState.AddModelError("serverError", "Došlo je do greške na serveru. Pokušajte ponovo kasnije.");
                 context.HttpContext.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                _logger.LogError(context.Exception, "Unhandled exception.");
+                _logger.LogError(context.Exception, "Neobrađena greška.");
             }
 
             var list = context.ModelState
@@ -78,7 +80,7 @@ namespace EasyTab.API.Filters
             var allMessages = list.Values.SelectMany(v => v).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
             var message = allMessages.FirstOrDefault()
                 ?? (context.Exception is UserException ? context.Exception.Message : null)
-                ?? "Request could not be processed.";
+                ?? "Zahtjev nije moguće obraditi.";
 
             context.Result = new JsonResult(new
             {

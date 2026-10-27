@@ -94,7 +94,7 @@ public partial class _220030Context : DbContext
 
             entity.HasOne(d => d.Locale).WithMany(p => p.LocaleImages)
                 .HasForeignKey(d => d.LocaleId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("FK__LocaleIma__Local__787EE5A0");
         });
 
@@ -252,11 +252,13 @@ public partial class _220030Context : DbContext
                 .HasConstraintName("FK__Zones__LocaleId__5FB337D6");
         });
 
-        modelBuilder.Entity<LocaleImage>()
-            .HasOne(a => a.Locale)
-           .WithMany(p => p.LocaleImages)
-           .HasForeignKey(a => a.LocaleId)
-           .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<RefreshToken>(entity =>
+        {
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<Notification>(entity =>
         {

@@ -20,7 +20,7 @@ public class InitialReservationState : BaseReservationState
         Payment checkout, PayPalCaptureResult capture)
     {
         if (_context.Database.CurrentTransaction == null)
-            throw new InvalidOperationException("Paid reservation creation requires a transaction.");
+            throw new InvalidOperationException("Kreiranje plaćene rezervacije zahtijeva transakciju.");
         if (capture.Status != "COMPLETED" || string.IsNullOrWhiteSpace(capture.CaptureId) ||
             capture.Amount != checkout.Amount || !string.Equals(capture.Currency, checkout.Currency, StringComparison.OrdinalIgnoreCase))
             throw new UserException("Naplata nije potvrđena za ovu rezervaciju.");

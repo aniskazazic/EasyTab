@@ -27,12 +27,12 @@ namespace EasyTab.Services.ReservationStateMachine
 
         public virtual Task<Reservations> CreateAsync(ReservationInsertRequest request)
         {
-            throw new InvalidOperationException("Cannot create a reservation in its current state.");
+            throw new UserException("Rezervacija se ne može kreirati u trenutnom stanju.");
         }
 
         public virtual Task<Reservations> UpdateAsync(int id, ReservationUpdateRequest request)
         {
-            throw new InvalidOperationException("Cannot update a reservation in its current state.");
+            throw new UserException("Rezervacija se ne može izmijeniti u trenutnom stanju.");
         }
 
         public virtual Task<Reservations> ConfirmAsync(int id, int approvedById)
@@ -70,7 +70,7 @@ namespace EasyTab.Services.ReservationStateMachine
             var entity = await _context.Reservations.FindAsync(id);
             if (entity == null)
             {
-                throw new KeyNotFoundException($"Reservation with id {id} not found.");
+                throw new NotFoundException("Rezervacija nije pronađena.");
             }
 
             return entity;
@@ -116,7 +116,7 @@ namespace EasyTab.Services.ReservationStateMachine
                 case nameof(CompletedReservationState):
                     return _serviceProvider.GetService<CompletedReservationState>()!;
                 default:
-                    throw new UserException("State not recognized");
+                    throw new UserException("Stanje rezervacije nije prepoznato.");
             }
         }
     }
