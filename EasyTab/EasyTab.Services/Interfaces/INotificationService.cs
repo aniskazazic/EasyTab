@@ -10,6 +10,5 @@ namespace EasyTab.Services.Interfaces
         Task<PagedResult<Notifications>> GetAllAsync(NotificationSearchObject search);
         Task MarkAsReadAsync(int notificationId);
         Task MarkAllAsReadAsync();
-        Task<Notifications> CreateAsync(int userId, string title, string message);
     }
 }

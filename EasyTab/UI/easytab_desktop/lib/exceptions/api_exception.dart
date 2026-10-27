@@ -32,7 +32,7 @@ class ApiClientException implements Exception {
   String toString() => message;
 }
 
-/// Parses JSON error payloads from eCommerce.WebAPI [ExceptionFilter].
+/// Parses JSON error payloads from the API.
 class ApiErrorParser {
   ApiErrorParser._();
 

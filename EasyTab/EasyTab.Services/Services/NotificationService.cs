@@ -95,21 +95,5 @@ namespace EasyTab.Services.Services
             await _context.SaveChangesAsync();
         }
 
-        public async Task<Notifications> CreateAsync(int userId, string title, string message)
-        {
-            var notification = new Notification
-            {
-                UserId = userId,
-                Title = title,
-                Message = message,
-                IsRead = false,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Notifications.Add(notification);
-            await _context.SaveChangesAsync();
-
-            return _mapper.Map<Notifications>(notification);
-        }
     }
 }

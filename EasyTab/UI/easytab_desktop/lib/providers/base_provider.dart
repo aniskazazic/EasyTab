@@ -93,25 +93,6 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     throw Exception("Method not implemented");
   }
 
-  Future<T> login(String username, String password) async {
-    var url = "$baseUrl/$_endpoint/login";
-    var uri = Uri.parse(url);
-
-    var response = await http.post(
-      uri,
-      headers: {"Content-Type": "application/json"},
-      body: jsonEncode({"username": username, "password": password}),
-    );
-
-    validateResponse(response);
-    return fromJson(jsonDecode(response.body));
-  }
-
-  bool isValidResponse(Response response) {
-    validateResponse(response);
-    return true;
-  }
-
   /// Throws [ApiClientException] with a message from the API when status is not successful.
   void validateResponse(Response response) {
     if (response.statusCode < 299) {
@@ -210,7 +191,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
         }
         query += '$prefix$key=$encoded';
       } else if (value is DateTime) {
-        query += '$prefix$key=${(value as DateTime).toUtc().toIso8601String()}';
+        query += '$prefix$key=${value.toUtc().toIso8601String()}';
       } else if (value is List || value is Map) {
         if (value is List) value = value.asMap();
         value.forEach((k, v) {

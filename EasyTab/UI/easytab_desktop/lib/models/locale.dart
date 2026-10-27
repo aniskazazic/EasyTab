@@ -45,6 +45,7 @@ class Locale {
   });
 
   factory Locale.fromJson(Map<String, dynamic> json) => _$LocaleFromJson(json);
+  Map<String, dynamic> toJson() => _$LocaleToJson(this);
 }
 
 // Helper functions to handle C# TimeOnly ("HH:mm:ss") values.
