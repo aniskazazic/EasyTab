@@ -12,8 +12,6 @@ namespace EasyTab.Services.Interfaces
         Task<CreateOrderResponse> CreateCheckoutAsync(ReservationCheckoutRequest request);
         Task<PaymentResponse> CaptureCheckoutAsync(string orderId);
         Task ReconcileCheckoutsAsync(CancellationToken cancellationToken);
-        Task<CreateOrderResponse> CreateOrderAsync(int reservationId);
-        Task<PaymentResponse> CaptureOrderAsync(string orderId);
         Task<Notifications?> RefundCompletedPaymentAsync(int reservationId);
         Task<PagedResult<PaymentResponse>> GetByReservationIdAsync(int reservationId, BaseSearchObject search);
     }
