@@ -1,4 +1,4 @@
-﻿using EasyTab.Services.Database;
+using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Responses;
@@ -28,7 +28,7 @@ namespace EasyTab.Services.Services
         public async Task<int> GetTodaysReservations(int localeId)
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
-            var today = DateTime.Today;
+            var today = LocalClock.Now.Date;
             var count = await _db.Reservations
                 .Where(x => x.ReservationDate.Date == today &&
                             x.Table.LocaleId == localeId &&
@@ -40,7 +40,7 @@ namespace EasyTab.Services.Services
         public async Task<int> GetTodaysGuests(int localeId)
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
-            var today = DateTime.Today;
+            var today = LocalClock.Now.Date;
             var guests = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
                             r.Table.LocaleId == localeId &&
@@ -52,7 +52,7 @@ namespace EasyTab.Services.Services
         public async Task<int> GetActiveTables(int localeId)
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
-            var today = DateTime.Today;
+            var today = LocalClock.Now.Date;
             var count = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
                             r.Table.Xcoordinate >= 0 && r.Table.Ycoordinate >= 0 &&
@@ -134,7 +134,7 @@ namespace EasyTab.Services.Services
         {
             page = Math.Max(page, 0);
             pageSize = Math.Clamp(pageSize, 1, 100);
-            var selectedDate = (date?.Date ?? DateTime.Today);
+            var selectedDate = (date?.Date ?? LocalClock.Now.Date);
 
             var query = _db.Reservations
                 .Include(r => r.Table).ThenInclude(t => t.Locale)

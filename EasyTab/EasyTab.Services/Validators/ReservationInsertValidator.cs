@@ -15,7 +15,7 @@ namespace EasyTab.Services.Validators
 
             RuleFor(x => x.ReservationDate)
                 .NotEmpty().WithMessage("Datum rezervacije je obavezan.")
-                .GreaterThanOrEqualTo(DateTime.Today)
+                .GreaterThanOrEqualTo(_ => LocalClock.Now.Date)
                 .WithMessage("Datum rezervacije ne može biti u prošlosti.");
 
             RuleFor(x => x.StartTime)

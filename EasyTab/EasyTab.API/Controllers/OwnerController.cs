@@ -1,8 +1,6 @@
-using EasyTab.API.Services.AccessManager;
 using EasyTab.Services.Interfaces;
 using EasyTab.API.Filters;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 using EasyTab.Model;
 
 namespace EasyTab.API.Controllers
@@ -13,23 +11,12 @@ namespace EasyTab.API.Controllers
     public class OwnerController : ControllerBase
     {
         private readonly IOwnerService _ownerService;
+        private readonly ICurrentUserService _currentUser;
 
-        public OwnerController(IOwnerService ownerService)
+        public OwnerController(IOwnerService ownerService, ICurrentUserService currentUser)
         {
             _ownerService = ownerService;
-        }
-
-        private int GetCurrentUserId()
-        {
-            var userId = User.FindFirstValue(ClaimNames.Id)
-                ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(userId, out var parsedUserId))
-            {
-                throw new UnauthorizedAccessException("Korisnički identitet nije pronađen u tokenu.");
-            }
-
-            return parsedUserId;
+            _currentUser = currentUser;
         }
 
         [Authorization(RoleNames.Vlasnik)]
@@ -82,7 +69,7 @@ namespace EasyTab.API.Controllers
             [FromQuery] int page = 0,
             [FromQuery] int pageSize = 10)
         {
-            var userId = GetCurrentUserId();
+            var userId = _currentUser.UserId;
             return Ok(await _ownerService.GetAllReservations(userId, q, date, page, pageSize));
         }
 
@@ -90,14 +77,14 @@ namespace EasyTab.API.Controllers
         [Authorization]
         public async Task<IActionResult> CheckIfOwner(int localeId)
         {
-            return Ok(await _ownerService.CheckIfOwner(localeId, GetCurrentUserId()));
+            return Ok(await _ownerService.CheckIfOwner(localeId, _currentUser.UserId));
         }
 
         [HttpGet("check-owner-or-worker/{localeId}")]
         [Authorization]
         public async Task<IActionResult> CheckIfOwnerOrWorker(int localeId)
         {
-            return Ok(await _ownerService.CheckIfOwnerOrWorker(localeId, GetCurrentUserId()));
+            return Ok(await _ownerService.CheckIfOwnerOrWorker(localeId, _currentUser.UserId));
         }
     }
 }

@@ -13,9 +13,7 @@ using EasyTab.Services.Validators;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
-using System.Security.Claims;
 using System.Security.Cryptography;
 
 namespace EasyTab.Services.Services
@@ -25,7 +23,6 @@ namespace EasyTab.Services.Services
         private readonly ILogger<IUserService> _logger;
         private readonly ICryptoService _cryptoService;
         private readonly IRabbitMQPublisher _rabbitMQPublisher;
-        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IValidator<ForgotPasswordRequest> _forgotPasswordValidator;
         private readonly IValidator<ResetPasswordRequest> _resetPasswordValidator;
         private readonly IValidator<UserPasswordChangeRequest> _changePasswordValidator;
@@ -39,7 +36,6 @@ namespace EasyTab.Services.Services
             IValidator<UserUpdateRequest> updateValidator,
             ICryptoService cryptoService,
             IRabbitMQPublisher rabbitMQPublisher,
-            IHttpContextAccessor httpContextAccessor,
             IValidator<ForgotPasswordRequest> forgotPasswordValidator,
             IValidator<ResetPasswordRequest> resetPasswordValidator,
             IValidator<UserPasswordChangeRequest> changePasswordValidator,
@@ -49,7 +45,6 @@ namespace EasyTab.Services.Services
             _logger = logger;
             _cryptoService = cryptoService;
             _rabbitMQPublisher = rabbitMQPublisher;
-            _httpContextAccessor = httpContextAccessor;
             _forgotPasswordValidator = forgotPasswordValidator;
             _resetPasswordValidator = resetPasswordValidator;
             _changePasswordValidator = changePasswordValidator;
@@ -214,16 +209,8 @@ namespace EasyTab.Services.Services
                 request.ProfilePicture,
                 nameof(request.ProfilePicture));
 
-            var currentUser = _httpContextAccessor.HttpContext?.User;
-            var isAdmin = currentUser?.Claims.Any(claim =>
-                (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == RoleNames.Admin) == true;
-            var currentUserId = currentUser?.FindFirst("Id")?.Value
-                ?? currentUser?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (!int.TryParse(currentUserId, out var authenticatedUserId))
-            {
-                throw new UnauthorizedAccessException("Korisnički identitet nije pronađen u tokenu.");
-            }
+            var isAdmin = _currentUser.IsAdmin;
+            var authenticatedUserId = _currentUser.UserId;
 
             if (!isAdmin && authenticatedUserId != id)
             {
@@ -435,16 +422,8 @@ namespace EasyTab.Services.Services
         {
             await _changePasswordValidator.ValidateAndThrowAsync(request);
 
-            var currentUser = _httpContextAccessor.HttpContext?.User;
-            var isAdmin = currentUser?.Claims.Any(claim =>
-                (claim.Type == "Role" || claim.Type == ClaimTypes.Role) && claim.Value == RoleNames.Admin) == true;
-            var currentUserId = currentUser?.FindFirst("Id")?.Value
-                ?? currentUser?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-            if (!int.TryParse(currentUserId, out var authenticatedUserId))
-            {
-                throw new UnauthorizedAccessException("Korisnički identitet nije pronađen u tokenu.");
-            }
+            var isAdmin = _currentUser.IsAdmin;
+            var authenticatedUserId = _currentUser.UserId;
 
             var ownerCanManageWorker = await _context.Workers
                 .AnyAsync(worker => worker.UserId == request.Id &&

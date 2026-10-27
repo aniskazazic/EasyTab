@@ -7,28 +7,22 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Claims;
-using System.Text;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
 using EasyTab.Services.ReservationStateMachine;
 
 namespace EasyTab.Services.Services
 {
     public class ReviewService : BaseCRUDService<Reviews, ReviewSearchObject, Review, ReviewInsertRequest, ReviewUpdateRequest>, IReviewService
     {
-        private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly ICurrentUserService _currentUser;
         private readonly ILogger<ReviewService> _logger;
 
-        public ReviewService(_220030Context context, IMapper mapper, IHttpContextAccessor httpContextAccessor, ICurrentUserService currentUser, ILogger<ReviewService> logger, IValidator<ReviewInsertRequest> insertValidator, IValidator<ReviewUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator) {
-            _httpContextAccessor = httpContextAccessor;
+        public ReviewService(_220030Context context, IMapper mapper, ICurrentUserService currentUser, ILogger<ReviewService> logger, IValidator<ReviewInsertRequest> insertValidator, IValidator<ReviewUpdateRequest> updateValidator) : base(context, mapper, insertValidator, updateValidator) {
             _currentUser = currentUser;
             _logger = logger;
         }
@@ -111,19 +105,9 @@ namespace EasyTab.Services.Services
             dto.Dislikes = entity.Reactions?.Count(r => !r.IsLike) ?? 0;
 
             // Reakcija trenutnog korisnika
-            var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("Id")?.Value;
-            if (int.TryParse(userIdClaim, out int currentUserId))
-            {
-                var userReaction = entity.Reactions?.FirstOrDefault(r => r.UserId == currentUserId);
-                if (userReaction != null)
-                    dto.UserReaction = userReaction.IsLike ? 1 : -1;
-                else
-                    dto.UserReaction = 0;
-            }
-            else
-            {
-                dto.UserReaction = 0;
-            }
+            var currentUserId = _currentUser.UserId;
+            var userReaction = entity.Reactions?.FirstOrDefault(r => r.UserId == currentUserId);
+            dto.UserReaction = userReaction == null ? 0 : userReaction.IsLike ? 1 : -1;
 
             return dto;
         }
@@ -230,14 +214,14 @@ namespace EasyTab.Services.Services
 
         public async Task<ReviewAverage> GetAverageRatingAsync(int localeId)
         {
-            var reviews = await Context.Reviews
+            var result = await Context.Reviews
                 .Where(r => r.LocaleId == localeId && !r.IsDeleted)
-                .ToListAsync();
-
-            var result = new ReviewAverage
-            {
-                AverageRating = reviews.Count == 0 ? 0 : (float)reviews.Average(x => x.Rating)
-            };
+                .GroupBy(r => r.LocaleId)
+                .Select(group => new ReviewAverage
+                {
+                    AverageRating = (float)group.Average(r => (double)r.Rating)
+                })
+                .SingleOrDefaultAsync() ?? new ReviewAverage();
 
             _logger.LogDebug("Average rating fetched. LocaleId: {LocaleId}, Average: {Average}", localeId, result.AverageRating);
             return result;
@@ -245,18 +229,18 @@ namespace EasyTab.Services.Services
 
         public async Task<ReviewRatingCount> GetRatingCountsAsync(int localeId)
         {
-            var reviews = await Context.Reviews
+            var counts = await Context.Reviews
                 .Where(r => r.LocaleId == localeId && !r.IsDeleted)
-                .ToListAsync();
-
-            var counts = new ReviewRatingCount
-            {
-                Excellent = reviews.Count(r => r.Rating >= 4.5),
-                Good = reviews.Count(r => r.Rating >= 3.5 && r.Rating < 4.5),
-                Average = reviews.Count(r => r.Rating >= 2.5 && r.Rating < 3.5),
-                Poor = reviews.Count(r => r.Rating >= 1.5 && r.Rating < 2.5),
-                Terrible = reviews.Count(r => r.Rating < 1.5)
-            };
+                .GroupBy(r => r.LocaleId)
+                .Select(group => new ReviewRatingCount
+                {
+                    Excellent = group.Count(r => r.Rating >= 4.5),
+                    Good = group.Count(r => r.Rating >= 3.5 && r.Rating < 4.5),
+                    Average = group.Count(r => r.Rating >= 2.5 && r.Rating < 3.5),
+                    Poor = group.Count(r => r.Rating >= 1.5 && r.Rating < 2.5),
+                    Terrible = group.Count(r => r.Rating < 1.5)
+                })
+                .SingleOrDefaultAsync() ?? new ReviewRatingCount();
 
             _logger.LogDebug("Rating distribution fetched. LocaleId: {LocaleId}", localeId);
             return counts;
