@@ -13,6 +13,7 @@ Tables _$TablesFromJson(Map<String, dynamic> json) => Tables(
   xCoordinate: (json['xCoordinate'] as num?)?.toDouble(),
   yCoordinate: (json['yCoordinate'] as num?)?.toDouble(),
   numberOfGuests: (json['numberOfGuests'] as num?)?.toInt(),
+  canDelete: json['canDelete'] as bool? ?? true,
 );
 
 Map<String, dynamic> _$TablesToJson(Tables instance) => <String, dynamic>{
@@ -22,4 +23,5 @@ Map<String, dynamic> _$TablesToJson(Tables instance) => <String, dynamic>{
   'xCoordinate': instance.xCoordinate,
   'yCoordinate': instance.yCoordinate,
   'numberOfGuests': instance.numberOfGuests,
+  'canDelete': instance.canDelete,
 };

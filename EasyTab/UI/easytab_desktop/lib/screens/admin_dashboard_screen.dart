@@ -30,6 +30,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int countCategories = 0;
   int countUsers = 0;
   int countReviews = 0;
+  int countReservations = 0;
 
   @override
   void initState() {
@@ -51,6 +52,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final categoryProvider = context.read<CategoryProvider>();
       final userProvider = context.read<UserProvider>();
       final reviewProvider = context.read<ReviewProvider>();
+      final reservationProvider = context.read<ReservationProvider>();
 
       final results = await Future.wait([
         localeProvider.get(filter: {"IncludeTotalCount": true}),
@@ -59,6 +61,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         categoryProvider.get(filter: {"IncludeTotalCount": true}),
         userProvider.get(filter: {"IncludeTotalCount": true}),
         reviewProvider.get(filter: {"IncludeTotalCount": true}),
+        reservationProvider.get(
+          filter: {"IncludeTotalCount": true, "PageSize": 1},
+        ),
       ]);
 
       if (!mounted) return;
@@ -70,6 +75,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             results[3].totalCount ?? results[3].items?.length ?? 0;
         countUsers = results[4].totalCount ?? results[4].items?.length ?? 0;
         countReviews = results[5].totalCount ?? results[5].items?.length ?? 0;
+        countReservations = results[6].totalCount ?? 0;
         _loadError = null;
         isLoading = false;
       });
@@ -161,9 +167,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                           count: countLocales.toString(),
                         ),
                         _buildDashboardCard(
-                          icon: Icons.home,
-                          label: 'Recenzije',
-                          count: countReviews.toString(),
+                          icon: Icons.event_seat,
+                          label: 'Rezervacije',
+                          count: countReservations.toString(),
                         ),
                         _buildDashboardCard(
                           icon: Icons.public,

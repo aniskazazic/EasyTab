@@ -7,6 +7,7 @@ using EasyTab.Services.Interfaces;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -64,9 +65,9 @@ namespace EasyTab.Services.Services
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
 
-            var existingZones = Context.Zones
+            var existingZones = await Context.Zones
                  .Where(x => x.LocaleId == request.LocaleId)
-                 .ToList();
+                 .ToListAsync();
 
             // Obriši zone koje nisu poslane s frontenda
             var sentIds = request.Zones.Select(z => z.Id).ToList();

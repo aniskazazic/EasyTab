@@ -55,6 +55,7 @@ namespace EasyTab.Services.Services
             var today = DateTime.Today;
             var count = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
+                            r.Table.Xcoordinate >= 0 && r.Table.Ycoordinate >= 0 &&
                             r.Table.LocaleId == localeId &&
                             r.ReservationState != "Otkazana")
                 .Select(r => r.TableId)
@@ -66,7 +67,7 @@ namespace EasyTab.Services.Services
         public async Task<int> GetTotalTables(int localeId)
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
-            var count = await _db.Tables
+            var count = await _db.Tables.OnLayout()
                 .Where(t => t.LocaleId == localeId)
                 .CountAsync();
             return count;
@@ -107,7 +108,7 @@ namespace EasyTab.Services.Services
         public async Task<List<TableDistributionResponse>> GetTableDistribution(int localeId)
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
-            var total = await _db.Tables
+            var total = await _db.Tables.OnLayout()
                 .Where(t => t.LocaleId == localeId)
                 .CountAsync();
 
@@ -116,7 +117,7 @@ namespace EasyTab.Services.Services
                 return new List<TableDistributionResponse>();
             }
 
-            var distribution = await _db.Tables
+            var distribution = await _db.Tables.OnLayout()
                 .Where(t => t.LocaleId == localeId)
                 .GroupBy(t => t.NumberOfGuests)
                 .Select(g => new TableDistributionResponse

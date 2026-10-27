@@ -31,16 +31,3 @@ public sealed class AdminAnalyticsResponse
     public int[] LocaleCountyData { get; set; } = Array.Empty<int>();
     public string[] CountyNames { get; set; } = Array.Empty<string>();
 }
-
-public sealed class AdminStatsResponse
-{
-    public int CountOfUsers { get; set; }
-    public int CountOfDeletedUsers { get; set; }
-    public int CountOfActiveUsers { get; set; }
-    public int CountOfLocales { get; set; }
-    public int CountOfActiveReservations { get; set; }
-    public int CountOfPastReservations { get; set; }
-    public int CountOfCountries { get; set; }
-    public int CountOfCities { get; set; }
-    public int CountOfCategories { get; set; }
-}

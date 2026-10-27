@@ -101,25 +101,6 @@ namespace EasyTab.Services.Services
             };
         }
 
-        public async Task<AdminStatsResponse> GetStats()
-        {
-
-            var stats = new AdminStatsResponse
-            {
-                CountOfUsers = await _db.Users.CountAsync(),
-                CountOfDeletedUsers = await _db.Users.CountAsync(u => u.IsDeleted),
-                CountOfActiveUsers = await _db.Users.CountAsync(u => !u.IsDeleted),
-                CountOfLocales = await _db.Locales.CountAsync(l => !l.IsDeleted),
-                CountOfActiveReservations = await _db.Reservations.CountAsync(x => x.ReservationState != "Otkazana"),
-                CountOfPastReservations = await _db.Reservations.CountAsync(x => x.ReservationState == "Otkazana"),
-                CountOfCountries = await _db.Countries.CountAsync(),
-                CountOfCities = await _db.Countries.CountAsync(),
-                CountOfCategories = await _db.Categories.CountAsync(),
-            };
-
-            return stats;
-        }
-
         public async Task ReactivateLocale(int id)
         {
             _logger.LogInformation("Reactivating locale. LocaleId: {LocaleId}", id);

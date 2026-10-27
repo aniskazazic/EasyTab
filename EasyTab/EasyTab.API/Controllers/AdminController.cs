@@ -18,12 +18,6 @@ namespace EasyTab.API.Controllers
             _service = service;
         }
 
-        [HttpGet("stats")]
-        public async Task<IActionResult> GetStats()
-        {
-            return Ok(await _service.GetStats());
-        }
-
         [HttpGet("analytics")]
         public async Task<IActionResult> GetAnalytics()
         {

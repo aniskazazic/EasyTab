@@ -1,7 +1,6 @@
 import 'package:easytab_desktop/models/table.dart';
 import 'package:easytab_desktop/models/zone.dart';
 import 'package:easytab_desktop/providers/table_provider.dart';
-import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/zone_provider.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:flutter/material.dart';
@@ -27,7 +26,6 @@ class OwnerTablesScreen extends StatefulWidget {
 
 class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   late TableProvider tableProvider;
-  late ReservationProvider reservationProvider;
   late ZoneProvider zoneProvider;
 
   List<Tables> tables = [];
@@ -48,7 +46,6 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   void initState() {
     super.initState();
     tableProvider = context.read<TableProvider>();
-    reservationProvider = context.read<ReservationProvider>();
     zoneProvider = context.read<ZoneProvider>();
     _loadData();
   }
@@ -188,24 +185,15 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   }
 
   Future<void> _showTableDialog({Tables? table, int? index}) async {
-    var hasUpcomingReservation = false;
+    var canDelete = table?.canDelete ?? true;
     final tableId = table?.id;
     if (tableId != null && tableId > 0) {
       try {
-        final reservations = await reservationProvider.get(
-          filter: {
-            'TableId': tableId,
-            'IsUpcoming': true,
-            'Page': 1,
-            'PageSize': 1,
-            'IncludeTotalCount': true,
-          },
-        );
-        hasUpcomingReservation =
-            (reservations.totalCount ?? reservations.items?.length ?? 0) > 0;
+        final currentTable = await tableProvider.getById(tableId);
+        canDelete = currentTable.canDelete;
       } catch (e) {
         if (mounted) {
-          _showError('Nije moguće provjeriti aktivne rezervacije: $e');
+          _showError('Nije moguće provjeriti rezervacije i uplate stola: $e');
         }
         return;
       }
@@ -252,11 +240,11 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                     ),
                   ),
                 ),
-              if (hasUpcomingReservation)
+              if (!canDelete)
                 const Padding(
                   padding: EdgeInsets.only(top: 8),
                   child: Text(
-                    'Brisanje je onemogućeno jer stol ima aktivnu rezervaciju.',
+                    'Brisanje je onemogućeno dok stol ima aktivnu ili buduću rezervaciju ili nezavršeno plaćanje.',
                     style: TextStyle(color: Colors.red),
                   ),
                 ),
@@ -297,7 +285,7 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
           actions: [
             if (isEdit)
               TextButton(
-                onPressed: hasUpcomingReservation
+                onPressed: !canDelete
                     ? null
                     : () async {
                         if (await _confirmDeleteTable(index!) &&
@@ -306,14 +294,9 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                         }
                       },
                 style: TextButton.styleFrom(
-                  foregroundColor: hasUpcomingReservation
-                      ? Colors.grey
-                      : Colors.red,
+                  foregroundColor: !canDelete ? Colors.grey : Colors.red,
                 ),
-                child: const Text(
-                  'Obriši',
-                  style: TextStyle(color: Colors.red),
-                ),
+                child: const Text('Obriši'),
               ),
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -646,10 +629,8 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
 
   Future<void> _saveLayout() async {
     try {
-      await Future.wait([
-        tableProvider.saveLayout(widget.localeId, tables),
-        zoneProvider.saveLayout(widget.localeId, zones),
-      ]);
+      await tableProvider.saveLayout(widget.localeId, tables);
+      await zoneProvider.saveLayout(widget.localeId, zones);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

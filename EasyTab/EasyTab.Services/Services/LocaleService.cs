@@ -1,4 +1,5 @@
 using EasyTab.Model;
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
@@ -34,6 +35,9 @@ namespace EasyTab.Services.Services
 
         public override async Task<Locales> CreateAsync(LocaleInsertRequest request)
         {
+            if (_currentUser.Role == RoleNames.Vlasnik)
+                request.OwnerId = _currentUser.UserId;
+            await _insertValidator.ValidateForUserAsync(request);
             ImageContentValidator.ValidateOptionalImage(request.Logo, nameof(request.Logo));
             ValidateGalleryImages(request.Images);
 
@@ -43,15 +47,18 @@ namespace EasyTab.Services.Services
             var cityExists = await Context.Cities.AnyAsync(c => c.Id == request.CityId);
             if (!cityExists)
             {
-                throw new KeyNotFoundException($"Grad sa ID {request.CityId} ne postoji.");
+                throw new UserException("Odabrani grad ne postoji.");
             }
 
             // Validacija CategoryId
             var categoryExists = await Context.Categories.AnyAsync(c => c.Id == request.CategoryId);
             if (!categoryExists)
             {
-                throw new KeyNotFoundException($"Kategorija sa ID {request.CategoryId} ne postoji.");
+                throw new UserException("Odabrana kategorija ne postoji.");
             }
+
+            if (!await Context.Users.AnyAsync(user => user.Id == request.OwnerId && !user.IsDeleted))
+                throw new UserException("Odabrani vlasnik ne postoji.");
 
             var entity = Mapper.Map<Locale>(request);
             await BeforeInsert(entity, request);
@@ -331,6 +338,9 @@ namespace EasyTab.Services.Services
 
             if (request.LengthOfReservation.HasValue)
                 entity.LengthOfReservation = request.LengthOfReservation.Value;
+
+            if (request.ReservationPrice.HasValue)
+                entity.ReservationPrice = request.ReservationPrice.Value;
 
             if (request.Logo == "")
                 entity.Logo = null;

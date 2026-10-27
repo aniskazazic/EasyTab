@@ -48,7 +48,8 @@ namespace EasyTab.Services.Services
                 query = query.Where(x =>
                     x.User.FirstName.Contains(search.Q) ||
                     x.User.LastName.Contains(search.Q) ||
-                    x.User.Username.Contains(search.Q));
+                    x.User.Username.Contains(search.Q) ||
+                    x.User.Email.Contains(search.Q));
 
             return query;
         }
@@ -91,12 +92,15 @@ namespace EasyTab.Services.Services
 
         public override async Task<Workers> CreateAsync(WorkerInsertRequest request)
         {
-            await _insertValidator.ValidateAndThrowAsync(request);
+            await _insertValidator.ValidateForUserAsync(request);
             ImageContentValidator.ValidateOptionalImage(
                 request.ProfilePicture,
                 nameof(request.ProfilePicture));
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
+
+            if (!await Context.Locales.AnyAsync(locale => locale.Id == request.LocaleId && !locale.IsDeleted))
+                throw new UserException("Odabrani lokal ne postoji ili je obrisan.");
 
             var existingUser = await Context.Users
                 .FirstOrDefaultAsync(x => x.Email == request.Email || x.Username == request.Username);
@@ -193,7 +197,12 @@ namespace EasyTab.Services.Services
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(worker.LocaleId);
 
-            await _updateValidator.ValidateAndThrowAsync(request);
+            await _updateValidator.ValidateForUserAsync(request);
+
+            if (await Context.Users.AnyAsync(user => user.Id != worker.UserId &&
+                ((!string.IsNullOrEmpty(request.Email) && user.Email == request.Email) ||
+                 (!string.IsNullOrEmpty(request.Username) && user.Username == request.Username))))
+                throw new UserException("Korisnik sa ovim emailom ili korisničkim imenom već postoji!");
 
             var user = worker.User;
 

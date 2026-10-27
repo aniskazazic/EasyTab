@@ -9,6 +9,7 @@ class Tables {
   final double? xCoordinate;
   final double? yCoordinate;
   final int? numberOfGuests;
+  final bool canDelete;
 
   Tables({
     this.id,
@@ -17,6 +18,7 @@ class Tables {
     this.xCoordinate,
     this.yCoordinate,
     this.numberOfGuests,
+    this.canDelete = true,
   });
 
   Tables copyWith({
@@ -34,6 +36,7 @@ class Tables {
       xCoordinate: xCoordinate ?? this.xCoordinate,
       yCoordinate: yCoordinate ?? this.yCoordinate,
       numberOfGuests: numberOfGuests ?? this.numberOfGuests,
+      canDelete: canDelete,
     );
   }
 

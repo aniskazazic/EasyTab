@@ -10,7 +10,6 @@ namespace EasyTab.Services.Interfaces
 {
     public interface IAdminService 
     {
-        Task<AdminStatsResponse> GetStats();
         Task<AdminAnalyticsResponse> GetAnalytics();
         Task<AdminLocalePageResponse> GetAllLocales(string? search, bool showDeleted, int page, int pageSize);
         Task UpdateLocale(int id, AdminUpdateLocaleRequest request);

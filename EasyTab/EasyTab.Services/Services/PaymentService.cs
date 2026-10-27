@@ -89,6 +89,9 @@ namespace EasyTab.Services.Services
                 throw new UserException("Plaćanje je moguće samo za rezervacije na čekanju ili potvrđene rezervacije.");
             }
 
+            if (reservation.Table.IsRemoved())
+                throw new UserException("Stol više nije dostupan za rezervaciju.");
+
             var startDateTime = reservation.ReservationDate.Date.Add(reservation.StartTime.ToTimeSpan());
             if (startDateTime <= LocalClock.Now)
             {
@@ -472,6 +475,8 @@ namespace EasyTab.Services.Services
             await using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 await LockTableAsync(request.TableId);
+                if (!await _context.Tables.OnLayout().AnyAsync(table => table.Id == request.TableId))
+                    throw new UserException("Stol više nije dostupan za rezervaciju.");
                 var existingCheckout = await _context.Payments.SingleOrDefaultAsync(x => x.CheckoutId == request.CheckoutId);
                 if (existingCheckout != null)
                 {
@@ -618,7 +623,7 @@ namespace EasyTab.Services.Services
         private async Task<bool> IsAvailableAsync(Payment checkout)
         {
             var table = await _context.Tables.Include(x => x.Locale).AsNoTracking().SingleAsync(x => x.Id == checkout.TableId);
-            if (table.Locale.IsDeleted || table.NumberOfGuests != checkout.NumberOfGuests ||
+            if (table.IsRemoved() || table.Locale.IsDeleted || table.NumberOfGuests != checkout.NumberOfGuests ||
                 checkout.ReservationDate!.Value.Add(checkout.StartTime!.Value.ToTimeSpan()) <= LocalClock.Now) return false;
             var slots = await _reservationService.GetAvailableSlotsAsync(checkout.TableId!.Value, checkout.ReservationDate!.Value);
             return slots.Any(x =>

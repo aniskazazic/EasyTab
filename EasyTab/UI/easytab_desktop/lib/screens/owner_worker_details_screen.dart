@@ -78,6 +78,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   }
 
   void _showSuccess(String message) {
+    if (!mounted) return;
     final navigator = Navigator.of(context);
     showDialog(
       context: context,
@@ -137,17 +138,14 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
       );
 
       if (_isInsert) {
+        request.remove('passwordConfirmation');
         request['localeId'] = widget.localeId;
         await workerProvider.insert(request);
         _showSuccess('Radnik uspješno dodan!');
       } else {
-        final newPassword = request.remove('password');
-        final passwordConfirmation = request.remove('passwordConfirmation');
+        request.remove('passwordConfirmation');
         if (!_changePassword) {
           request.remove('password');
-        } else if (newPassword != passwordConfirmation) {
-          _showError('Lozinke se ne podudaraju.');
-          return;
         }
         await workerProvider.update(_worker!.id!, request);
 
@@ -164,7 +162,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
         _showError(message);
       }
     } finally {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
     }
   }
 

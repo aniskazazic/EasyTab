@@ -14,5 +14,6 @@ namespace EasyTab.Model.Models
         public double XCoordinate { get; set; }
         public double YCoordinate { get; set; }
         public int NumberOfGuests { get; set; }
+        public bool CanDelete { get; set; } = true;
     }
 }

@@ -289,7 +289,7 @@ namespace EasyTab.Services.Services
 
         public async Task<List<TimeSlots>> GetAvailableSlotsAsync(int tableId, DateTime date)
         {
-            var locale = Context.Tables
+            var locale = Context.Tables.OnLayout()
                 .Include(x => x.Locale)
                 .Where(x => x.Id == tableId)
                 .Select(x => x.Locale)
