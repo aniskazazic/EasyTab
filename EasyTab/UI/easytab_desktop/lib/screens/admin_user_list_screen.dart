@@ -1,5 +1,6 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
+import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:flutter/material.dart';
@@ -57,6 +58,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
         "Page": _currentPage + 1,
         "PageSize": _pageSize,
         "IncludeTotalCount": true,
+        "ExcludeCurrentUser": true,
         if (searchController.text.isNotEmpty) "FTS": searchController.text,
         "IsDeleted": showDeleted,
       };
@@ -298,6 +300,13 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
             ],
             rows: _users.map((user) {
               final isDeleted = user.isDeleted ?? false;
+              final isProtected =
+                  user.id == AuthProvider.currentUser?.id ||
+                  (user.userRoles?.any((role) => role.role?.name == 'Admin') ??
+                      false);
+              final protectedReason = user.id == AuthProvider.currentUser?.id
+                  ? 'Vlastiti profil uređujete kroz Postavke.'
+                  : 'Akcije nad administratorskim nalozima nisu dozvoljene.';
               final roles = user.userRoles?.isNotEmpty == true
                   ? user.userRoles!
                         .where((r) => r.role?.name != null)
@@ -326,27 +335,34 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
                       children: [
                         if (!isDeleted)
                           IconButton(
-                            icon: const Icon(Icons.edit, color: Colors.blue),
-                            tooltip: 'Uredi',
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      AdminUserDetailsScreen(user: user),
-                                ),
-                              ).then((_) => _loadUsers());
-                            },
+                            icon: const Icon(Icons.edit),
+                            color: Colors.blue,
+                            tooltip: isProtected ? protectedReason : 'Uredi',
+                            onPressed: isProtected
+                                ? null
+                                : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            AdminUserDetailsScreen(user: user),
+                                      ),
+                                    ).then((_) => _loadUsers());
+                                  },
                           ),
                         IconButton(
-                          icon: Icon(
-                            isDeleted ? Icons.restore : Icons.delete,
-                            color: isDeleted ? Colors.green : Colors.red,
-                          ),
-                          tooltip: isDeleted ? 'Reaktiviraj' : 'Obriši',
-                          onPressed: () => isDeleted
-                              ? _confirmReactivate(user)
-                              : _confirmDelete(user),
+                          icon: Icon(isDeleted ? Icons.restore : Icons.delete),
+                          color: isDeleted ? Colors.green : Colors.red,
+                          tooltip: isProtected
+                              ? protectedReason
+                              : isDeleted
+                              ? 'Reaktiviraj'
+                              : 'Obriši',
+                          onPressed: isProtected
+                              ? null
+                              : () => isDeleted
+                                    ? _confirmReactivate(user)
+                                    : _confirmDelete(user),
                         ),
                       ],
                     ),

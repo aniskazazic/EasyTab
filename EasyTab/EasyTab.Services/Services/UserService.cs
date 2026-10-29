@@ -56,6 +56,9 @@ namespace EasyTab.Services.Services
             query = query.Include(x => x.UserRoles)
                  .ThenInclude(y => y.Role);
 
+            if (searchObject?.ExcludeCurrentUser == true)
+                query = query.Where(x => x.Id != _currentUser.UserId);
+
             // Ako IsDeleted nije true (checkbox nije čekiran) — prikaži samo aktivne
             // Ako IsDeleted == true (checkbox čekiran) — prikaži SVE (aktivne + obrisane)
             if (searchObject?.IsDeleted != true)
@@ -214,7 +217,15 @@ namespace EasyTab.Services.Services
 
             if (!isAdmin && authenticatedUserId != id)
             {
-                throw new UnauthorizedAccessException("Nemate dozvolu za izmjenu drugog korisnika.");
+                throw new ForbiddenException("Nemate dozvolu za izmjenu drugog korisnika.");
+            }
+
+            if (isAdmin)
+            {
+                if (authenticatedUserId == id && request.IsDeleted.HasValue)
+                    throw new ForbiddenException("Ne možete mijenjati status vlastitog administratorskog naloga.");
+
+                await EnsureCanManageUserAsync(id);
             }
 
             // Lozinka se mijenja isključivo kroz ChangePasswordAsync, a status naloga samo Admin.
@@ -343,6 +354,14 @@ namespace EasyTab.Services.Services
 
         public override async Task<bool> DeleteAsync(int id)
         {
+            if (!_currentUser.IsAdmin)
+                throw new ForbiddenException("Nemate dozvolu za brisanje korisnika.");
+
+            if (_currentUser.UserId == id)
+                throw new ForbiddenException("Ne možete obrisati vlastiti administratorski nalog.");
+
+            await EnsureCanManageUserAsync(id);
+
             var user = await _context.Users
                 .Include(x => x.UserRoles)
                 .FirstOrDefaultAsync(x => x.Id == id);
@@ -376,6 +395,15 @@ namespace EasyTab.Services.Services
             await _context.SaveChangesAsync();
             _logger.LogWarning("User deleted successfully. UserId: {UserId}", id);
             return true;
+        }
+
+        private async Task EnsureCanManageUserAsync(int id)
+        {
+            if (id != _currentUser.UserId && await _context.UserRoles
+                .AnyAsync(role => role.UserId == id && role.Role.Name == RoleNames.Admin))
+            {
+                throw new ForbiddenException("Akcije nad drugim administratorskim nalozima nisu dozvoljene.");
+            }
         }
 
         public async Task<UsersSensitiveResponse?> GetByUsernameAsync(string username)
@@ -435,6 +463,8 @@ namespace EasyTab.Services.Services
             {
                 throw new UnauthorizedAccessException("Nemate dozvolu za promjenu lozinke drugog korisnika.");
             }
+
+            await EnsureCanManageUserAsync(request.Id);
 
             _logger.LogInformation("Promjena lozinke za korisnika: {UserId}", request.Id);
             var user = await _context.Users.FirstOrDefaultAsync(x => x.Id == request.Id);

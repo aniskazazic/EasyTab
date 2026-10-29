@@ -254,6 +254,21 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
     );
   }
 
+  Future<void> _openReview(Review review, {bool editMode = false}) async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            AdminReviewsDetailsScreen(review: review, editMode: editMode),
+      ),
+    );
+    if (!mounted || saved != true) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Recenzija je uspješno ažurirana.')),
+    );
+    await _loadReviews();
+  }
+
   Widget _buildTable() {
     if (_reviews.isEmpty) {
       return Padding(
@@ -337,15 +352,12 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                       IconButton(
                         icon: const Icon(Icons.visibility, color: Colors.blue),
                         tooltip: 'Detalji',
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  AdminReviewsDetailsScreen(review: review),
-                            ),
-                          );
-                        },
+                        onPressed: () => _openReview(review),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        tooltip: 'Uredi',
+                        onPressed: () => _openReview(review, editMode: true),
                       ),
                       const SizedBox(width: 8),
                       IconButton(

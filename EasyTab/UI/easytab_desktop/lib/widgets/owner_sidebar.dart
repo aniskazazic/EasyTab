@@ -26,11 +26,13 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
   List<models.Locale> _locales = [];
   Set<int> expandedLocales = {};
   final TextEditingController _localeSearchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String? _loadError;
 
   @override
   void dispose() {
     _localeSearchController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -163,83 +165,91 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
           ),
 
           Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                if (_loadError != null)
+            child: Scrollbar(
+              controller: _scrollController,
+              thumbVisibility: true,
+              child: ListView(
+                controller: _scrollController,
+                padding: EdgeInsets.zero,
+                children: [
+                  if (_loadError != null)
+                    Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        _loadError!,
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  if (_locales.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
+                      child: TextField(
+                        controller: _localeSearchController,
+                        style: const TextStyle(color: Colors.white),
+                        decoration: InputDecoration(
+                          hintText: 'Pretraži lokale',
+                          hintStyle: const TextStyle(color: Colors.white70),
+                          prefixIcon: const Icon(
+                            Icons.search,
+                            color: Colors.white70,
+                          ),
+                          suffixIcon: IconButton(
+                            tooltip: 'Očisti pretragu',
+                            onPressed: () {
+                              _localeSearchController.clear();
+                              setState(() {});
+                            },
+                            icon: const Icon(
+                              Icons.clear,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          enabledBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white54),
+                          ),
+                          focusedBorder: const OutlineInputBorder(
+                            borderSide: BorderSide(color: Colors.white),
+                          ),
+                        ),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                  ..._visibleLocales.map((locale) => _buildLocaleItem(locale)),
+                  const SizedBox(height: 8),
                   Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      _loadError!,
-                      style: const TextStyle(color: Colors.white),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
                     ),
-                  ),
-                if (_locales.length > 1)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
-                    child: TextField(
-                      controller: _localeSearchController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Pretraži lokale',
-                        hintStyle: const TextStyle(color: Colors.white70),
-                        prefixIcon: const Icon(
-                          Icons.search,
-                          color: Colors.white70,
-                        ),
-                        suffixIcon: IconButton(
-                          tooltip: 'Očisti pretragu',
-                          onPressed: () {
-                            _localeSearchController.clear();
-                            setState(() {});
-                          },
-                          icon: const Icon(Icons.clear, color: Colors.white70),
-                        ),
-                        enabledBorder: const OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white54),
-                        ),
-                        focusedBorder: const OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white),
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: Colors.white54),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
                         ),
                       ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                ..._visibleLocales.map((locale) => _buildLocaleItem(locale)),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
-                  ),
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white54),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text(
+                        'Dodaj novi lokal',
+                        style: TextStyle(fontSize: 13),
                       ),
-                    ),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text(
-                      'Dodaj novi lokal',
-                      style: TextStyle(fontSize: 13),
-                    ),
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => OwnerLocaleDetailsScreen(
-                          onSaved: () {
-                            _loadLocales(); // Refresh sidebar
-                            widget.onRefresh?.call(); // Refresh dashboard
-                          },
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => OwnerLocaleDetailsScreen(
+                            onSaved: () {
+                              _loadLocales(); // Refresh sidebar
+                              widget.onRefresh?.call(); // Refresh dashboard
+                            },
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 

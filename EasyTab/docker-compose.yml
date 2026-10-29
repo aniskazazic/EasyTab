@@ -20,6 +20,7 @@ services:
       timeout: 5s
       retries: 20
       start_period: 20s
+      start_interval: 2s
   
   easytab-api:
     build: 
@@ -28,6 +29,7 @@ services:
       - .env
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - Logging__LogLevel__Program=${Logging__LogLevel__Program}
       - ConnectionStrings__EasyTabConnection=Server=easytab-sql;Database=220030;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
       - TZ=Europe/Sarajevo
       - RabbitMQ__Host=easytab-rabbitmq
@@ -69,11 +71,12 @@ services:
     networks:
       - easytabnetwork
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5672"]
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 15s
+      start_period: 40s
+      start_interval: 2s
 
   easytab-subscriber:
     build:

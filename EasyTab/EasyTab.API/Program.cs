@@ -23,6 +23,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Diagnostics;
 using System.Text;
 
 internal class Program
@@ -297,11 +298,18 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<_220030Context>();
     var dbSeeder = scope.ServiceProvider.GetRequiredService<DbSeeder>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    app.Lifetime.ApplicationStarted.Register(() =>
+        logger.LogInformation("EasyTab API je spreman za rad."));
     
     try
     {
+        var timer = Stopwatch.StartNew();
+        logger.LogInformation("Počinje priprema baze podataka.");
         await dbContext.Database.MigrateAsync();
+        logger.LogInformation("Migracije baze završene za {DurationMs} ms.", timer.ElapsedMilliseconds);
+        timer.Restart();
         await dbSeeder.SeedAsync();
+        logger.LogInformation("Priprema početnih podataka završena za {DurationMs} ms.", timer.ElapsedMilliseconds);
     }
     catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number == 1801)
     {

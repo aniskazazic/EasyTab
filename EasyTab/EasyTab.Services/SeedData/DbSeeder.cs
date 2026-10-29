@@ -301,7 +301,15 @@ namespace EasyTab.Services.SeedData
                 CityId = cities[definition.CityIndex].Id,
                 CategoryId = categories[definition.CategoryIndex].Id,
                 OwnerId = index < 9 ? users["vlasnik"].Id : users["vlasnik2"].Id,
-                ReservationPrice = 10.00m + (index % 5) * 5.00m,
+                ReservationPrice = categories[definition.CategoryIndex].Name switch
+                {
+                    "Restoran" => 25.00m,
+                    "Kafić" => 5.00m,
+                    "Fast food" => 8.00m,
+                    "Pizzeria" => 15.00m,
+                    "Lounge bar" => 20.00m,
+                    _ => throw new InvalidOperationException("Seed kategorija nema definisanu cijenu rezervacije.")
+                },
                 IsDeleted = false
             }).ToList();
         }

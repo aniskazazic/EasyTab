@@ -10,7 +10,15 @@ class LocaleProvider extends BaseProvider<Locale> {
   }
 
   Future<List<Locale>> getForCurrentOwner() async {
-    var result = await get(filter: {"RetrieveAll": true});
-    return result.items ?? [];
+    const pageSize = 100;
+    final locales = <Locale>[];
+    for (var page = 1; ; page++) {
+      final result = await get(
+        filter: {'Page': page, 'PageSize': pageSize, 'SortBy': 'Id'},
+      );
+      final items = result.items ?? <Locale>[];
+      locales.addAll(items);
+      if (items.length < pageSize) return locales;
+    }
   }
 }
