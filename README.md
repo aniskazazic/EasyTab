@@ -242,7 +242,7 @@ EasyTab koristi **Content-based Filtering** s kosinusnom sličnošću između pr
 
 Za nove korisnike i dopunu rezultata koristi se rangiranje prema ocjeni i popularnosti. Na početnom ekranu prikazuju se najviše tri preporuke s objašnjenjima.
 
-Detaljan opis algoritma, težina i API-ja nalazi se u [dokumentaciji sistema preporuke](recommender.md).
+Detaljan opis algoritma, težina i API-ja nalazi se u [dokumentaciji sistema preporuke](recommender-dokumentacija.md).
 
 ## Provjera rada i česte poteškoće
 
