@@ -7,3 +7,5 @@
 .vs/
 AGENTS.md
 /docs
+!README.md
+!recommender-dokumentacija.md

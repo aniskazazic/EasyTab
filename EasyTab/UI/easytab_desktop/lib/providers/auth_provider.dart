@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:easytab_desktop/config/app_config.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:flutter/material.dart';
@@ -17,8 +18,6 @@ class AuthProvider extends ChangeNotifier {
   String? get refreshToken => _refreshToken;
   static Map<String, dynamic>? get accessTokenDecoded => _accessTokenDecoded;
 
-  String _baseUrl = "";
-
   static User? currentUser;
 
   static bool get isAdmin =>
@@ -27,15 +26,8 @@ class AuthProvider extends ChangeNotifier {
   static bool get isOwner =>
       currentUser?.userRoles?.any((r) => r.role?.name == 'Vlasnik') ?? false;
 
-  AuthProvider() {
-    _baseUrl = const String.fromEnvironment(
-      "BASE_URL",
-      defaultValue: "http://localhost:5241",
-    );
-  }
-
   Future login(String username, String password) async {
-    var url = "$_baseUrl/Access/Login";
+    var url = "${AppConfig.apiBaseUrl}/Access/Login";
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
@@ -68,7 +60,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/Access/LoginWithRefreshToken'),
+        Uri.parse('${AppConfig.apiBaseUrl}/Access/LoginWithRefreshToken'),
         headers: createHeaders(),
         body: jsonEncode({'refreshToken': _refreshToken}),
       );
@@ -91,7 +83,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       if (notifyServer && _accessToken != null) {
         await http.post(
-          Uri.parse('$_baseUrl/Access/Logout'),
+          Uri.parse('${AppConfig.apiBaseUrl}/Access/Logout'),
           headers: createHeaders(),
         );
       }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:easytab_desktop/config/app_config.dart';
 import 'package:easytab_desktop/models/search_result.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
@@ -9,15 +10,11 @@ import 'package:http/http.dart';
 import 'package:http/http.dart' as http;
 
 abstract class BaseProvider<T> extends ChangeNotifier {
-  static String? baseUrl;
+  static const String baseUrl = AppConfig.apiBaseUrl;
   String _endpoint = "";
 
   BaseProvider(String endpoint) {
     _endpoint = endpoint;
-    baseUrl = const String.fromEnvironment(
-      "baseUrl",
-      defaultValue: "http://localhost:5241",
-    );
   }
 
   Future<SearchResult<T>> get({dynamic filter}) async {

@@ -15,10 +15,11 @@ namespace EasyTab.Services.Services
         {
             _logger = logger;
             var host = RequireSetting(configuration, "RabbitMQ:Host");
+            var port = configuration.GetValue<int?>("RabbitMQ:Port") ?? 5672;
             var username = RequireSetting(configuration, "RabbitMQ:Username");
             var password = RequireSetting(configuration, "RabbitMQ:Password");
 
-            var connectionString = $"host={host};username={username};password={password}";
+            var connectionString = $"host={host};port={port};username={username};password={password}";
             _bus = RabbitHutch.CreateBus(connectionString);
         }
 

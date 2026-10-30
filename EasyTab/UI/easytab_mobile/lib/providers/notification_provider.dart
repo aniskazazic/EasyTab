@@ -37,7 +37,7 @@ class NotificationProvider extends BaseProvider<AppNotification> {
     if (_connection != null || _isStarting) return;
 
     final baseUrl = BaseProvider.baseUrl;
-    if (baseUrl == null || baseUrl.isEmpty) return;
+    if (baseUrl.isEmpty) return;
 
     _isStarting = true;
     final connection = HubConnectionBuilder()

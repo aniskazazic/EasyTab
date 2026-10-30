@@ -26,15 +26,19 @@ namespace EasyTab.Subscriber.Services
                     var username = RequireSetting("Email:Username");
                     var password = RequireSetting("Email:Password");
                     var fromName = RequireSetting("Email:FromName");
+                    var fromAddress = _configuration["Email:FromAddress"];
+                    if (string.IsNullOrWhiteSpace(fromAddress))
+                        fromAddress = username;
+                    var secureSocketOptions = GetSecureSocketOptions();
 
                     var message = new MimeMessage();
-                    message.From.Add(new MailboxAddress(fromName, username));
+                    message.From.Add(new MailboxAddress(fromName, fromAddress));
                     message.To.Add(new MailboxAddress(toName, toEmail));
                     message.Subject = subject;
                     message.Body = new BodyBuilder { HtmlBody = htmlBody }.ToMessageBody();
 
                     using var client = new SmtpClient();
-                    await client.ConnectAsync(host, port, SecureSocketOptions.StartTls);
+                    await client.ConnectAsync(host, port, secureSocketOptions);
                     await client.AuthenticateAsync(username, password);
                     await client.SendAsync(message);
                     await client.DisconnectAsync(true);
@@ -59,6 +63,17 @@ namespace EasyTab.Subscriber.Services
                 }
             }
         }
+
+        private SecureSocketOptions GetSecureSocketOptions() =>
+            _configuration["Email:SecureSocketOptions"]?.Trim().ToLowerInvariant() switch
+            {
+                null or "" or "starttls" => SecureSocketOptions.StartTls,
+                "sslonconnect" => SecureSocketOptions.SslOnConnect,
+                "auto" => SecureSocketOptions.Auto,
+                "none" => SecureSocketOptions.None,
+                _ => throw new InvalidOperationException(
+                    "Email:SecureSocketOptions mora biti StartTls, SslOnConnect, Auto ili None.")
+            };
 
         private string RequireSetting(string key)
         {

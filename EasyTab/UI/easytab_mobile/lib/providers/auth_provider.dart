@@ -1,3 +1,4 @@
+import 'package:easytab_mobile/config/app_config.dart';
 import 'package:easytab_mobile/models/user.dart';
 import 'package:easytab_mobile/models/forgot_password_request.dart';
 import 'package:easytab_mobile/models/reset_password_request.dart';
@@ -18,7 +19,6 @@ class AuthProvider extends ChangeNotifier {
   static String? _accessToken;
   String? _refreshToken;
   static Map<String, dynamic>? _accessTokenDecoded;
-  String _baseUrl = "";
 
   static bool get isAuthenticated => _isAuthenticated;
   static String? get accessToken => _accessToken;
@@ -44,15 +44,8 @@ class AuthProvider extends ChangeNotifier {
   static bool get isCustomer =>
       currentUser?.userRoles?.any((r) => r.role?.name == 'Korisnik') ?? false;
 
-  AuthProvider() {
-    _baseUrl = const String.fromEnvironment(
-      "API_BASE_URL",
-      defaultValue: "http://10.0.2.2:5241",
-    );
-  }
-
   Future login(String username, String password) async {
-    var url = "$_baseUrl/Access/Login";
+    var url = "${AppConfig.apiBaseUrl}/Access/Login";
     var uri = Uri.parse(url);
     var headers = createHeaders();
 
@@ -92,7 +85,7 @@ class AuthProvider extends ChangeNotifier {
     if (sessionRefreshToken == null) return false;
 
     try {
-      var url = "$_baseUrl/Access/LoginWithRefreshToken";
+      var url = "${AppConfig.apiBaseUrl}/Access/LoginWithRefreshToken";
       var uri = Uri.parse(url);
       var headers = createHeaders();
       var body = jsonEncode({"refreshToken": sessionRefreshToken});
@@ -123,7 +116,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> forgotPassword(String email) async {
-    var url = "$_baseUrl/Access/ForgotPassword";
+    var url = "${AppConfig.apiBaseUrl}/Access/ForgotPassword";
     var uri = Uri.parse(url);
     var headers = createHeaders();
     var body = jsonEncode(ForgotPasswordRequest(email: email).toJson());
@@ -133,7 +126,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> register(Map<String, dynamic> request) async {
-    var url = "$_baseUrl/Access/Register";
+    var url = "${AppConfig.apiBaseUrl}/Access/Register";
     var uri = Uri.parse(url);
     var headers = createHeaders();
     var body = jsonEncode(request);
@@ -143,7 +136,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> resetPassword(ResetPasswordRequest request) async {
-    var url = "$_baseUrl/Access/ResetPassword";
+    var url = "${AppConfig.apiBaseUrl}/Access/ResetPassword";
     var uri = Uri.parse(url);
     var headers = createHeaders();
     var body = jsonEncode(request.toJson());
@@ -202,7 +195,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       if (notifyServer && _accessToken != null) {
         await http.post(
-          Uri.parse('$_baseUrl/Access/Logout'),
+          Uri.parse('${AppConfig.apiBaseUrl}/Access/Logout'),
           headers: createHeaders(),
         );
       }

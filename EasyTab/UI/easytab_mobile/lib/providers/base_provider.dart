@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:easytab_mobile/config/app_config.dart';
 import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/search_result.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
@@ -9,18 +10,13 @@ import 'package:http/http.dart';
 import 'package:http/http.dart' as http;
 
 abstract class BaseProvider<T> extends ChangeNotifier {
-  static String? _baseUrl;
+  static const String baseUrl = AppConfig.apiBaseUrl;
   String _endpoint = "";
 
   BaseProvider(String endpoint) {
     _endpoint = endpoint;
-    _baseUrl = const String.fromEnvironment(
-      "API_BASE_URL",
-      defaultValue: "http://10.0.2.2:5241",
-    );
   }
 
-  static String? get baseUrl => _baseUrl;
   String get endpoint => _endpoint;
 
   Future<List<T>> getLookupItems({

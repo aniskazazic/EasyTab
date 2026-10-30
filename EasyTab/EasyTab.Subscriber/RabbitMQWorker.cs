@@ -21,9 +21,10 @@ namespace EasyTab.Subscriber
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             var host = RequireSetting("RabbitMQ:Host");
+            var port = _configuration.GetValue<int?>("RabbitMQ:Port") ?? 5672;
             var username = RequireSetting("RabbitMQ:Username");
             var password = RequireSetting("RabbitMQ:Password");
-            var connectionString = $"host={host};username={username};password={password}";
+            var connectionString = $"host={host};port={port};username={username};password={password}";
 
             _logger.LogInformation("Connecting to RabbitMQ at {Host}...", host);
 

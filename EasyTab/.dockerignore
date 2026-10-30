@@ -23,5 +23,8 @@
 **/values.dev.yaml
 UI
 artifacts
+docs
+**/*.md
+**/*.zip
 LICENSE
 README.md
