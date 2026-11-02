@@ -68,6 +68,10 @@ class SessionManager with WidgetsBindingObserver {
   }
 
   Future<bool> triggerSessionExpiredFlow() async {
+    if (!AuthProvider.isAuthenticated || AuthProvider.accessToken == null) {
+      return false;
+    }
+
     if (_isPopupShowing) {
       // Ako se popup već prikazuje, čekamo da se on završi
       return _refreshCompleter!.future;

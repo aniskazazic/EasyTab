@@ -281,6 +281,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _inputField(
               'Korisničko ime',
               'username',
+              maxLength: 50,
               icon: Icons.alternate_email_rounded,
               validator: FormValidation.username,
             ),
@@ -310,6 +311,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _inputField(
               'Email adresa',
               'email',
+              maxLength: 100,
               icon: Icons.email_outlined,
               validator: FormValidation.email,
               keyboard: TextInputType.emailAddress,
@@ -335,6 +337,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _inputField(
               'Lozinka',
               'password',
+              maxLength: 100,
               icon: Icons.lock_outline_rounded,
               obscure: _obscurePassword,
               suffix: IconButton(
@@ -355,6 +358,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             _inputField(
               'Potvrda lozinke',
               'confirmPassword',
+              maxLength: 100,
               icon: Icons.lock_person_outlined,
               obscure: _obscureConfirm,
               suffix: IconButton(
@@ -510,6 +514,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String hint,
     String name, {
     required IconData icon,
+    int? maxLength,
     bool obscure = false,
     Widget? suffix,
     Function(String?)? onChanged,
@@ -519,6 +524,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }) {
     return FormBuilderTextField(
       name: name,
+      maxLength: maxLength,
       obscureText: obscure,
       keyboardType: keyboard,
       onChanged: onChanged,
@@ -535,6 +541,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     String? errorText,
   ]) {
     return InputDecoration(
+      counterText: '',
       errorMaxLines: 4,
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),

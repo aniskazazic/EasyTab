@@ -19,10 +19,12 @@ namespace EasyTab.Services.Validators
 
             RuleFor(x => x.NewPassword)
                 .NotEmpty().WithMessage("Lozinka je obavezna.")
+                .MaximumLength(100).WithMessage("Lozinka ne može imati više od 100 karaktera.")
                 .MinimumLength(6).WithMessage("Lozinka mora imati najmanje 6 karaktera.");
 
             RuleFor(x => x.ConfirmNewPassword)
                 .NotEmpty().WithMessage("Potvrda lozinke je obavezna.")
+                .MaximumLength(100).WithMessage("Potvrda lozinke ne može imati više od 100 karaktera.")
                 .Equal(x => x.NewPassword).WithMessage("Lozinka i potvrda lozinke moraju biti iste.");
         }
     }

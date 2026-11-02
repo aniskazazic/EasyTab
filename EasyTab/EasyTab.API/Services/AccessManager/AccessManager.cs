@@ -4,6 +4,7 @@ using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
+using FluentValidation;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -18,16 +19,20 @@ namespace EasyTab.API.Services.AccessManager
         private readonly IConfiguration _configuration;
         private readonly ICryptoService _cryptoService;
         private readonly IRefreshTokenService _refreshTokenService;
+        private readonly IValidator<UserLoginRequest> _loginValidator;
 
-        public AccessManager(IUserService userService, IConfiguration configuration, ICryptoService cryptoService, IRefreshTokenService refreshTokenService)
+        public AccessManager(IUserService userService, IConfiguration configuration, ICryptoService cryptoService, IRefreshTokenService refreshTokenService, IValidator<UserLoginRequest> loginValidator)
         {
             _userService = userService;
             _configuration = configuration;
             _cryptoService = cryptoService;
             _refreshTokenService = refreshTokenService;
+            _loginValidator = loginValidator;
         }
         public async Task<UserLoginResponse> LoginAsync(UserLoginRequest request)
         {
+            await _loginValidator.ValidateAndThrowAsync(request);
+
             if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password))
             {
                 throw new UserException("Pogrešno korisničko ime ili lozinka.");

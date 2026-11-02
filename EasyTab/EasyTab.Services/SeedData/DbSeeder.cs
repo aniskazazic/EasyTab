@@ -23,7 +23,8 @@ namespace EasyTab.Services.SeedData
 
         public async Task SeedAsync()
         {
-            if (await _context.Users.AnyAsync(user => user.Username == "desktop"))
+            if (await _context.Users.AnyAsync() || await _context.Roles.AnyAsync() ||
+                await _context.Countries.AnyAsync() || await _context.Categories.AnyAsync())
                 return;
 
             await using var transaction = await _context.Database.BeginTransactionAsync();
@@ -295,7 +296,7 @@ namespace EasyTab.Services.SeedData
                 Address = definition.Address,
                 PhoneNumber = definition.Phone,
                 StartOfWorkingHours = new TimeOnly(8, 0),
-                EndOfWorkingHours = new TimeOnly(23, 0),
+                EndOfWorkingHours = new TimeOnly(22, 0),
                 LengthOfReservation = 2,
                 Logo = logos[definition.Image ?? logoNames[index % logoNames.Length]],
                 CityId = cities[definition.CityIndex].Id,

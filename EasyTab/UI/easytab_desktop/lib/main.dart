@@ -254,6 +254,7 @@ class _LoginPageState extends State<LoginPage> {
                         // Polje: korisničko ime
                         _buildTextField(
                           controller: usernameController,
+                          maxLength: 50,
                           hint: "Korisničko ime",
                           icon: Icons.person_outline,
                         ),
@@ -262,6 +263,7 @@ class _LoginPageState extends State<LoginPage> {
                         // Polje: lozinka
                         _buildTextField(
                           controller: passwordController,
+                          maxLength: 100,
                           hint: "Lozinka",
                           icon: Icons.lock_outline,
                           obscure: _obscurePassword,
@@ -357,6 +359,7 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildTextField({
     required TextEditingController controller,
+    required int maxLength,
     required String hint,
     required IconData icon,
     bool obscure = false,
@@ -364,9 +367,11 @@ class _LoginPageState extends State<LoginPage> {
   }) {
     return TextField(
       controller: controller,
+      maxLength: maxLength,
       obscureText: obscure,
       style: const TextStyle(fontSize: 16),
       decoration: InputDecoration(
+        counterText: '',
         hintText: hint,
         hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
         prefixIcon: Icon(icon, size: 22, color: Colors.grey[600]),

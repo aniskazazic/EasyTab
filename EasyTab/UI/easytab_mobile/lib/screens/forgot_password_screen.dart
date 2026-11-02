@@ -157,6 +157,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     Widget? suffix,
   }) {
     return InputDecoration(
+      counterText: '',
       errorMaxLines: 4,
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
@@ -330,6 +331,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _emailController,
+            maxLength: 100,
             keyboardType: TextInputType.emailAddress,
             style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
             decoration: _inputDecoration(
@@ -472,7 +474,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             decoration: _inputDecoration(
               '123456',
               Icons.password_outlined,
-            ).copyWith(counterText: ''),
+            ),
             validator: (value) {
               if (value == null || value.trim().isEmpty) {
                 return 'Kod je obavezan.';
@@ -497,6 +499,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _newPasswordController,
+            maxLength: 100,
             obscureText: _obscureNewPassword,
             style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
             decoration: _inputDecoration(
@@ -538,6 +541,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           const SizedBox(height: 8),
           TextFormField(
             controller: _confirmPasswordController,
+            maxLength: 100,
             obscureText: _obscureConfirmPassword,
             style: const TextStyle(fontSize: 14, color: Color(0xFF0F172A)),
             decoration: _inputDecoration(

@@ -206,12 +206,12 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   ) async {
     var response = await requestBuilder();
 
-    if (response.statusCode == 401) {
+    if (response.statusCode == 401 && AuthProvider.isAuthenticated) {
       final success = await SessionManager().triggerSessionExpiredFlow();
       if (success) {
         // Retry original request since token has been refreshed
         response = await requestBuilder();
-        if (response.statusCode == 401) {
+        if (response.statusCode == 401 && AuthProvider.isAuthenticated) {
           await SessionManager().logoutAndRedirect();
         }
       } else {

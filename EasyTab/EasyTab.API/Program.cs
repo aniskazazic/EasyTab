@@ -4,6 +4,7 @@ using EasyTab.API.Hubs;
 using EasyTab.API.Services;
 using EasyTab.API.Services.AccessManager;
 using EasyTab.Common.Services.CryptoService;
+using EasyTab.Model.Access;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.Serialization;
@@ -100,6 +101,7 @@ builder.Services.AddScoped<ConfirmedReservationState>();
 builder.Services.AddScoped<CancelledReservationState>();
 builder.Services.AddScoped<CompletedReservationState>();
 
+builder.Services.AddScoped<IValidator<UserLoginRequest>, LoginValidator>();
 builder.Services.AddScoped<IValidator<UserInsertRequest>, UserInsertValidator>();
 builder.Services.AddScoped<IValidator<UserUpdateRequest>, UserUpdateValidator>();
 builder.Services.AddScoped<IValidator<CountryUpsertRequest>, CountryUpsertValidator>();

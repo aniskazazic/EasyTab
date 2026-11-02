@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:easytab_desktop/config/app_config.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/models/user.dart';
+import 'package:easytab_desktop/providers/session_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -43,6 +44,7 @@ class AuthProvider extends ChangeNotifier {
     _isAuthenticated = true;
     _accessTokenDecoded = JwtDecoder.decode(_accessToken ?? "");
     notifyListeners();
+    SessionManager().startSession(_accessToken!);
   }
 
   Future<bool> renewSession() async {
@@ -56,15 +58,17 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<bool> _renewSession() async {
-    if (_refreshToken == null) return false;
+    final sessionRefreshToken = _refreshToken;
+    if (sessionRefreshToken == null) return false;
 
     try {
       final response = await http.post(
         Uri.parse('${AppConfig.apiBaseUrl}/Access/LoginWithRefreshToken'),
         headers: createHeaders(),
-        body: jsonEncode({'refreshToken': _refreshToken}),
+        body: jsonEncode({'refreshToken': sessionRefreshToken}),
       );
 
+      if (_refreshToken != sessionRefreshToken) return false;
       if (response.statusCode < 200 || response.statusCode > 299) {
         return false;
       }
@@ -73,6 +77,8 @@ class AuthProvider extends ChangeNotifier {
       _accessToken = data['accessToken'];
       _refreshToken = data['refreshToken'];
       _accessTokenDecoded = JwtDecoder.decode(_accessToken ?? '');
+      SessionManager().startSession(_accessToken!);
+      notifyListeners();
       return true;
     } catch (_) {
       return false;
@@ -80,21 +86,27 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout({bool notifyServer = true}) async {
+    final sessionAccessToken = _accessToken;
+    SessionManager().stopSession();
+    _accessToken = null;
+    _refreshToken = null;
+    _isAuthenticated = false;
+    _accessTokenDecoded = null;
+    currentUser = null;
+
     try {
-      if (notifyServer && _accessToken != null) {
+      if (notifyServer && sessionAccessToken != null) {
         await http.post(
           Uri.parse('${AppConfig.apiBaseUrl}/Access/Logout'),
-          headers: createHeaders(),
+          headers: {
+            ...createHeaders(),
+            'Authorization': 'Bearer $sessionAccessToken',
+          },
         );
       }
     } catch (_) {
       // Local logout must complete even when the server is unavailable.
     } finally {
-      _accessToken = null;
-      _refreshToken = null;
-      _isAuthenticated = false;
-      _accessTokenDecoded = null;
-      currentUser = null;
       notifyListeners();
     }
   }

@@ -252,6 +252,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _usernameController,
+              maxLength: 50,
               enabled: !_isLoading,
               validator: (value) => value == null || value.trim().isEmpty
                   ? 'Unesite korisničko ime.'
@@ -268,6 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 8),
             TextFormField(
               controller: _passwordController,
+              maxLength: 100,
               enabled: !_isLoading,
               validator: (value) =>
                   value == null || value.isEmpty ? 'Unesite lozinku.' : null,
@@ -438,6 +440,7 @@ class _LoginScreenState extends State<LoginScreen> {
     Widget? suffix,
   }) {
     return InputDecoration(
+      counterText: '',
       errorMaxLines: 3,
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
