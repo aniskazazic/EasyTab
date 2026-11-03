@@ -86,6 +86,13 @@ namespace EasyTab.Services.Services
             return query;
         }
 
+        protected override IQueryable<User> ApplySort(IQueryable<User> query, UserSearchObject search)
+        {
+            return string.IsNullOrWhiteSpace(search.SortBy)
+                ? query.OrderByDescending(x => x.Id)
+                : base.ApplySort(query, search);
+        }
+
         protected override Users MapToResponse(User entity)
         {
             var model = base.MapToResponse(entity);

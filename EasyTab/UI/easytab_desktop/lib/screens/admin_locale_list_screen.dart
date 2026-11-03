@@ -383,7 +383,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => LocaleDetailsScreen()),
-            ).then((_) => _loadLocales()),
+            ).then((_) => _onSearchPressed()),
             child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
           ),
         ),

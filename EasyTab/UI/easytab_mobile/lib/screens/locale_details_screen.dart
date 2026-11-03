@@ -301,7 +301,10 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
         builder: (_) => AddReviewScreen(
           localeId: locale.id!,
           existingReview: existingReview,
-          onSaved: _refreshAfterReviewSave,
+          onSaved: () {
+            if (existingReview == null) _reviewCurrentPage = 0;
+            _refreshAfterReviewSave();
+          },
         ),
       ),
     );

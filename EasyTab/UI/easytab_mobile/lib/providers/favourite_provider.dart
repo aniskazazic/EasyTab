@@ -49,7 +49,7 @@ class FavouriteProvider extends BaseProvider<Favourite> {
     validateResponse(response);
     final favourite = Favourite.fromJson(jsonDecode(response.body));
     myFavourites.removeWhere((f) => f.localeId == localeId);
-    myFavourites.add(favourite);
+    myFavourites.insert(0, favourite);
     favouriteLocaleIds.add(localeId);
     notifyListeners();
     onInteractionChanged?.call();

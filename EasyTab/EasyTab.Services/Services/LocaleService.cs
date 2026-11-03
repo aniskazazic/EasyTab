@@ -211,7 +211,9 @@ namespace EasyTab.Services.Services
             if (string.Equals(search?.SortBy, "rating", StringComparison.OrdinalIgnoreCase))
                 return query;
 
-            return base.ApplySort(query, search);
+            return string.IsNullOrWhiteSpace(search?.SortBy)
+                ? query.OrderByDescending(x => x.Id)
+                : base.ApplySort(query, search);
         }
 
         protected override async Task BeforeInsert(Locale entity, LocaleInsertRequest request)

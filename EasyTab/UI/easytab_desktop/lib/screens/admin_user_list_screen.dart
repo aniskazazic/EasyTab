@@ -244,7 +244,8 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => AdminAddUserScreen(onSaved: _loadUsers),
+                builder: (context) =>
+                    AdminAddUserScreen(onSaved: _onSearchPressed),
               ),
             ),
             child: const Text('Dodaj', style: TextStyle(color: Colors.white)),

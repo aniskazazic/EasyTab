@@ -73,6 +73,13 @@ namespace EasyTab.Services.Services
             return result;
         }
 
+        protected override IQueryable<Country> ApplySort(IQueryable<Country> query, CountrySearchObject search)
+        {
+            return string.IsNullOrWhiteSpace(search.SortBy)
+                ? query.OrderByDescending(x => x.Id)
+                : base.ApplySort(query, search);
+        }
+
         protected override IQueryable<Country> ApplyFilter(IQueryable<Country> query, CountrySearchObject? search)
         {
             if (!string.IsNullOrEmpty(search?.Name))

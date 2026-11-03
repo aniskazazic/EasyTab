@@ -70,6 +70,13 @@ namespace EasyTab.Services.Services
             return result;
         }
 
+        protected override IQueryable<Category> ApplySort(IQueryable<Category> query, CategorySearchObject search)
+        {
+            return string.IsNullOrWhiteSpace(search.SortBy)
+                ? query.OrderByDescending(x => x.Id)
+                : base.ApplySort(query, search);
+        }
+
         protected override IQueryable<Category> ApplyFilter(IQueryable<Category> query, CategorySearchObject search)
         {
             if (!string.IsNullOrWhiteSpace(search?.Name))

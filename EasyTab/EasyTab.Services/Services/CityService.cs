@@ -70,6 +70,13 @@ namespace EasyTab.Services.Services
             return result;
         }
 
+        protected override IQueryable<City> ApplySort(IQueryable<City> query, CitySearchObject search)
+        {
+            return string.IsNullOrWhiteSpace(search.SortBy)
+                ? query.OrderByDescending(x => x.Id)
+                : base.ApplySort(query, search);
+        }
+
         protected override IQueryable<City> ApplyFilter(IQueryable<City> query, CitySearchObject search)
         {
             query = query.Include(x => x.Country);

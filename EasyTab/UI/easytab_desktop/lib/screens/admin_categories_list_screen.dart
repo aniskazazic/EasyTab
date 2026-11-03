@@ -193,7 +193,7 @@ class _AdminCategoriesListScreenState extends State<AdminCategoriesListScreen> {
               MaterialPageRoute(
                 builder: (context) => const AdminCategoryDetailsScreen(),
               ),
-            ).then((_) => _loadCategories()),
+            ).then((_) => _onSearchPressed()),
             child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
           ),
         ),

@@ -193,7 +193,7 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
               MaterialPageRoute(
                 builder: (context) => const AdminCountryDetailsScreen(),
               ),
-            ).then((_) => _loadCountries()),
+            ).then((_) => _onSearchPressed()),
             child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
           ),
         ),

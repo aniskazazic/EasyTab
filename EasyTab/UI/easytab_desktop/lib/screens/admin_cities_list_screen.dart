@@ -192,7 +192,7 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
               MaterialPageRoute(
                 builder: (context) => const AdminCityDetailsScreen(),
               ),
-            ).then((_) => _loadCities()),
+            ).then((_) => _onSearchPressed()),
             child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
           ),
         ),
