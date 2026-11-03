@@ -14,10 +14,12 @@ namespace EasyTab.Services.Validators
         {
             RuleFor(x => x.FileName)
                 .NotEmpty().WithMessage("Naziv datoteke je obavezan.")
+                .Must(ImageContentValidator.IsAllowedFileName).WithMessage("Dozvoljene su samo JPG, JPEG i PNG slike.")
                 .MaximumLength(100).WithMessage("Naziv datoteke ne može imati više od 100 karaktera.");
 
             RuleFor(x => x.ContentType)
                 .NotEmpty().WithMessage("Tip sadržaja je obavezan.")
+                .Must(ImageContentValidator.IsAllowedContentType).WithMessage("Dozvoljeni tipovi sadržaja su image/jpeg, image/jpg i image/png.")
                 .MaximumLength(100).WithMessage("Tip sadržaja ne može imati više od 100 karaktera.");
 
             RuleFor(x => x.Base64Content)

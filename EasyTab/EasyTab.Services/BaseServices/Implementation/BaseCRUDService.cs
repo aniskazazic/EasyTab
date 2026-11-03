@@ -72,7 +72,9 @@ namespace EasyTab.Services.BaseServices.Implementation
 
         public virtual async Task<TModel?> UpdateAsync(int id, TUpdate request)
         {
-            var validationResult = await _updateValidator.ValidateAsync(request);
+            var validationContext = new ValidationContext<TUpdate>(request);
+            validationContext.RootContextData["Id"] = id;
+            var validationResult = await _updateValidator.ValidateAsync(validationContext);
 
             if (validationResult.IsValid == false)
             {
@@ -84,7 +86,7 @@ namespace EasyTab.Services.BaseServices.Implementation
 
 
             if (entity == null)
-                throw new NotFoundException($"{typeof(TDbEntity).Name} with id {id} not found.");
+                throw new NotFoundException("Traženi zapis nije pronađen.");
 
 
             MapUpdateToEntity(entity, request);
@@ -111,7 +113,7 @@ namespace EasyTab.Services.BaseServices.Implementation
             var entity = await _context.Set<TDbEntity>().FindAsync(id);
 
             if (entity == null)
-                throw new UserException($"{typeof(TDbEntity).Name} with id {id} not found.");
+                throw new UserException("Traženi zapis nije pronađen.");
 
             await BeforeDelete(entity);
 

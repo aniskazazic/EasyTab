@@ -106,7 +106,10 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   }
 
   Future<void> _pickImage() async {
-    final result = await FilePicker.pickFiles(type: FileType.image);
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
     if (result != null && result.files.single.path != null) {
       setState(() {
         _imageFile = File(result.files.single.path!);
@@ -161,13 +164,15 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       }
       if (mounted) _showSuccess('Podaci su uspješno ažurirani.');
     } catch (e) {
-      final message = e.toString().replaceAll('Exception: ', '');
+      final message = e is ApiClientException
+          ? e.message
+          : 'Podatke nije moguće sačuvati. Provjerite vezu i pokušajte ponovo.';
       final imageError = e is ApiClientException
           ? e.imageValidationErrors['profilePicture']
           : null;
       if (imageError != null) {
         setState(() => _profilePictureError = imageError);
-      } else {
+      } else if (!showApiFieldErrors(formKey.currentState, e)) {
         _showError(
           profileUpdated
               ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
@@ -339,16 +344,14 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                       Expanded(
                         child: FormBuilderTextField(
                           name: 'username',
+                          maxLength: 50,
+                          inputFormatters: usernameInputFormatters,
                           decoration: const InputDecoration(
                             labelText: 'Korisničko ime',
                             border: OutlineInputBorder(),
                           ),
                           enabled: user != null,
-                          validator: user != null
-                              ? FormBuilderValidators.required(
-                                  errorText: 'Korisnicko ime je obavezno',
-                                )
-                              : null,
+                          validator: validateUsername,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -384,8 +387,10 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
                             border: OutlineInputBorder(),
                             suffixIcon: Icon(Icons.calendar_today),
                           ),
-                          firstDate: DateTime(1900),
-                          lastDate: DateTime.now(),
+                          initialDate: latestBirthDate,
+                          firstDate: earliestBirthDate,
+                          lastDate: latestBirthDate,
+                          validator: validateBirthDate,
                         ),
                       ),
                       const SizedBox(width: 16),

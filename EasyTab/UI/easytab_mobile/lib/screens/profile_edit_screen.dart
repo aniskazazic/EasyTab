@@ -306,13 +306,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
           const SizedBox(height: 20),
           FormBuilderTextField(
             name: "username",
+            maxLength: 50,
+            inputFormatters: FormValidation.usernameInputFormatters,
             decoration: const InputDecoration(labelText: "Korisničko ime"),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return "Korisničko ime je obavezno";
-              }
-              return null;
-            },
+            validator: FormValidation.username,
           ),
           const SizedBox(height: 20),
           FormBuilderTextField(
@@ -340,8 +337,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             inputType: InputType.date,
             format: dateOnlyFormatter,
             decoration: const InputDecoration(labelText: "Datum rođenja"),
-            firstDate: DateTime(1900),
-            lastDate: DateTime.now(),
+            initialDate: FormValidation.latestBirthDate,
+            firstDate: FormValidation.earliestBirthDate,
+            lastDate: FormValidation.latestBirthDate,
             validator: FormValidation.adult,
           ),
         ],

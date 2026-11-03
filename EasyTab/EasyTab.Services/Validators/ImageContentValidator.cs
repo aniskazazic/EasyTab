@@ -9,6 +9,24 @@ namespace EasyTab.Services.Validators
         public const int MaximumImageSizeInBytes = 300 * 1024;
         public const string ErrorMessage = "Slika mora biti JPG, JPEG ili PNG i manja od 300 KB.";
 
+        public static bool IsAllowedFileName(string? fileName)
+        {
+            var extension = System.IO.Path.GetExtension(fileName)?.ToLowerInvariant();
+            return extension is ".jpg" or ".jpeg" or ".png";
+        }
+
+        public static bool IsAllowedContentType(string? contentType) =>
+            contentType?.Trim().ToLowerInvariant() is "image/jpeg" or "image/jpg" or "image/png";
+
+        public static bool IsValidImageUpload(string? base64Content, string? fileName, string? contentType)
+        {
+            if (!IsAllowedFileName(fileName) || !IsValidImage(base64Content, contentType, true))
+                return false;
+
+            var isPng = string.Equals(System.IO.Path.GetExtension(fileName), ".png", StringComparison.OrdinalIgnoreCase);
+            return isPng == string.Equals(contentType?.Trim(), "image/png", StringComparison.OrdinalIgnoreCase);
+        }
+
         public static void ValidateOptionalImage(string? base64Content, string propertyName)
         {
             if (string.IsNullOrWhiteSpace(base64Content))
@@ -20,9 +38,11 @@ namespace EasyTab.Services.Validators
         public static void ValidateRequiredImage(
             string? base64Content,
             string? contentType,
-            string propertyName)
+            string propertyName,
+            string? fileName)
         {
-            ValidateImage(base64Content, contentType, propertyName, true);
+            if (!IsValidImageUpload(base64Content, fileName, contentType))
+                throw new ValidationException(new[] { new ValidationFailure(propertyName, ErrorMessage) });
         }
 
         private static void ValidateImage(

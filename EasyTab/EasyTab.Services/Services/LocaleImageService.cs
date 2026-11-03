@@ -53,7 +53,8 @@ namespace EasyTab.Services.Services
             ImageContentValidator.ValidateRequiredImage(
                 request.Base64Content,
                 request.ContentType,
-                nameof(request.Base64Content));
+                nameof(request.Base64Content),
+                request.FileName);
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             // Provjera da li lokal postoji
@@ -71,7 +72,8 @@ namespace EasyTab.Services.Services
             ImageContentValidator.ValidateRequiredImage(
                 request.Base64Content,
                 request.ContentType,
-                nameof(request.Base64Content));
+                nameof(request.Base64Content),
+                request.FileName);
 
             // Provjera da li lokal postoji
             var localeExists = await Context.Locales.AnyAsync(x => x.Id == request.LocaleId);

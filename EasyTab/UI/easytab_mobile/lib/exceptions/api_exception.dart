@@ -52,7 +52,7 @@ class ApiErrorParser {
 
       final root = map['message'];
       if (root is String) {
-        final m = root.trim();
+        final m = _safeMessage(root);
         if (m.isNotEmpty) {
           return m;
         }
@@ -101,7 +101,8 @@ class ApiErrorParser {
         for (final entry in errors.entries)
           if (entry.value is List && (entry.value as List).isNotEmpty)
             entry.key: (entry.value as List)
-                .map((value) => value.toString())
+                .whereType<String>()
+                .map(_safeMessage)
                 .toList(),
       };
     } on FormatException {
@@ -109,15 +110,31 @@ class ApiErrorParser {
     }
   }
 
+  static String _safeMessage(String value) {
+    final message = value.trim();
+    if (message.startsWith('{') ||
+        message.startsWith('[') ||
+        message.contains(r'Path: $') ||
+        message.contains('BytePositionInLine') ||
+        message.contains('could not be converted') ||
+        message.contains('The value ') ||
+        message.contains(' field is required') ||
+        message == 'One or more validation errors occurred.') {
+      return 'Podaci nisu ispravnog formata ili nedostaje obavezna vrijednost. Provjerite unos.';
+    }
+    return message;
+  }
+
   static List<String> _messagesFromValue(dynamic v) {
     if (v is List) {
       return v
-          .map((e) => e.toString().trim())
+          .whereType<String>()
+          .map((e) => _safeMessage(e))
           .where((s) => s.isNotEmpty)
           .toList();
     }
     if (v is String) {
-      final s = v.trim();
+      final s = _safeMessage(v);
       return s.isEmpty ? [] : [s];
     }
     return [];

@@ -103,7 +103,10 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
 
   Future<void> _reactivateUser(User user) async {
     try {
-      await userProvider.update(user.id!, {"isDeleted": false});
+      await userProvider.update(user.id!, {
+        "username": user.username,
+        "isDeleted": false,
+      });
       await _loadUsers();
     } catch (e) {
       _showError(e.toString());

@@ -1,16 +1,27 @@
 import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 
 class FormValidation {
+  static final usernameInputFormatters = <TextInputFormatter>[
+    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+  ];
+  static final earliestBirthDate = DateTime(1900, 1, 2);
+
+  static DateTime get latestBirthDate {
+    final now = DateTime.now();
+    final lastDay = DateTime(now.year - 18, now.month + 1, 0).day;
+    return DateTime(now.year - 18, now.month, now.day.clamp(1, lastDay));
+  }
+
   static String? requiredText(String? value) =>
       value == null || value.trim().isEmpty ? 'Obavezno polje.' : null;
 
   static String? username(String? value) {
     final required = requiredText(value);
     if (required != null) return required;
-    return value!.trim().length > 50 ||
-            !RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value.trim())
+    return value!.length > 50 || !RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)
         ? 'Koristite do 50 slova, brojeva ili donju crtu (_).'
         : null;
   }
@@ -39,13 +50,13 @@ class FormValidation {
 
   static String? adult(DateTime? value) {
     if (value == null) return 'Unesite datum rođenja.';
-    final now = DateTime.now();
-    var age = now.year - value.year;
-    if (now.month < value.month ||
-        (now.month == value.month && now.day < value.day)) {
-      age--;
+    final date = DateTime(value.year, value.month, value.day);
+    if (date.isBefore(earliestBirthDate)) {
+      return 'Datum rođenja mora biti nakon 01.01.1900.';
     }
-    return age < 18 ? 'Morate imati najmanje 18 godina.' : null;
+    return date.isAfter(latestBirthDate)
+        ? 'Morate imati najmanje 18 godina.'
+        : null;
   }
 
   static String? password(String? value) {

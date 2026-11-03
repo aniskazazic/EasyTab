@@ -104,7 +104,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   Future<void> _pickImage() async {
-    final result = await FilePicker.pickFiles(type: FileType.image);
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
     if (result != null && result.files.single.path != null) {
       setState(() {
         _imageFile = File(result.files.single.path!);
@@ -154,13 +157,15 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       }
       if (mounted) _showSuccess('Podaci su uspješno ažurirani.');
     } catch (e) {
-      final message = e.toString().replaceAll('Exception: ', '');
+      final message = e is ApiClientException
+          ? e.message
+          : 'Podatke nije moguće sačuvati. Provjerite vezu i pokušajte ponovo.';
       final imageError = e is ApiClientException
           ? e.imageValidationErrors['profilePicture']
           : null;
       if (imageError != null) {
         setState(() => _profilePictureError = imageError);
-      } else {
+      } else if (!showApiFieldErrors(formKey.currentState, e)) {
         _showError(
           profileUpdated
               ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
@@ -190,7 +195,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                await userProvider.update(user!.id!, {'profilePicture': ''});
+                await userProvider.update(user!.id!, {
+                  'username': user.username,
+                  'profilePicture': '',
+                });
                 if (!mounted) return;
                 setState(() => AuthProvider.currentUser?.profilePicture = null);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -308,13 +316,13 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                       Expanded(
                         child: FormBuilderTextField(
                           name: 'username',
+                          maxLength: 50,
+                          inputFormatters: usernameInputFormatters,
                           decoration: const InputDecoration(
                             labelText: 'Korisnicko ime',
                             border: OutlineInputBorder(),
                           ),
-                          validator: FormBuilderValidators.required(
-                            errorText: 'Korisnicko ime je obavezno',
-                          ),
+                          validator: validateUsername,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -350,8 +358,10 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                             border: OutlineInputBorder(),
                             suffixIcon: Icon(Icons.calendar_today),
                           ),
-                          firstDate: DateTime(1900),
-                          lastDate: DateTime.now(),
+                          initialDate: latestBirthDate,
+                          firstDate: earliestBirthDate,
+                          lastDate: latestBirthDate,
+                          validator: validateBirthDate,
                         ),
                       ),
                       const SizedBox(width: 16),

@@ -1,13 +1,20 @@
 using EasyTab.Model.Requests;
 using EasyTab.Model.Serialization;
+using EasyTab.Services.Database;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 
 namespace EasyTab.Services.Validators
 {
     public class LocaleInsertValidator : AbstractValidator<LocaleInsertRequest>
     {
-        public LocaleInsertValidator()
+        public LocaleInsertValidator(_220030Context context)
         {
+            RuleFor(x => x.Logo)
+                .Must((request, logo) => string.IsNullOrEmpty(logo) ||
+                    ImageContentValidator.IsValidImageUpload(logo, request.LogoFileName, request.LogoContentType))
+                .WithMessage(ImageContentValidator.ErrorMessage);
+
             RuleFor(x => x.Name)
                 .NotEmpty().WithMessage("Naziv lokala je obavezan.")
                 .MaximumLength(100).WithMessage("Naziv lokala ne može imati više od 100 karaktera.");
@@ -16,8 +23,19 @@ namespace EasyTab.Services.Validators
                 .NotEmpty().WithMessage("Adresa je obavezna.")
                 .MaximumLength(255).WithMessage("Adresa ne može imati više od 255 karaktera.");
 
+            RuleFor(x => x.CountryId)
+                .Cascade(CascadeMode.Stop)
+                .GreaterThan(0).WithMessage("Država je obavezna.")
+                .MustAsync((countryId, cancellationToken) => context.Countries
+                    .AnyAsync(country => country.Id == countryId, cancellationToken))
+                .WithMessage("Odabrana država ne postoji.");
+
             RuleFor(x => x.CityId)
-                .GreaterThan(0).WithMessage("Grad je obavezan.");
+                .Cascade(CascadeMode.Stop)
+                .GreaterThan(0).WithMessage("Grad je obavezan.")
+                .MustAsync((request, cityId, cancellationToken) => context.Cities
+                    .AnyAsync(city => city.Id == cityId && city.CountryId == request.CountryId, cancellationToken))
+                .WithMessage("Odabrani grad mora pripadati odabranoj državi.");
 
             RuleFor(x => x.CategoryId)
                 .GreaterThan(0).WithMessage("Kategorija je obavezna.");
@@ -26,19 +44,18 @@ namespace EasyTab.Services.Validators
                 .GreaterThan(0).WithMessage("Vlasnik je obavezan.");
 
             RuleFor(x => x.PhoneNumber)
+                .NotEmpty().WithMessage("Broj telefona je obavezan.")
                 .MaximumLength(20).WithMessage("Broj telefona ne može imati više od 20 karaktera.")
-                .Matches(@"^\+?[0-9\s\-]+$").WithMessage("Broj telefona nije ispravnog formata.")
-                .When(x => !string.IsNullOrEmpty(x.PhoneNumber));
+                .Matches(@"^\+?[0-9\s\-]+$").WithMessage("Broj telefona nije ispravnog formata.");
 
             RuleFor(x => x.StartOfWorkingHours)
-                .NotEmpty().WithMessage("Početak radnog vremena je obavezno.");
+                .NotNull().WithMessage("Početak radnog vremena je obavezan.");
 
             RuleFor(x => x.EndOfWorkingHours)
-                .NotEmpty().WithMessage("Kraj radnog vremena je obavezan.");
+                .NotNull().WithMessage("Kraj radnog vremena je obavezan.");
 
             RuleFor(x => x.LengthOfReservation)
-                .GreaterThan(0)
-                .LessThanOrEqualTo(24)
+                .Must(value => double.IsFinite(value) && value >= 0.5 && value <= 24 && value * 2 == Math.Truncate(value * 2))
                 .WithMessage(ReservationDurationMessages.InvalidValue);
 
             RuleFor(x => x.ReservationPrice)

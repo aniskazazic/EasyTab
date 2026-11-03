@@ -295,8 +295,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Icons.calendar_today_rounded,
               ),
               format: dateOnlyFormatter,
-              firstDate: DateTime(1900),
-              lastDate: DateTime.now(),
+              initialDate: FormValidation.latestBirthDate,
+              firstDate: FormValidation.earliestBirthDate,
+              lastDate: FormValidation.latestBirthDate,
               validator: FormValidation.adult,
             ),
 
@@ -525,6 +526,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return FormBuilderTextField(
       name: name,
       maxLength: maxLength,
+      inputFormatters: name == 'username'
+          ? FormValidation.usernameInputFormatters
+          : null,
       obscureText: obscure,
       keyboardType: keyboard,
       onChanged: onChanged,

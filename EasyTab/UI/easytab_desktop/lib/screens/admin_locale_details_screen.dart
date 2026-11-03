@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/reservation_duration_field.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:easytab_desktop/widgets/reservation_price_field.dart';
@@ -45,6 +46,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   List<User> _owners = [];
 
   int? selectedCountryId;
+  int? selectedCityId;
   bool isLoading = true;
 
   bool get _isInsert => widget.locale == null;
@@ -99,6 +101,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
             orElse: () => City(),
           );
           selectedCountryId = city.countryId;
+          selectedCityId = city.id;
           _filteredCities = selectedCountryId != null
               ? _allCities
                     .where((c) => c.countryId == selectedCountryId)
@@ -159,7 +162,11 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
     var request = Map<String, dynamic>.from(formKey.currentState!.value);
 
     if (_image != null) {
-      request['logo'] = base64Encode(_image!.readAsBytesSync());
+      request['logo'] = base64Encode(await _image!.readAsBytes());
+      request['logoFileName'] = _image!.uri.pathSegments.last;
+      request['logoContentType'] = _image!.path.toLowerCase().endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
     }
 
     for (final key in ['startOfWorkingHours', 'endOfWorkingHours']) {
@@ -180,9 +187,8 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
     );
 
     try {
-      request['lengthOfReservation'] = double.parse(
-        request['lengthOfReservation'] as String,
-      );
+      request['lengthOfReservation'] =
+          (request['lengthOfReservation'] as int) / 60.0;
 
       if (_isInsert) {
         await localeProvider.insert(request);
@@ -198,7 +204,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
           : null;
       if (imageError != null) {
         setState(() => _logoError = imageError);
-      } else {
+      } else if (!showApiFieldErrors(formKey.currentState, e)) {
         _showError(e.toString());
       }
     }
@@ -267,12 +273,14 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       initialValue: {
         "name": widget.locale?.name ?? '',
         "address": widget.locale?.address ?? '',
-        "lengthOfReservation":
-            widget.locale?.lengthOfReservation?.toString() ?? '',
+        "lengthOfReservation": reservationMinutes(
+          widget.locale?.lengthOfReservation,
+        ),
         'reservationPrice':
             widget.locale?.reservationPrice?.toStringAsFixed(2) ?? '',
         "phoneNumber": widget.locale?.phoneNumber ?? '',
-        "cityId": widget.locale?.cityId,
+        "countryId": selectedCountryId,
+        "cityId": selectedCityId,
         "categoryId": widget.locale?.categoryId,
         "startOfWorkingHours": widget.locale?.startOfWorkingHours != null
             ? TimeOfDay.fromDateTime(widget.locale!.startOfWorkingHours!)
@@ -387,10 +395,27 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                             fileUrl: widget.locale!.logo!,
                             subfolder: 'ImageFolder/LocaleLogo',
                             onDeleted: () async {
+                              final city = await cityProvider.getById(
+                                widget.locale!.cityId!,
+                              );
                               await localeProvider.update(widget.locale!.id!, {
                                 'name': widget.locale!.name,
                                 'address': widget.locale!.address,
                                 'logo': '',
+                                'phoneNumber': widget.locale!.phoneNumber,
+                                'countryId': city.countryId,
+                                'cityId': widget.locale!.cityId,
+                                'categoryId': widget.locale!.categoryId,
+                                'startOfWorkingHours':
+                                    widget.locale!.startOfWorkingHours == null
+                                    ? null
+                                    : '${widget.locale!.startOfWorkingHours!.hour.toString().padLeft(2, '0')}:${widget.locale!.startOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
+                                'endOfWorkingHours':
+                                    widget.locale!.endOfWorkingHours == null
+                                    ? null
+                                    : '${widget.locale!.endOfWorkingHours!.hour.toString().padLeft(2, '0')}:${widget.locale!.endOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
+                                'lengthOfReservation':
+                                    widget.locale!.lengthOfReservation,
                                 'reservationPrice':
                                     widget.locale!.reservationPrice,
                               });
@@ -410,6 +435,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: "name",
+                    maxLength: 100,
                     decoration: const InputDecoration(
                       labelText: "Naziv lokala",
                       border: OutlineInputBorder(),
@@ -423,6 +449,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: "address",
+                    maxLength: 255,
                     decoration: const InputDecoration(
                       labelText: "Adresa",
                       border: OutlineInputBorder(),
@@ -441,32 +468,18 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: "phoneNumber",
+                    maxLength: 20,
                     decoration: const InputDecoration(
                       labelText: "Broj telefona",
                       border: OutlineInputBorder(),
                     ),
-                    validator: validatePhone,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Broj telefona je obavezan.'
+                        : validatePhone(value),
                   ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: FormBuilderTextField(
-                    name: "lengthOfReservation",
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: "Dužina rezervacije (sati)",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: FormBuilderValidators.compose([
-                      FormBuilderValidators.required(
-                        errorText: 'Dužina rezervacije je obavezna',
-                      ),
-                      validateReservationLength,
-                    ]),
-                  ),
-                ),
+                Expanded(child: const ReservationDurationField()),
               ],
             ),
             const SizedBox(height: 16),
@@ -565,8 +578,11 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<int>(
-                    value: selectedCountryId,
+                  child: FormBuilderDropdown<int>(
+                    name: "countryId",
+                    validator: FormBuilderValidators.required(
+                      errorText: 'Država je obavezna',
+                    ),
                     decoration: const InputDecoration(
                       labelText: "Država",
                       border: OutlineInputBorder(),
@@ -582,6 +598,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                     onChanged: (value) {
                       setState(() {
                         selectedCountryId = value;
+                        selectedCityId = null;
                         _filteredCities = value == null
                             ? []
                             : _allCities
@@ -596,8 +613,8 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
 
                 Expanded(
                   child: FormBuilderDropdown<int>(
-                    key: ValueKey(selectedCountryId),
                     name: "cityId",
+                    onChanged: (value) => selectedCityId = value,
                     decoration: InputDecoration(
                       labelText: "Grad",
                       labelStyle: TextStyle(
@@ -691,7 +708,10 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   String? _logoError;
 
   void getImage() async {
-    var result = await FilePicker.pickFiles(type: FileType.image);
+    var result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
     if (result != null && result.files.single.path != null) {
       setState(() {
         _image = File(result.files.single.path!);

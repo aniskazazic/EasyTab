@@ -1,11 +1,68 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:easytab_desktop/models/search_result.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_form_builder/flutter_form_builder.dart';
+import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:intl/intl.dart';
 
 final dateOnlyFormatter = DateFormat('dd.MM.yyyy.');
+final usernameInputFormatters = <TextInputFormatter>[
+  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
+];
+final earliestBirthDate = DateTime(1900, 1, 2);
+
+DateTime get latestBirthDate {
+  final now = DateTime.now();
+  final lastDay = DateTime(now.year - 18, now.month + 1, 0).day;
+  return DateTime(now.year - 18, now.month, now.day.clamp(1, lastDay));
+}
+
+DateTime birthDatePickerInitialDate(DateTime? value) {
+  final date = value ?? DateTime(1990, 1, 1);
+  if (date.isBefore(earliestBirthDate)) return earliestBirthDate;
+  if (date.isAfter(latestBirthDate)) return latestBirthDate;
+  return date;
+}
+
+String? validateUsername(String? value) {
+  if (value == null || value.isEmpty) return 'Korisničko ime je obavezno.';
+  if (value.length > 50) {
+    return 'Korisničko ime može imati najviše 50 karaktera.';
+  }
+  return RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(value)
+      ? null
+      : 'Koristite samo slova, brojeve i donju crtu (_).';
+}
+
+String? validateBirthDate(DateTime? value) {
+  if (value == null) return null;
+  final date = DateTime(value.year, value.month, value.day);
+  if (date.isBefore(earliestBirthDate)) {
+    return 'Datum rođenja mora biti nakon 01.01.1900.';
+  }
+  if (date.isAfter(latestBirthDate)) {
+    return 'Korisnik mora imati najmanje 18 godina.';
+  }
+  return null;
+}
+
+bool showApiFieldErrors(FormBuilderState? form, Object error) {
+  if (form == null || error is! ApiClientException) return false;
+  var handled = false;
+  for (final entry in error.validationErrors.entries) {
+    final key = entry.key.split('.').last.toLowerCase();
+    for (final field in form.fields.entries) {
+      if (field.key.toLowerCase() == key) {
+        field.value.invalidate(entry.value.join('\n'));
+        handled = true;
+      }
+    }
+  }
+  return handled;
+}
+
 const _maxImageCacheEntries = 80;
 final Map<String, Uint8List> _decodedImages = {};
 
@@ -42,32 +99,6 @@ String? validatePhone(String? value) {
   }
 
   return 'Unesite ispravan broj (npr. +387 61 123 456 ili +49 30 12345678)';
-}
-
-String? validateReservationLength(String? value) {
-  final length = value?.trim() ?? '';
-  if (length.isEmpty) return null;
-
-  if (length.contains(',')) {
-    return 'Koristite tačku kao decimalni separator, npr. 1.5 (ne 1,5).';
-  }
-
-  if (!RegExp(r'^\d+(?:\.\d+)?$').hasMatch(length)) {
-    return 'Unesite dužinu rezervacije kao broj sati, npr. 1.5.';
-  }
-
-  final hours = double.tryParse(length);
-  if (hours == null) {
-    return 'Unesite dužinu rezervacije kao broj sati, npr. 1.5.';
-  }
-  if (hours <= 0) {
-    return 'Dužina rezervacije mora biti veća od 0 sati.';
-  }
-  if (hours > 24) {
-    return 'Dužina rezervacije ne može biti duža od 24 sata.';
-  }
-
-  return null;
 }
 
 Future<List<T>> fetchAllPages<T>(

@@ -90,7 +90,7 @@ namespace EasyTab.Services.Services
         {
             var value = configuration[key];
             if (string.IsNullOrWhiteSpace(value))
-                throw new InvalidOperationException($"Missing required configuration value '{key}'.");
+                throw new InvalidOperationException($"Nedostaje obavezna konfiguracijska vrijednost '{key}'.");
 
             return value;
         }

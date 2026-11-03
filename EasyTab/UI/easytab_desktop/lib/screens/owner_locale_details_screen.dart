@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/reservation_duration_field.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui';
@@ -52,6 +53,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   List<LocaleImage> newImages = [];
 
   int? selectedCountryId;
+  int? selectedCityId;
   bool isLoading = true;
   bool _isSaving = false;
   String? _loadError;
@@ -107,6 +109,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
             orElse: () => City(),
           );
           selectedCountryId = city.countryId;
+          selectedCityId = city.id;
           _filteredCities = selectedCountryId != null
               ? _allCities
                     .where((c) => c.countryId == selectedCountryId)
@@ -173,7 +176,11 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
 
     // Upload slike ako je odabrana
     if (_image != null) {
-      request['logo'] = base64Encode(_image!.readAsBytesSync());
+      request['logo'] = base64Encode(await _image!.readAsBytes());
+      request['logoFileName'] = _image!.uri.pathSegments.last;
+      request['logoContentType'] = _image!.path.toLowerCase().endsWith('.png')
+          ? 'image/png'
+          : 'image/jpeg';
     }
 
     if (newImages.isNotEmpty) {
@@ -202,9 +209,8 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
 
     setState(() => _isSaving = true);
     try {
-      request['lengthOfReservation'] = double.parse(
-        request['lengthOfReservation'] as String,
-      );
+      request['lengthOfReservation'] =
+          (request['lengthOfReservation'] as int) / 60.0;
 
       if (_isInsert) {
         await localeProvider.insert(request);
@@ -222,7 +228,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
           _logoError = imageErrors['logo'];
           _galleryError = imageErrors['images'];
         });
-      } else {
+      } else if (!showApiFieldErrors(formKey.currentState, e)) {
         _showError(e.toString());
       }
     } finally {
@@ -231,7 +237,10 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   }
 
   Future<void> _getImage() async {
-    var result = await FilePicker.pickFiles(type: FileType.image);
+    var result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
     if (result != null && result.files.single.path != null) {
       setState(() {
         _image = File(result.files.single.path!);
@@ -273,8 +282,22 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     if (shouldDelete != true || widget.locale?.id == null) return;
 
     try {
+      final city = await cityProvider.getById(widget.locale!.cityId!);
       await localeProvider.update(widget.locale!.id!, {
         'logo': '',
+        'name': widget.locale!.name,
+        'address': widget.locale!.address,
+        'phoneNumber': widget.locale!.phoneNumber,
+        'countryId': city.countryId,
+        'cityId': widget.locale!.cityId,
+        'categoryId': widget.locale!.categoryId,
+        'startOfWorkingHours': widget.locale!.startOfWorkingHours == null
+            ? null
+            : '${widget.locale!.startOfWorkingHours!.hour.toString().padLeft(2, '0')}:${widget.locale!.startOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
+        'endOfWorkingHours': widget.locale!.endOfWorkingHours == null
+            ? null
+            : '${widget.locale!.endOfWorkingHours!.hour.toString().padLeft(2, '0')}:${widget.locale!.endOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
+        'lengthOfReservation': widget.locale!.lengthOfReservation,
         'reservationPrice': widget.locale!.reservationPrice,
       });
       if (!mounted) return;
@@ -502,12 +525,14 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       initialValue: {
         "name": widget.locale?.name ?? '',
         "address": widget.locale?.address ?? '',
-        "lengthOfReservation":
-            widget.locale?.lengthOfReservation?.toString() ?? '',
+        "lengthOfReservation": reservationMinutes(
+          widget.locale?.lengthOfReservation,
+        ),
         'reservationPrice':
             widget.locale?.reservationPrice?.toStringAsFixed(2) ?? '',
         "phoneNumber": widget.locale?.phoneNumber ?? '',
-        "cityId": widget.locale?.cityId,
+        "countryId": selectedCountryId,
+        "cityId": selectedCityId,
         "categoryId": widget.locale?.categoryId,
         "startOfWorkingHours": widget.locale?.startOfWorkingHours != null
             ? TimeOfDay.fromDateTime(widget.locale!.startOfWorkingHours!)
@@ -626,6 +651,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: "name",
+                    maxLength: 100,
                     decoration: const InputDecoration(
                       labelText: "Naziv lokala",
                       border: OutlineInputBorder(),
@@ -639,6 +665,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: "address",
+                    maxLength: 255,
                     decoration: const InputDecoration(
                       labelText: "Adresa",
                       border: OutlineInputBorder(),
@@ -658,32 +685,18 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: "phoneNumber",
+                    maxLength: 20,
                     decoration: const InputDecoration(
                       labelText: "Broj telefona",
                       border: OutlineInputBorder(),
                     ),
-                    validator: validatePhone,
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? 'Broj telefona je obavezan.'
+                        : validatePhone(value),
                   ),
                 ),
                 const SizedBox(width: 16),
-                Expanded(
-                  child: FormBuilderTextField(
-                    name: "lengthOfReservation",
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: "Dužina rezervacije (sati)",
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: FormBuilderValidators.compose([
-                      FormBuilderValidators.required(
-                        errorText: 'Dužina rezervacije je obavezna',
-                      ),
-                      validateReservationLength,
-                    ]),
-                  ),
-                ),
+                Expanded(child: const ReservationDurationField()),
               ],
             ),
             const SizedBox(height: 16),
@@ -774,8 +787,11 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<int>(
-                    value: selectedCountryId,
+                  child: FormBuilderDropdown<int>(
+                    name: "countryId",
+                    validator: FormBuilderValidators.required(
+                      errorText: 'Država je obavezna',
+                    ),
                     decoration: const InputDecoration(
                       labelText: "Država",
                       border: OutlineInputBorder(),
@@ -792,6 +808,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                     onChanged: (value) {
                       setState(() {
                         selectedCountryId = value;
+                        selectedCityId = null;
                         _filteredCities = value == null
                             ? []
                             : _allCities
@@ -805,8 +822,8 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 const SizedBox(width: 16),
                 Expanded(
                   child: FormBuilderDropdown<int>(
-                    key: ValueKey(selectedCountryId),
                     name: "cityId",
+                    onChanged: (value) => selectedCityId = value,
                     decoration: InputDecoration(
                       labelText: "Grad",
                       border: const OutlineInputBorder(),
@@ -890,7 +907,8 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
     try {
       FilePickerResult? result = await FilePicker.pickFiles(
         allowMultiple: true,
-        type: FileType.image,
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png'],
       );
 
       if (result != null) {

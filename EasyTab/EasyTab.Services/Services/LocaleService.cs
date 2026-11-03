@@ -138,14 +138,16 @@ namespace EasyTab.Services.Services
                     ImageContentValidator.ValidateRequiredImage(
                         null,
                         null,
-                        $"Images[{index}].Base64Content");
+                        $"Images[{index}].Base64Content",
+                        null);
                     continue;
                 }
 
                 ImageContentValidator.ValidateRequiredImage(
                     image.Base64Content,
                     image.ContentType,
-                    $"Images[{index}].Base64Content");
+                    $"Images[{index}].Base64Content",
+                    image.FileName);
             }
         }
 

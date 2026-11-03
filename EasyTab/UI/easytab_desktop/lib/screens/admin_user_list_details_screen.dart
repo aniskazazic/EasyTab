@@ -89,7 +89,10 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   }
 
   Future<void> _pickImage() async {
-    var result = await FilePicker.pickFiles(type: FileType.image);
+    var result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
     if (result != null && result.files.single.path != null) {
       setState(() {
         _imageFile = File(result.files.single.path!);
@@ -353,15 +356,13 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: "username",
+                    maxLength: 50,
+                    inputFormatters: usernameInputFormatters,
                     decoration: const InputDecoration(
                       labelText: "Korisničko ime",
                       border: OutlineInputBorder(),
                     ),
-                    validator: _isInsert
-                        ? FormBuilderValidators.required(
-                            errorText: 'Korisničko ime je obavezno',
-                          )
-                        : null,
+                    validator: validateUsername,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -413,8 +414,10 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                       border: OutlineInputBorder(),
                       suffixIcon: Icon(Icons.calendar_today),
                     ),
-                    firstDate: DateTime(1900),
-                    lastDate: DateTime.now(),
+                    initialDate: latestBirthDate,
+                    firstDate: earliestBirthDate,
+                    lastDate: latestBirthDate,
+                    validator: validateBirthDate,
                   ),
                 ),
               ],
@@ -450,7 +453,10 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                await userProvider.update(userId!, {'profilePicture': ''});
+                await userProvider.update(userId!, {
+                  'username': _user?.username,
+                  'profilePicture': '',
+                });
 
                 if (mounted) {
                   setState(() {

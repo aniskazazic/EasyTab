@@ -118,7 +118,10 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
   }
 
   Future<void> _pickImage(Function(File) onPicked) async {
-    var result = await FilePicker.pickFiles(type: FileType.image);
+    var result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
     if (result != null && result.files.single.path != null) {
       onPicked(File(result.files.single.path!));
     }
@@ -539,13 +542,13 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
         Expanded(
           child: FormBuilderTextField(
             name: 'username',
+            maxLength: 50,
+            inputFormatters: usernameInputFormatters,
             decoration: const InputDecoration(
               labelText: 'Korisničko ime',
               border: OutlineInputBorder(),
             ),
-            validator: FormBuilderValidators.required(
-              errorText: 'Korisničko ime je obavezno',
-            ),
+            validator: validateUsername,
           ),
         ),
         const SizedBox(width: 16),
@@ -590,8 +593,10 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
               border: OutlineInputBorder(),
               suffixIcon: Icon(Icons.calendar_today),
             ),
-            firstDate: DateTime(1900),
-            lastDate: DateTime.now(),
+            initialDate: latestBirthDate,
+            firstDate: earliestBirthDate,
+            lastDate: latestBirthDate,
+            validator: validateBirthDate,
           ),
         ),
       ],

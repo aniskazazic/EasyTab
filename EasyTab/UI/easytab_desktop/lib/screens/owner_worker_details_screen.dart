@@ -101,7 +101,10 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   }
 
   Future<void> _getImage() async {
-    var result = await FilePicker.pickFiles(type: FileType.image);
+    var result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png'],
+    );
     if (result != null && result.files.single.path != null) {
       setState(() {
         _image = File(result.files.single.path!);
@@ -387,13 +390,13 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                 Expanded(
                   child: FormBuilderTextField(
                     name: 'username',
+                    maxLength: 50,
+                    inputFormatters: usernameInputFormatters,
                     decoration: const InputDecoration(
                       labelText: 'Korisničko ime',
                       border: OutlineInputBorder(),
                     ),
-                    validator: FormBuilderValidators.required(
-                      errorText: 'Korisničko ime je obavezno',
-                    ),
+                    validator: validateUsername,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -436,13 +439,14 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                 Expanded(
                   child: FormBuilderField<DateTime>(
                     name: 'birthDate',
+                    validator: validateBirthDate,
                     builder: (field) => InkWell(
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
-                          initialDate: field.value ?? DateTime(1990, 1, 1),
-                          firstDate: DateTime(1900),
-                          lastDate: DateTime.now(),
+                          initialDate: birthDatePickerInitialDate(field.value),
+                          firstDate: earliestBirthDate,
+                          lastDate: latestBirthDate,
                         );
                         if (picked != null) field.didChange(picked);
                       },
@@ -517,6 +521,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
 
     try {
       await workerProvider.update(_worker!.id!, {
+        'username': _worker!.username,
         'firstName': _worker!.firstName,
         'lastName': _worker!.lastName,
         'profilePicture': '',

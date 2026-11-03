@@ -1,6 +1,7 @@
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/category.dart';
 import 'package:easytab_desktop/providers/category_provider.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:provider/provider.dart';
@@ -78,7 +79,9 @@ class _AdminCategoryDetailsScreenState
         _showSuccess('Kategorija uspješno ažurirana!');
       }
     } catch (e) {
-      _showError(e.toString());
+      if (!showApiFieldErrors(formKey.currentState, e)) {
+        _showError(e.toString());
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -104,11 +107,13 @@ class _AdminCategoryDetailsScreenState
                   children: [
                     FormBuilderTextField(
                       name: "name",
+                      maxLength: 100,
                       decoration: const InputDecoration(
                         labelText: "Naziv kategorije",
                         border: OutlineInputBorder(),
                       ),
-                      validator: (value) => value == null || value.isEmpty
+                      validator: (value) =>
+                          value == null || value.trim().isEmpty
                           ? 'Naziv je obavezan'
                           : null,
                     ),

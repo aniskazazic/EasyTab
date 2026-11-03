@@ -14,7 +14,10 @@ namespace EasyTab.Model.Requests
         [JsonConverter(typeof(NullableReservationDurationJsonConverter))]
         public double? LengthOfReservation { get; set; }
         public string? Logo { get; set; }
+        public string? LogoFileName { get; set; }
+        public string? LogoContentType { get; set; }
         public string? PhoneNumber { get; set; }
+        public int? CountryId { get; set; }
         public int? CityId { get; set; }
         public int? CategoryId { get; set; }
         public bool? IsDeleted { get; set; }

@@ -8,11 +8,11 @@ namespace EasyTab.Services.Validators
         public CityUpdateValidator()
         {
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("City name is required.")
-                .MaximumLength(100).WithMessage("City name cannot exceed 100 characters.");
+                .NotEmpty().WithMessage("Naziv grada je obavezan.")
+                .MaximumLength(100).WithMessage("Naziv grada ne može imati više od 100 karaktera.");
 
             RuleFor(x => x.CountryId)
-                .GreaterThan(0).WithMessage("Country ID must be greater than 0.");
+                .GreaterThan(0).WithMessage("Država je obavezna.");
         }
     }
 }

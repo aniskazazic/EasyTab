@@ -8,9 +8,9 @@ namespace EasyTab.Services.Validators
         public WorkerUpdateValidator()
         {
             RuleFor(x => x.Username)
+                .NotEmpty().WithMessage("Korisničko ime je obavezno.")
                 .MaximumLength(50).WithMessage("Korisničko ime ne može imati više od 50 karaktera.")
-                .Matches(@"^[a-zA-Z0-9_]+$").WithMessage("Korisničko ime smije sadržavati samo slova, brojeve i donju crtu.")
-                .When(x => !string.IsNullOrEmpty(x.Username));
+                .Matches(@"^[a-zA-Z0-9_]+$").WithMessage("Korisničko ime smije sadržavati samo slova, brojeve i donju crtu.");
 
             RuleFor(x => x.FirstName)
                  .MaximumLength(50).WithMessage("Ime ne može imati više od 50 karaktera.")
@@ -35,9 +35,7 @@ namespace EasyTab.Services.Validators
                 .When(x => !string.IsNullOrEmpty(x.PhoneNumber));
 
             RuleFor(x => x.BirthDate)
-                .LessThan(DateTime.UtcNow).WithMessage("Datum rođenja ne može biti u budućnosti.")
-                .GreaterThan(new DateTime(1900, 1, 1)).WithMessage("Datum rođenja nije validan.")
-                .When(x => x.BirthDate.HasValue);
+                .ValidBirthDate();
         }
     }
 }

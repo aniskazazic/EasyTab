@@ -163,23 +163,7 @@ builder.Services.AddControllers(options =>
     });
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
-    options.InvalidModelStateResponseFactory = context =>
-    {
-        if (context.ModelState.Keys.Any(key =>
-            key.EndsWith("LengthOfReservation", StringComparison.OrdinalIgnoreCase)))
-        {
-            return new BadRequestObjectResult(new
-            {
-                message = ReservationDurationMessages.InvalidValue,
-                errors = new Dictionary<string, string[]>
-                {
-                    ["lengthOfReservation"] = [ReservationDurationMessages.InvalidValue]
-                }
-            });
-        }
-
-        return new BadRequestObjectResult(new ValidationProblemDetails(context.ModelState));
-    };
+    options.InvalidModelStateResponseFactory = ModelStateErrorResponse.Create;
 });
 
 var allowedOrigins = builder.Configuration

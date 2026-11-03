@@ -144,9 +144,22 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
 
   Future<void> _reactivateLocale(Locale locale) async {
     try {
+      final city = await cityProvider.getById(locale.cityId!);
       await localeProvider.update(locale.id!, {
         "name": locale.name,
         "address": locale.address,
+        "phoneNumber": locale.phoneNumber,
+        "countryId": city.countryId,
+        "cityId": locale.cityId,
+        "categoryId": locale.categoryId,
+        "startOfWorkingHours": locale.startOfWorkingHours == null
+            ? null
+            : '${locale.startOfWorkingHours!.hour.toString().padLeft(2, '0')}:${locale.startOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
+        "endOfWorkingHours": locale.endOfWorkingHours == null
+            ? null
+            : '${locale.endOfWorkingHours!.hour.toString().padLeft(2, '0')}:${locale.endOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
+        "lengthOfReservation": locale.lengthOfReservation,
+        "reservationPrice": locale.reservationPrice,
         "isDeleted": false,
       });
       await _loadLocales();

@@ -130,7 +130,7 @@ namespace EasyTab.Services.BaseServices.Implementation
         public virtual Task<Model.PagedResult<TModel>> GetAllAsync(TSearch? search = null)
         {
             search ??= Activator.CreateInstance<TSearch>()
-                ?? throw new InvalidOperationException($"Unable to create {typeof(TSearch).Name}.");
+                ?? throw new InvalidOperationException("Nije moguće pripremiti parametre pretrage.");
 
             return ExecutePagedAsync(search);
         }
