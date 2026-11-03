@@ -36,6 +36,7 @@ namespace EasyTab.Model.Models
         public string? LocaleName { get; set; }
         public string? LocaleAddress { get; set; }
         public string? LocaleLogo { get; set; }
+        public decimal? ReservationPrice { get; set; }
         public bool IsPaid { get; set; }
         public decimal? PaidAmountKm { get; set; }
         public decimal? RefundedAmountKm { get; set; }

@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/widgets/reservation_duration_field.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -48,6 +49,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   int? selectedCountryId;
   int? selectedCityId;
   bool isLoading = true;
+  String? _loadError;
 
   bool get _isInsert => widget.locale == null;
   bool get _hasRequiredReferences =>
@@ -68,6 +70,10 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   }
 
   Future<void> _loadData() async {
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final results = await Future.wait([
         fetchAllPages<Category>(
@@ -113,8 +119,10 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => isLoading = false);
-      _showError(e.toString());
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -217,6 +225,8 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       showCloseButton: true,
       child: isLoading
           ? const Center(child: CircularProgressIndicator())
+          : _loadError != null
+          ? LoadError(message: _loadError!, onRetry: _loadData)
           : !_hasRequiredReferences
           ? _buildPrerequisiteWarning()
           : Column(

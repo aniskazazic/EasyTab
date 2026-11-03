@@ -172,6 +172,7 @@ namespace EasyTab.Services.Services
                     dto.LocaleName = entity.Table.Locale.Name;
                     dto.LocaleAddress = entity.Table.Locale.Address;
                     dto.LocaleLogo = entity.Table.Locale.Logo;
+                    dto.ReservationPrice = entity.Table.Locale.ReservationPrice;
                 }
             }
 
@@ -237,6 +238,7 @@ namespace EasyTab.Services.Services
 
         private static void SetPaymentDetails(Reservations dto, Payment? payment)
         {
+            dto.ReservationPrice = payment?.AmountKm ?? dto.ReservationPrice;
             dto.IsPaid = payment?.Status == PaymentStatus.Completed;
             dto.PaidAmountKm = dto.IsPaid ? payment!.AmountKm : null;
             dto.RefundedAmountKm = payment?.Status == PaymentStatus.Refunded ? payment.AmountKm : null;

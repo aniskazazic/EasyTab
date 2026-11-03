@@ -678,6 +678,12 @@ class _LocaleDetailScreenState extends State<LocaleDetailScreen> {
           ),
           const Divider(height: 24),
           _infoRow(
+            Icons.payments_outlined,
+            'Cijena rezervacije',
+            '${(locale.reservationPrice ?? 0).toStringAsFixed(2)} KM',
+          ),
+          const Divider(height: 24),
+          _infoRow(
             Icons.location_on_outlined,
             'Adresa',
             '${locale.address ?? '-'}, ${locale.cityName ?? ''}',

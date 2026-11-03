@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as model;
@@ -21,7 +22,8 @@ class AdminReservationsScreen extends StatefulWidget {
 }
 
 class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
   int _loadVersion = 0;
   final Set<int> _cancelling = {};
   String? _selectedPaymentStatus;
@@ -37,6 +39,8 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
 
   List<Reservation> _reservations = [];
   List<model.Locale> _locales = [];
+  bool _isLoadingLocales = true;
+  String? _localeLoadError;
   bool _initialized = false;
 
   DateTime? _selectedDate;
@@ -82,21 +86,35 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   }
 
   Future<void> _loadLocales() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingLocales = true;
+      _localeLoadError = null;
+    });
     try {
       final locales = await _localeProvider.getForReservationFilter();
-      if (mounted) setState(() => _locales = locales);
+      if (mounted) {
+        setState(() {
+          _locales = locales;
+          _isLoadingLocales = false;
+        });
+      }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Greška pri učitavanju lokala: $e')),
-      );
+      setState(() {
+        _isLoadingLocales = false;
+        _localeLoadError = 'Greška pri učitavanju lokala: $e';
+      });
     }
   }
 
   Future<void> _loadReservations() async {
     if (!mounted) return;
     final loadVersion = ++_loadVersion;
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final result = await _reservationProvider.getReservations(
         page: _currentPage + 1,
@@ -115,13 +133,10 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       });
     } catch (e) {
       if (!mounted || loadVersion != _loadVersion) return;
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Greška pri učitavanju rezervacija: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -261,6 +276,9 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (_isLoadingLocales) const LinearProgressIndicator(),
+          if (_localeLoadError != null)
+            LoadError(message: _localeLoadError!, onRetry: _loadLocales),
           _buildSearchAndFilter(),
           const SizedBox(height: 16),
           isLoading
@@ -268,7 +286,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               : _buildTable(),
-          if (!isLoading)
+          if (!isLoading && _loadError == null)
             PaginationUtils.buildPageControls(
               currentPage: _currentPage,
               totalCount: _totalCount,
@@ -314,11 +332,13 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   );
 
   Widget _buildTable() => Expanded(
-    child: ReservationsTable(
-      reservations: _reservations,
-      showLocale: true,
-      buildActions: _buildRowActions,
-    ),
+    child: _loadError != null
+        ? LoadError(message: _loadError!, onRetry: _loadReservations)
+        : ReservationsTable(
+            reservations: _reservations,
+            showLocale: true,
+            buildActions: _buildRowActions,
+          ),
   );
 
   Widget _buildRowActions(Reservation res) {

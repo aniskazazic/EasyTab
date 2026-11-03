@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:easytab_desktop/providers/base_provider.dart';
 import 'package:easytab_desktop/models/locale.dart';
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class OwnerStats {
@@ -53,45 +52,26 @@ class OwnerProvider extends BaseProvider<Locale> {
       ),
     ]);
 
-    // Log svaki response za lakši debug
-    for (int i = 0; i < results.length; i++) {
-      debugPrint(
-        'Request $i — status: ${results[i].statusCode}, body: ${results[i].body}',
-      );
+    for (final response in results) {
+      validateResponse(response);
     }
 
     int safeInt(http.Response r) {
-      if (r.statusCode >= 200 && r.statusCode < 300) {
-        return jsonDecode(r.body) ?? 0;
-      }
-      debugPrint('Greška na requestu: ${r.statusCode} — ${r.body}');
-      return 0;
+      return (jsonDecode(r.body) as num).toInt();
     }
 
     List<Map<String, dynamic>> safeList(http.Response r) {
-      if (r.statusCode >= 200 && r.statusCode < 300) {
-        try {
-          final decoded = jsonDecode(r.body);
-          if (decoded is List) {
-            return List<Map<String, dynamic>>.from(
-              decoded.map(
-                (item) => {
-                  'seats': item['Seats'] ?? item['seats'] ?? 0,
-                  'count': item['Count'] ?? item['count'] ?? 0,
-                  'percentage':
-                      (item['Percentage'] ?? item['percentage'] ?? 0.0)
-                          .toDouble(),
-                },
-              ),
-            );
-          }
-        } catch (e) {
-          debugPrint('Greška pri parsiranju table-distribution: $e');
-        }
-      } else {
-        debugPrint('table-distribution greška: ${r.statusCode} — ${r.body}');
-      }
-      return [];
+      final decoded = jsonDecode(r.body) as List;
+      return List<Map<String, dynamic>>.from(
+        decoded.map(
+          (item) => {
+            'seats': item['Seats'] ?? item['seats'] ?? 0,
+            'count': item['Count'] ?? item['count'] ?? 0,
+            'percentage': (item['Percentage'] ?? item['percentage'] ?? 0.0)
+                .toDouble(),
+          },
+        ),
+      );
     }
 
     return OwnerStats(

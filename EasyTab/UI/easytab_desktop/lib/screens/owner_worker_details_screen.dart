@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'dart:convert';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'dart:io';
@@ -34,6 +35,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   late WorkerProvider workerProvider;
   bool isLoading = false;
   bool _isLoadingWorker = false;
+  String? _loadError;
   bool _changePassword = false;
   File? _image;
   String? _profilePictureError;
@@ -49,12 +51,17 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   }
 
   Future<void> _loadWorker(int id) async {
-    setState(() => _isLoadingWorker = true);
+    setState(() {
+      _isLoadingWorker = true;
+      _loadError = null;
+    });
     try {
       final worker = await workerProvider.getById(id);
       if (mounted) setState(() => _worker = worker);
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) {
+        setState(() => _loadError = 'Greška pri učitavanju podataka: $e');
+      }
     } finally {
       if (mounted) setState(() => _isLoadingWorker = false);
     }
@@ -203,9 +210,14 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                   Expanded(
                     child: _isLoadingWorker
                         ? const Center(child: CircularProgressIndicator())
+                        : _loadError != null
+                        ? LoadError(
+                            message: _loadError!,
+                            onRetry: () => _loadWorker(_worker!.id!),
+                          )
                         : _buildForm(),
                   ),
-                  _buildSaveButton(),
+                  if (_loadError == null) _buildSaveButton(),
                 ],
               ),
             ),

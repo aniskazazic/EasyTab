@@ -7,7 +7,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:easytab_mobile/widgets/form_feedback.dart';
-import 'package:easytab_mobile/screens/change_password_screen.dart';
 import 'package:provider/provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 
@@ -30,7 +29,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   String? _profilePictureError;
   bool _removeProfileImage = false;
   bool _isSaving = false;
-  bool _isChangingPassword = false;
 
   @override
   void initState() {
@@ -173,9 +171,18 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 if (_formKey.currentState!.validate()) {
                   if (_profilePictureError != null) return;
                   setState(() => _isSaving = true);
-                  Map<String, dynamic> request = Map.of(
-                    _formKey.currentState!.value,
-                  );
+                  final values = _formKey.currentState!.value;
+                  final request = <String, dynamic>{
+                    for (final field in [
+                      'firstName',
+                      'lastName',
+                      'email',
+                      'username',
+                      'phoneNumber',
+                      'birthDate',
+                    ])
+                      field: values[field],
+                  };
                   for (final field in [
                     'firstName',
                     'lastName',
@@ -263,25 +270,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
             ),
-          SwitchListTile(
-            title: const Text('Promijeni lozinku'),
-            subtitle: const Text(
-              'Otvara posebnu formu uz potvrdu stare lozinke. Profil sačuvajte zasebno.',
-            ),
-            value: _isChangingPassword,
-            onChanged: _isSaving
-                ? null
-                : (_) async {
-                    setState(() => _isChangingPassword = true);
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChangePasswordScreen(user: widget.user),
-                      ),
-                    );
-                    if (mounted) setState(() => _isChangingPassword = false);
-                  },
-          ),
           FormBuilderTextField(
             name: "firstName",
             decoration: const InputDecoration(labelText: "Ime"),

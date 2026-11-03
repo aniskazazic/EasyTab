@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/review.dart';
 import 'package:easytab_desktop/providers/review_provider.dart';
@@ -14,7 +15,8 @@ class AdminReviewsScreen extends StatefulWidget {
 }
 
 class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
   late ReviewProvider _reviewProvider;
   int _totalCount = 0;
   int _currentPage = 0;
@@ -175,7 +177,10 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   }
 
   Future<void> _loadReviews() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final selectedDate = _selectedDate;
       final dateFrom = selectedDate == null
@@ -199,14 +204,18 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       };
 
       final result = await _reviewProvider.get(filter: filter);
+      if (!mounted) return;
       setState(() {
         _reviews = result.items ?? [];
         _totalCount = result.totalCount ?? _reviews.length;
         isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
-      _showError(e.toString());
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -270,6 +279,9 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   }
 
   Widget _buildTable() {
+    if (_loadError != null) {
+      return LoadError(message: _loadError!, onRetry: _loadReviews);
+    }
     if (_reviews.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(32.0),

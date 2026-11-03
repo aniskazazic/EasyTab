@@ -7,6 +7,7 @@ class Reservation {
   final int? id;
   final bool isPaid;
   final double? paidAmountKm;
+  final double? reservationPrice;
   final String? firstName;
   final String? lastName;
   final String? email;
@@ -33,6 +34,7 @@ class Reservation {
     this.id,
     this.isPaid = false,
     this.paidAmountKm,
+    this.reservationPrice,
     this.firstName,
     this.lastName,
     this.email,

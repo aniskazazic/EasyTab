@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
@@ -25,11 +26,16 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
 
   final TextEditingController searchController = TextEditingController();
   bool showDeleted = false;
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
+
+  bool _initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
     userProvider = context.read<UserProvider>();
     _loadUsers();
   }
@@ -51,7 +57,10 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
   }
 
   Future<void> _loadUsers() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
 
     try {
       final filter = {
@@ -65,14 +74,18 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
 
       var result = await userProvider.get(filter: filter);
 
+      if (!mounted) return;
       setState(() {
         _users = result.items ?? [];
         _totalCount = result.totalCount ?? 0;
         isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
-      _showError(e.toString());
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -183,7 +196,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               : _buildTable(),
-          if (!isLoading)
+          if (!isLoading && _loadError == null)
             PaginationUtils.buildPageControls(
               currentPage: _currentPage,
               totalCount: _totalCount,
@@ -273,6 +286,11 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
   }
 
   Widget _buildTable() {
+    if (_loadError != null) {
+      return Expanded(
+        child: LoadError(message: _loadError!, onRetry: _loadUsers),
+      );
+    }
     if (_users.isEmpty) {
       return const Expanded(
         child: Center(child: Text('Nema korisnika za prikaz.')),

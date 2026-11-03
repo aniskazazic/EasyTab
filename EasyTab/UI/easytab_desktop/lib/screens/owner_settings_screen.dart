@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
@@ -25,6 +26,8 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   final formKey = GlobalKey<FormBuilderState>();
   late UserProvider userProvider;
   bool isLoading = true;
+  bool _isLoadingProfile = true;
+  String? _loadError;
   File? _imageFile;
   String? _profilePictureError;
   bool _removeProfilePicture = false;
@@ -38,16 +41,27 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
   }
 
   Future<void> _loadCurrentUser() async {
+    setState(() {
+      _isLoadingProfile = true;
+      _loadError = null;
+    });
     final userId =
         int.tryParse(AuthProvider.accessTokenDecoded?['Id'] ?? '0') ?? 0;
     if (userId == 0) {
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          _isLoadingProfile = false;
+          _loadError = 'Prijavite se ponovo za učitavanje profila.';
+        });
+      }
       return;
     }
     try {
       final freshUser = await userProvider.getById(userId);
       if (!mounted) return;
       setState(() {
+        _isLoadingProfile = false;
         AuthProvider.currentUser = freshUser;
         isLoading = false;
       });
@@ -63,8 +77,11 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => isLoading = false);
-      _showError('Greška pri učitavanju podataka: $e');
+      setState(() {
+        isLoading = false;
+        _isLoadingProfile = false;
+        _loadError = 'Greška pri učitavanju profila: $e';
+      });
     }
   }
 
@@ -228,8 +245,10 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
     return MasterScreen(
       title: 'Postavke',
       sidebar: const OwnerSidebar(),
-      child: isLoading && user == null
+      child: _isLoadingProfile
           ? const Center(child: CircularProgressIndicator())
+          : _loadError != null
+          ? LoadError(message: _loadError!, onRetry: _loadCurrentUser)
           : _buildOwnerSettings(user),
     );
   }

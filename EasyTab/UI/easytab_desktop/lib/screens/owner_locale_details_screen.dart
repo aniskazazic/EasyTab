@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/widgets/reservation_duration_field.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -78,6 +79,10 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   }
 
   Future<void> _loadData() async {
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final results = await Future.wait([
         categoryProvider.get(filter: {"Page": 1, "PageSize": 100}),
@@ -93,6 +98,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         );
       }
 
+      if (!mounted) return;
       setState(() {
         _categories = (results[0] as SearchResult<Category>).items ?? [];
         _countries = (results[1] as SearchResult<Country>).items ?? [];
@@ -126,7 +132,6 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         isLoading = false;
         _loadError = 'Greška pri učitavanju podataka: $e';
       });
-      _showError(e.toString());
     }
   }
 
@@ -409,14 +414,14 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                   ),
                   const SizedBox(height: 15),
                   isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const Expanded(
+                          child: Center(child: CircularProgressIndicator()),
+                        )
                       : _loadError != null
                       ? Expanded(
-                          child: Center(
-                            child: Text(
-                              _loadError!,
-                              textAlign: TextAlign.center,
-                            ),
+                          child: LoadError(
+                            message: _loadError!,
+                            onRetry: _loadData,
                           ),
                         )
                       : Expanded(child: _buildForm()),

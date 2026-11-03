@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/providers/city_provider.dart';
@@ -21,11 +22,16 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
   final int _pageSize = 10;
 
   final TextEditingController searchController = TextEditingController();
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
+
+  bool _initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
     cityProvider = context.read<CityProvider>();
     _loadCities();
   }
@@ -47,7 +53,10 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
   }
 
   Future<void> _loadCities() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final filter = {
         "Page": _currentPage + 1,
@@ -57,14 +66,18 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
       };
 
       var result = await cityProvider.get(filter: filter);
+      if (!mounted) return;
       setState(() {
         _cities = result.items ?? [];
         _totalCount = result.totalCount ?? 0;
         isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
-      _showError(e.toString());
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -129,7 +142,7 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               : _buildTable(),
-          if (!isLoading)
+          if (!isLoading && _loadError == null)
             PaginationUtils.buildPageControls(
               currentPage: _currentPage,
               totalCount: _totalCount,
@@ -201,6 +214,11 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
   }
 
   Widget _buildTable() {
+    if (_loadError != null) {
+      return Expanded(
+        child: LoadError(message: _loadError!, onRetry: _loadCities),
+      );
+    }
     if (_cities.isEmpty) {
       return const Expanded(
         child: Center(child: Text('Nema gradova za prikaz.')),

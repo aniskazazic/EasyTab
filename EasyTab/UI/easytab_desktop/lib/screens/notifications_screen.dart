@@ -5,6 +5,7 @@ import 'package:easytab_desktop/providers/notification_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/widgets/admin_sidebar.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -61,14 +62,21 @@ class _MyNotificationsTab extends StatefulWidget {
 
 class _MyNotificationsTabState extends State<_MyNotificationsTab> {
   int _page = 0;
+  bool _initialLoading = true;
   static const _pageSize = 10;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<NotificationProvider>().getMyNotifications();
+      if (mounted) _load();
     });
+  }
+
+  Future<void> _load() async {
+    setState(() => _initialLoading = true);
+    await context.read<NotificationProvider>().getMyNotifications();
+    if (mounted) setState(() => _initialLoading = false);
   }
 
   @override
@@ -83,20 +91,23 @@ class _MyNotificationsTabState extends State<_MyNotificationsTab> {
     return Column(
       children: [
         Expanded(
-          child: provider.isLoading && provider.notifications.isEmpty
+          child: _initialLoading || provider.isLoading
               ? const Center(child: CircularProgressIndicator())
+              : provider.error != null
+              ? LoadError(message: provider.error!, onRetry: _load)
               : _NotificationList(
                   items: items,
                   readOnly: false,
                   emptyText: 'Nema notifikacija.',
                 ),
         ),
-        PaginationUtils.buildPageControls(
-          currentPage: _page,
-          totalCount: provider.notifications.length,
-          pageSize: _pageSize,
-          onPageChanged: (page) => setState(() => _page = page),
-        ),
+        if (!_initialLoading && !provider.isLoading && provider.error == null)
+          PaginationUtils.buildPageControls(
+            currentPage: _page,
+            totalCount: provider.notifications.length,
+            pageSize: _pageSize,
+            onPageChanged: (page) => setState(() => _page = page),
+          ),
       ],
     );
   }
@@ -112,17 +123,23 @@ class _AllNotificationsTab extends StatefulWidget {
 class _AllNotificationsTabState extends State<_AllNotificationsTab> {
   int _page = 0;
   int _totalCount = 0;
-  bool _isLoading = false;
+  bool _isLoading = true;
+  String? _loadError;
   List<AppNotification> _items = [];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadPage());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadPage();
+    });
   }
 
   Future<void> _loadPage() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
       final result = await context
           .read<NotificationProvider>()
@@ -134,8 +151,12 @@ class _AllNotificationsTabState extends State<_AllNotificationsTab> {
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Greška pri učitavanju svih notifikacija: $e');
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _loadError = 'Greška pri učitavanju notifikacija: $e';
+        });
+      }
     }
   }
 
@@ -146,21 +167,24 @@ class _AllNotificationsTabState extends State<_AllNotificationsTab> {
         Expanded(
           child: _isLoading
               ? const Center(child: CircularProgressIndicator())
+              : _loadError != null
+              ? LoadError(message: _loadError!, onRetry: _loadPage)
               : _NotificationList(
                   items: _items,
                   readOnly: true,
                   emptyText: 'Nema notifikacija.',
                 ),
         ),
-        PaginationUtils.buildPageControls(
-          currentPage: _page,
-          totalCount: _totalCount,
-          pageSize: 10,
-          onPageChanged: (page) {
-            setState(() => _page = page);
-            _loadPage();
-          },
-        ),
+        if (!_isLoading && _loadError == null)
+          PaginationUtils.buildPageControls(
+            currentPage: _page,
+            totalCount: _totalCount,
+            pageSize: 10,
+            onPageChanged: (page) {
+              setState(() => _page = page);
+              _loadPage();
+            },
+          ),
       ],
     );
   }

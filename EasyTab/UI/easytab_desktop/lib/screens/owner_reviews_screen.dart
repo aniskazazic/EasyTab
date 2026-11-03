@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/review.dart';
 import 'package:easytab_desktop/providers/review_provider.dart';
@@ -25,7 +26,8 @@ class OwnerReviewsScreen extends StatefulWidget {
 }
 
 class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
   late ReviewProvider _reviewProvider;
   int _totalCount = 0;
   int _currentPage = 0;
@@ -76,7 +78,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
             isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _buildTable(),
-            if (!isLoading)
+            if (!isLoading && _loadError == null)
               PaginationUtils.buildPageControls(
                 currentPage: _currentPage,
                 totalCount: _totalCount,
@@ -190,7 +192,10 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
 
   Future<void> _loadReviews() async {
     if (!mounted) return;
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final selectedDate = _selectedDate;
       final dateFrom = selectedDate == null
@@ -221,8 +226,10 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => isLoading = false);
-      _showError(e.toString());
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -271,6 +278,9 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   }
 
   Widget _buildTable() {
+    if (_loadError != null) {
+      return LoadError(message: _loadError!, onRetry: _loadReviews);
+    }
     if (_reviews.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(32.0),

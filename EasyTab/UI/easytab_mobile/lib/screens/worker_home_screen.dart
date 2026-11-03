@@ -1,5 +1,6 @@
 import 'package:easytab_mobile/models/reservation.dart';
 import 'package:easytab_mobile/providers/owner_provider.dart';
+import 'package:easytab_mobile/providers/locale_provider.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 import 'package:easytab_mobile/screens/worker_reservation_details_screen.dart';
 import 'package:flutter/material.dart';
@@ -22,6 +23,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   DateTime _searchedDate = DateTime.now();
   String _searchedQuery = '';
   List<Reservation> _reservations = [];
+  Map<int, String?> _localeLogos = {};
   int _currentPage = 0;
   int _totalCount = 0;
   static const int _pageSize = 5;
@@ -63,11 +65,32 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
         await _loadReservations();
         return;
       }
+      setState(() {
+        _reservations = result.items ?? [];
+        _totalCount = result.totalCount ?? 0;
+        _currentPage = page;
+        _localeLogos = {};
+        _isLoading = false;
+      });
+      final localeProvider = context.read<LocaleProvider>();
+      final localeIds = (result.items ?? <Reservation>[])
+          .map((reservation) => reservation.localeId)
+          .whereType<int>()
+          .where((id) => id > 0)
+          .toSet();
+      final logos = await Future.wait(
+        localeIds.map((id) async {
+          try {
+            final locale = await localeProvider.getById(id);
+            return MapEntry(id, locale.logo);
+          } catch (_) {
+            return MapEntry<int, String?>(id, null);
+          }
+        }),
+      );
       if (mounted && version == _requestVersion) {
         setState(() {
-          _reservations = result.items ?? [];
-          _totalCount = result.totalCount ?? 0;
-          _currentPage = page;
+          _localeLogos = Map.fromEntries(logos);
         });
       }
     } catch (e) {
@@ -243,6 +266,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _ReservationCard(
                       reservation: _reservations[index],
+                      localeLogo: _localeLogos[_reservations[index].localeId],
                       onReservationChanged: () =>
                           _loadReservations(page: _currentPage),
                     ),
@@ -273,10 +297,12 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
 
 class _ReservationCard extends StatelessWidget {
   final Reservation reservation;
+  final String? localeLogo;
   final Future<void> Function() onReservationChanged;
 
   const _ReservationCard({
     required this.reservation,
+    this.localeLogo,
     required this.onReservationChanged,
   });
 
@@ -355,7 +381,15 @@ class _ReservationCard extends StatelessWidget {
                 child: SizedBox(
                   width: 40,
                   height: 40,
-                  child: ImageUtils.buildImage(reservation.localeLogo),
+                  child: ImageUtils.buildImage(
+                    localeLogo ?? reservation.localeLogo,
+                    placeholder: const Center(
+                      child: Icon(
+                        Icons.store_outlined,
+                        color: Color(0xFF1E40AF),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),

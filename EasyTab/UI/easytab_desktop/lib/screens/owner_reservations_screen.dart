@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/reservation.dart';
@@ -31,7 +32,8 @@ class OwnerReservationsScreen extends StatefulWidget {
 }
 
 class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
   int _loadVersion = 0;
   final Set<int> _cancelling = {};
   String? _selectedPaymentStatus;
@@ -93,7 +95,10 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   Future<void> _loadReservations() async {
     if (!mounted) return;
     final loadVersion = ++_loadVersion;
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final result = await _reservationProvider.getReservations(
         page: _currentPage + 1,
@@ -112,13 +117,10 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
       });
     } catch (e) {
       if (!mounted || loadVersion != _loadVersion) return;
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Greška pri učitavanju rezervacija: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -334,7 +336,7 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               : _buildTable(),
-          if (!isLoading)
+          if (!isLoading && _loadError == null)
             PaginationUtils.buildPageControls(
               currentPage: _currentPage,
               totalCount: _totalCount,
@@ -375,11 +377,13 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   );
 
   Widget _buildTable() => Expanded(
-    child: ReservationsTable(
-      reservations: _reservations,
-      showLocale: false,
-      buildActions: _buildRowActions,
-    ),
+    child: _loadError != null
+        ? LoadError(message: _loadError!, onRetry: _loadReservations)
+        : ReservationsTable(
+            reservations: _reservations,
+            showLocale: false,
+            buildActions: _buildRowActions,
+          ),
   );
 
   Widget _buildRowActions(Reservation res) {

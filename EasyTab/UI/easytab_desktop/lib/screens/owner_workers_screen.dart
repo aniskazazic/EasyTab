@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/models/worker.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
 import 'package:easytab_desktop/screens/owner_worker_details_screen.dart';
@@ -31,7 +32,8 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
   int _currentPage = 0;
   final int _pageSize = 10;
   final TextEditingController searchController = TextEditingController();
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
 
   @override
   void initState() {
@@ -49,7 +51,10 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
   Future<void> _loadWorkers({bool resetPage = false}) async {
     if (!mounted) return;
     if (resetPage) setState(() => _currentPage = 0);
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final filter = {
         "Page": _currentPage + 1,
@@ -68,8 +73,10 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => isLoading = false);
-      _showError(e.toString());
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -255,7 +262,7 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
                   isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : _buildTable(),
-                  if (!isLoading)
+                  if (!isLoading && _loadError == null)
                     PaginationUtils.buildPageControls(
                       currentPage: _currentPage,
                       totalCount: _totalCount,
@@ -276,6 +283,11 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
   }
 
   Widget _buildTable() {
+    if (_loadError != null) {
+      return Expanded(
+        child: LoadError(message: _loadError!, onRetry: _loadWorkers),
+      );
+    }
     if (_workers.isEmpty) {
       return const Expanded(
         child: Center(child: Text('Nema radnika za prikaz.')),

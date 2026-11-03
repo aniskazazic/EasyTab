@@ -6,6 +6,26 @@ class LocaleProvider extends BaseProvider<Locale> {
   LocaleProvider() : super("Locale");
 
   @override
+  Future<Locale> insert(dynamic request) async {
+    final locale = await super.insert(request);
+    notifyListeners();
+    return locale;
+  }
+
+  @override
+  Future<Locale> update(int id, [dynamic request]) async {
+    final locale = await super.update(id, request);
+    notifyListeners();
+    return locale;
+  }
+
+  @override
+  Future<void> delete(int id) async {
+    await super.delete(id);
+    notifyListeners();
+  }
+
+  @override
   Locale fromJson(json) {
     return Locale.fromJson(json);
   }

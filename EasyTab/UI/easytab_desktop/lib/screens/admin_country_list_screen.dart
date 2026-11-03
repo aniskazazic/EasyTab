@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
@@ -22,11 +23,16 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
   final int _pageSize = 10;
 
   final TextEditingController searchController = TextEditingController();
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
+
+  bool _initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
     countryProvider = context.read<CountryProvider>();
     _loadCountries();
   }
@@ -48,7 +54,10 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
   }
 
   Future<void> _loadCountries() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final filter = {
         "Page": _currentPage + 1,
@@ -58,14 +67,18 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
       };
 
       var result = await countryProvider.get(filter: filter);
+      if (!mounted) return;
       setState(() {
         _countries = result.items ?? [];
         _totalCount = result.totalCount ?? 0;
         isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
-      _showError(e.toString());
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -130,7 +143,7 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               : _buildTable(),
-          if (!isLoading)
+          if (!isLoading && _loadError == null)
             PaginationUtils.buildPageControls(
               currentPage: _currentPage,
               totalCount: _totalCount,
@@ -202,6 +215,11 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
   }
 
   Widget _buildTable() {
+    if (_loadError != null) {
+      return Expanded(
+        child: LoadError(message: _loadError!, onRetry: _loadCountries),
+      );
+    }
     if (_countries.isEmpty) {
       return const Expanded(
         child: Center(child: Text('Nema država za prikaz.')),

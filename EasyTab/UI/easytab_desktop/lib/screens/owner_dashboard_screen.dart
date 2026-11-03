@@ -31,7 +31,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   int totalTables = 0;
   int todayGuests = 0;
   List<Map<String, dynamic>> tableDistribution = [];
-  bool isLoading = false;
+  bool isLoading = true;
   bool isGeneratingReport = false;
   String? statsError;
   late OwnerProvider ownerProvider;
@@ -46,6 +46,11 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Future<void> _loadFirstLocale() async {
+    if (!mounted) return;
+    setState(() {
+      isLoading = true;
+      statsError = null;
+    });
     try {
       final locales = await localeProvider.getForCurrentOwner();
       if (!mounted) return;
@@ -114,12 +119,17 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Future<void> _onSectionTap(int localeId, String section) async {
-    final locales = await localeProvider.getForCurrentOwner();
-    if (!mounted || locales.isEmpty) return;
-    final locale = locales.firstWhere(
-      (l) => l.id == localeId,
-      orElse: () => locales.first,
-    );
+    models.Locale locale;
+    try {
+      locale = await localeProvider.getById(localeId);
+      if (!mounted) return;
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Greška pri učitavanju lokala: $e')),
+      );
+      return;
+    }
 
     setState(() {
       activeLocaleId = localeId;

@@ -184,6 +184,7 @@ namespace EasyTab.Services.Services
                     TableName = s.Table.Name,
                     ReservationState = s.ReservationState,
                     LocaleName = s.Table.Locale.Name,
+                    LocaleId = s.Table.LocaleId,
                     IsCancelled = s.ReservationState == "Otkazana"
                 })
                 .ToListAsync();

@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/models/country.dart';
@@ -37,11 +38,16 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   int? selectedCountryId;
   int? selectedCityId;
   bool showDeleted = false;
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
+
+  bool _initialized = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_initialized) return;
+    _initialized = true;
     localeProvider = context.read<LocaleProvider>();
     countryProvider = context.read<CountryProvider>();
     cityProvider = context.read<CityProvider>();
@@ -66,15 +72,17 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
 
   // Učitaj dropdownove samo jednom
   Future<void> _loadDropdowns() async {
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
-      final countriesFuture = fetchAllPages(
-        (filter) => countryProvider.get(filter: filter),
-      );
-      final citiesFuture = fetchAllPages(
-        (filter) => cityProvider.get(filter: filter),
-      );
-      final countries = await countriesFuture;
-      final cities = await citiesFuture;
+      final results = await Future.wait([
+        fetchAllPages((filter) => countryProvider.get(filter: filter)),
+        fetchAllPages((filter) => cityProvider.get(filter: filter)),
+      ]);
+      final countries = results[0] as List<Country>;
+      final cities = results[1] as List<City>;
 
       if (!mounted) return;
       setState(() {
@@ -85,13 +93,20 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
 
       await _loadLocales();
     } catch (e) {
-      _showError(e.toString());
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju filtera: $e';
+      });
     }
   }
 
   // Učitaj lokale sa server-side paginacijom i filterima
   Future<void> _loadLocales() async {
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final filter = <String, dynamic>{
         "Page": _currentPage + 1,
@@ -106,14 +121,18 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
 
       final result = await localeProvider.get(filter: filter);
 
+      if (!mounted) return;
       setState(() {
         _locales = result.items ?? [];
         _totalCount = result.totalCount ?? 0;
         isLoading = false;
       });
     } catch (e) {
-      setState(() => isLoading = false);
-      _showError(e.toString());
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju podataka: $e';
+      });
     }
   }
 
@@ -237,7 +256,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
             isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _buildTable(),
-            if (!isLoading)
+            if (!isLoading && _loadError == null)
               PaginationUtils.buildPageControls(
                 currentPage: _currentPage,
                 totalCount: _totalCount,
@@ -409,6 +428,9 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   }
 
   Widget _buildTable() {
+    if (_loadError != null) {
+      return LoadError(message: _loadError!, onRetry: _loadDropdowns);
+    }
     if (_locales.isEmpty) {
       return const Center(child: Text('Nema lokala za prikaz.'));
     }

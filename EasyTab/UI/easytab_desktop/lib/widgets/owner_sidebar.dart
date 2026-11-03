@@ -28,9 +28,13 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
   final TextEditingController _localeSearchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String? _loadError;
+  bool _isLoading = true;
+  int _loadVersion = 0;
+  late LocaleProvider _localeProvider;
 
   @override
   void dispose() {
+    _localeProvider.removeListener(_loadLocales);
     _localeSearchController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -39,21 +43,32 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
   @override
   void initState() {
     super.initState();
+    _localeProvider = context.read<LocaleProvider>();
+    _localeProvider.addListener(_loadLocales);
     _loadLocales();
   }
 
   Future<void> _loadLocales() async {
+    if (!mounted) return;
+    final version = ++_loadVersion;
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
     try {
-      final localeProvider = context.read<LocaleProvider>();
-      final locales = await localeProvider.getForCurrentOwner();
-      if (!mounted) return;
+      final locales = await _localeProvider.getForCurrentOwner();
+      if (!mounted || version != _loadVersion) return;
       setState(() {
         _locales = locales;
         _loadError = null;
+        _isLoading = false;
       });
     } catch (e) {
-      if (mounted) {
-        setState(() => _loadError = 'Greška pri učitavanju lokala: $e');
+      if (mounted && version == _loadVersion) {
+        setState(() {
+          _isLoading = false;
+          _loadError = 'Greška pri učitavanju lokala: $e';
+        });
       }
     }
   }
@@ -172,12 +187,35 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
                 controller: _scrollController,
                 padding: EdgeInsets.zero,
                 children: [
+                  if (_isLoading)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                    ),
                   if (_loadError != null)
                     Padding(
                       padding: const EdgeInsets.all(12),
                       child: Text(
                         _loadError!,
                         style: const TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  if (_loadError != null)
+                    TextButton(
+                      onPressed: _loadLocales,
+                      child: const Text(
+                        'Pokušaj ponovo',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  if (!_isLoading && _loadError == null && _locales.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Text(
+                        'Nemate lokala.',
+                        style: TextStyle(color: Colors.white),
                       ),
                     ),
                   if (_locales.length > 1)
@@ -214,7 +252,10 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
-                  ..._visibleLocales.map((locale) => _buildLocaleItem(locale)),
+                  if (!_isLoading && _loadError == null)
+                    ..._visibleLocales.map(
+                      (locale) => _buildLocaleItem(locale),
+                    ),
                   const SizedBox(height: 8),
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -240,7 +281,6 @@ class _OwnerSidebarState extends State<OwnerSidebar> {
                         MaterialPageRoute(
                           builder: (context) => OwnerLocaleDetailsScreen(
                             onSaved: () {
-                              _loadLocales(); // Refresh sidebar
                               widget.onRefresh?.call(); // Refresh dashboard
                             },
                           ),

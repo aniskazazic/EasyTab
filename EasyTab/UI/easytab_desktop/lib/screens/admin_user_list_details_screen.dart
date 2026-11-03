@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
@@ -26,6 +27,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   late UserProvider userProvider;
   bool isLoading = false;
   bool _isLoadingUser = false;
+  String? _loadError;
   bool _changePassword = false;
 
   File? _imageFile;
@@ -42,12 +44,17 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   }
 
   Future<void> _loadUser(int id) async {
-    setState(() => _isLoadingUser = true);
+    setState(() {
+      _isLoadingUser = true;
+      _loadError = null;
+    });
     try {
       final user = await userProvider.getById(id);
       if (mounted) setState(() => _user = user);
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) {
+        setState(() => _loadError = 'Greška pri učitavanju podataka: $e');
+      }
     } finally {
       if (mounted) setState(() => _isLoadingUser = false);
     }
@@ -177,9 +184,14 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
           Expanded(
             child: _isLoadingUser
                 ? const Center(child: CircularProgressIndicator())
+                : _loadError != null
+                ? LoadError(
+                    message: _loadError!,
+                    onRetry: () => _loadUser(_user!.id!),
+                  )
                 : _buildForm(),
           ),
-          _buildSaveButton(),
+          if (_loadError == null) _buildSaveButton(),
         ],
       ),
     );

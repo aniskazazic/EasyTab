@@ -191,6 +191,7 @@ class _WorkerReservationDetailsScreenState
         ),
       );
     }
+    final price = details.reservationPrice ?? details.paidAmountKm;
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(28, 18, 28, 32),
       child: Column(
@@ -259,6 +260,14 @@ class _WorkerReservationDetailsScreenState
                 icon: Icons.table_restaurant_outlined,
                 label: 'Stol',
                 value: details.tableName ?? 'Stol',
+                color: Colors.black,
+              ),
+              _InfoRow(
+                icon: Icons.payments_outlined,
+                label: 'Cijena rezervacije',
+                value: price == null
+                    ? 'Nije dostupno'
+                    : '${price.toStringAsFixed(2)} KM',
                 color: Colors.black,
               ),
               _InfoRow(

@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/models/table.dart';
 import 'package:easytab_desktop/models/zone.dart';
 import 'package:easytab_desktop/providers/table_provider.dart';
@@ -30,7 +31,8 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
 
   List<Tables> tables = [];
   List<Zone> zones = [];
-  bool isLoading = false;
+  bool isLoading = true;
+  String? _loadError;
   String? _tableDialogError;
   String? _zoneDialogError;
   bool _overlapNoticeShown = false;
@@ -52,7 +54,10 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
 
   Future<void> _loadData() async {
     if (!mounted) return;
-    setState(() => isLoading = true);
+    setState(() {
+      isLoading = true;
+      _loadError = null;
+    });
     try {
       final results = await Future.wait([
         tableProvider.getByLocale(widget.localeId),
@@ -70,8 +75,10 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() => isLoading = false);
-      _showError(e.toString());
+      setState(() {
+        isLoading = false;
+        _loadError = 'Greška pri učitavanju stolova i zona: $e';
+      });
     }
   }
 
@@ -714,7 +721,16 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                   const SizedBox(height: 24),
 
                   isLoading
-                      ? const Center(child: CircularProgressIndicator())
+                      ? const Expanded(
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      : _loadError != null
+                      ? Expanded(
+                          child: LoadError(
+                            message: _loadError!,
+                            onRetry: _loadData,
+                          ),
+                        )
                       : Expanded(
                           child: Column(
                             children: [
@@ -764,6 +780,13 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                                                   entry.key,
                                                 ),
                                               ),
+                                              if (tables.isEmpty &&
+                                                  zones.isEmpty)
+                                                const Center(
+                                                  child: Text(
+                                                    'Nema stolova ni zona. Dodajte ih dugmadima ispod tlocrta.',
+                                                  ),
+                                                ),
                                             ],
                                           ),
                                         ),

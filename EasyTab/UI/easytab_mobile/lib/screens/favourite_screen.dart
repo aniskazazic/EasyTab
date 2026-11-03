@@ -148,8 +148,8 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
   }
 
   Widget _buildEmpty() {
-    return SingleChildScrollView(
-      child: Center(
+    return Center(
+      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
