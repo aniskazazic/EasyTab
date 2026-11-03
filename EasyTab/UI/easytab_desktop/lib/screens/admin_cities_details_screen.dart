@@ -136,12 +136,16 @@ class _AdminCityDetailsScreenState extends State<AdminCityDetailsScreen> {
                         children: [
                           FormBuilderTextField(
                             name: "name",
+                            maxLength: 100,
                             decoration: const InputDecoration(
                               labelText: "Naziv grada",
                               border: OutlineInputBorder(),
                             ),
-                            validator: (value) => value == null || value.isEmpty
+                            validator: (value) =>
+                                value == null || value.trim().isEmpty
                                 ? 'Naziv je obavezan'
+                                : value.length > 100
+                                ? 'Naziv grada ne može imati više od 100 karaktera.'
                                 : null,
                           ),
                           const SizedBox(height: 16),

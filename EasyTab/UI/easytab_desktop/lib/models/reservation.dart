@@ -17,6 +17,18 @@ class Reservation {
       : 'Ne';
   final int? id;
   final int? userId;
+  final String? firstName;
+  final String? lastName;
+
+  String get guestName {
+    final name = [firstName, lastName]
+        .whereType<String>()
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .join(' ');
+    return name.isEmpty ? '-' : name;
+  }
+
   final int? tableId;
   final String? tableName;
   final int? numberOfGuests;
@@ -43,6 +55,8 @@ class Reservation {
     this.refundedAt,
     this.id,
     this.userId,
+    this.firstName,
+    this.lastName,
     this.tableId,
     this.tableName,
     this.numberOfGuests,

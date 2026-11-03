@@ -60,6 +60,17 @@ namespace EasyTab.Services.Services
                 query = query.Where(x => x.UserId == _currentUser.UserId);
             }
 
+            if (!string.IsNullOrWhiteSpace(search?.SearchTerm))
+            {
+                var term = string.Join(" ", search.SearchTerm.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+                    .ToLowerInvariant();
+                query = query.Where(x =>
+                    x.Table.Name.ToLower().Contains(term) ||
+                    x.User.FirstName.ToLower().Contains(term) ||
+                    x.User.LastName.ToLower().Contains(term) ||
+                    (x.User.FirstName.Trim() + " " + x.User.LastName.Trim()).ToLower().Contains(term));
+            }
+
             if (search?.TableId.HasValue == true)
                 query = query.Where(x => x.TableId == search.TableId);
 

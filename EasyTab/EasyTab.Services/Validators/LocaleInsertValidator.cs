@@ -55,7 +55,7 @@ namespace EasyTab.Services.Validators
                 .NotNull().WithMessage("Kraj radnog vremena je obavezan.");
 
             RuleFor(x => x.LengthOfReservation)
-                .Must(value => double.IsFinite(value) && value >= 0.5 && value <= 24 && value * 2 == Math.Truncate(value * 2))
+                .Must(value => double.IsFinite(value) && value >= 0.5 && value <= 5 && value * 2 == Math.Truncate(value * 2))
                 .WithMessage(ReservationDurationMessages.InvalidValue);
 
             RuleFor(x => x.ReservationPrice)

@@ -1,5 +1,6 @@
 import 'package:easytab_desktop/providers/base_provider.dart';
 import 'package:easytab_desktop/models/locale.dart';
+import 'package:easytab_desktop/providers/utils.dart';
 
 class LocaleProvider extends BaseProvider<Locale> {
   LocaleProvider() : super("Locale");
@@ -21,4 +22,8 @@ class LocaleProvider extends BaseProvider<Locale> {
       if (items.length < pageSize) return locales;
     }
   }
+
+  Future<List<Locale>> getForReservationFilter() => fetchAllPages(
+    (filter) => get(filter: {...filter, 'SortBy': 'Id', 'IsDeleted': true}),
+  );
 }

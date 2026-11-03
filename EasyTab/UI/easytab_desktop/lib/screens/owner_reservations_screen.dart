@@ -6,6 +6,8 @@ import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
 import 'package:easytab_desktop/widgets/cancellation_reason_dialog.dart';
+import 'package:easytab_desktop/widgets/reservation_filters.dart';
+import 'package:easytab_desktop/widgets/reservations_table.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -30,6 +32,7 @@ class OwnerReservationsScreen extends StatefulWidget {
 
 class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   bool isLoading = false;
+  int _loadVersion = 0;
   final Set<int> _cancelling = {};
   String? _selectedPaymentStatus;
   String? _appliedPaymentStatus;
@@ -52,14 +55,6 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
 
   final TextEditingController searchController = TextEditingController();
 
-  final List<String> _states = [
-    'Sva stanja',
-    'Na čekanju',
-    'Potvrđena',
-    'Završena',
-    'Otkazana',
-  ];
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -68,6 +63,15 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     if (!_initialized) {
       _initialized = true;
       _notificationProvider.addListener(_onNotificationReceived);
+      _loadReservations();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant OwnerReservationsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.localeId != widget.localeId) {
+      _currentPage = 0;
       _loadReservations();
     }
   }
@@ -87,54 +91,40 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
   }
 
   Future<void> _loadReservations() async {
+    if (!mounted) return;
+    final loadVersion = ++_loadVersion;
     setState(() => isLoading = true);
     try {
-      final filter = <String, dynamic>{
-        'LocaleId': widget.localeId,
-        'Page': _currentPage + 1,
-        'PageSize': _pageSize,
-        'IncludeTotalCount': true,
-      };
-
-      if (_appliedState != null && _appliedState != 'Sva stanja') {
-        filter['ReservationState'] = _appliedState;
-      }
-
-      if (_appliedDate != null) {
-        filter['ReservationDate'] =
-            '${_appliedDate!.year.toString().padLeft(4, '0')}-'
-            '${_appliedDate!.month.toString().padLeft(2, '0')}-'
-            '${_appliedDate!.day.toString().padLeft(2, '0')}';
-      }
-
-      if (_appliedPaymentStatus != null) {
-        filter['PaymentStatus'] = _appliedPaymentStatus;
-      }
-      final result = await _reservationProvider.get(filter: filter);
-      if (mounted) {
-        setState(() {
-          _reservations = result.items ?? [];
-          _totalCount = result.totalCount ?? _reservations.length;
-          isLoading = false;
-        });
-      }
+      final result = await _reservationProvider.getReservations(
+        page: _currentPage + 1,
+        pageSize: _pageSize,
+        searchTerm: _appliedQuery,
+        localeId: widget.localeId,
+        reservationState: _appliedState,
+        reservationDate: _appliedDate,
+        paymentStatus: _appliedPaymentStatus,
+      );
+      if (!mounted || loadVersion != _loadVersion) return;
+      setState(() {
+        _reservations = result.items ?? [];
+        _totalCount = result.totalCount ?? _reservations.length;
+        isLoading = false;
+      });
     } catch (e) {
-      debugPrint('Error loading reservations: $e');
-      if (mounted) {
-        setState(() => isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Greška pri učitavanju rezervacija: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted || loadVersion != _loadVersion) return;
+      setState(() => isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Greška pri učitavanju rezervacija: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   void _applyFilters() {
     setState(() {
-      _appliedQuery = searchController.text.trim().toLowerCase();
+      _appliedQuery = searchController.text.trim();
       _appliedState = _selectedState;
       _appliedPaymentStatus = _selectedPaymentStatus;
       _appliedDate = _selectedDate;
@@ -148,28 +138,14 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
       searchController.clear();
       _selectedState = 'Sva stanja';
       _selectedDate = null;
+      _selectedPaymentStatus = null;
       _appliedQuery = '';
       _appliedState = null;
-      _selectedPaymentStatus = null;
       _appliedPaymentStatus = null;
       _appliedDate = null;
       _currentPage = 0;
     });
     _loadReservations();
-  }
-
-  List<Reservation> get _filteredReservations {
-    var list = _reservations;
-
-    if (_appliedQuery.isNotEmpty) {
-      list = list.where((r) {
-        final table = (r.tableName ?? '').toLowerCase();
-        final guests = (r.numberOfGuests?.toString() ?? '');
-        return table.contains(_appliedQuery) || guests.contains(_appliedQuery);
-      }).toList();
-    }
-
-    return list;
   }
 
   Future<void> _confirmReservation(Reservation reservation) async {
@@ -374,205 +350,37 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
     );
   }
 
-  Widget _buildSearchAndFilter() {
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: TextField(
-            controller: searchController,
-            decoration: InputDecoration(
-              hintText: 'Pretraži po stolu...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-            onSubmitted: (_) => _applyFilters(),
-          ),
-        ),
-        const SizedBox(width: 16),
-        SizedBox(
-          width: 220,
-          child: DropdownButtonFormField<String>(
-            initialValue: _selectedPaymentStatus,
-            key: ValueKey(_selectedPaymentStatus),
-            decoration: const InputDecoration(
-              labelText: 'Status plaćanja',
-              border: OutlineInputBorder(),
-            ),
-            items: const [
-              DropdownMenuItem(value: null, child: Text('Sve')),
-              DropdownMenuItem(value: 'Paid', child: Text('Plaćeno')),
-              DropdownMenuItem(value: 'Unpaid', child: Text('Neplaćeno')),
-              DropdownMenuItem(value: 'Refunded', child: Text('Refundirano')),
-            ],
-            onChanged: (value) =>
-                setState(() => _selectedPaymentStatus = value),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          flex: 2,
-          child: DropdownButtonFormField<String>(
-            // ignore: deprecated_member_use
-            value: _selectedState,
-            decoration: InputDecoration(
-              labelText: 'Stanje',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-            ),
-            items: _states.map((s) {
-              return DropdownMenuItem(value: s, child: Text(s));
-            }).toList(),
-            onChanged: (val) {
-              setState(() {
-                _selectedState = val ?? 'Sva stanja';
-              });
-            },
-          ),
-        ),
-        const SizedBox(width: 16),
-        SizedBox(
-          height: 48,
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            icon: const Icon(Icons.calendar_today, size: 18),
-            label: Text(
-              _selectedDate != null
-                  ? formatDateOnly(_selectedDate!)
-                  : 'Svi datumi',
-            ),
-            onPressed: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _selectedDate ?? DateTime.now(),
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
-              );
-              if (picked != null) {
-                setState(() => _selectedDate = picked);
-              }
-            },
-          ),
-        ),
-        const SizedBox(width: 16),
-        SizedBox(
-          height: 48,
-          child: ElevatedButton.icon(
-            icon: const Icon(Icons.search),
-            label: const Text('Pretraži'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1E40AF),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: _applyFilters,
-          ),
-        ),
-        if (_selectedPaymentStatus != null ||
-            _selectedDate != null ||
-            (_selectedState != null && _selectedState != 'Sva stanja') ||
-            searchController.text.isNotEmpty) ...[
-          const SizedBox(width: 12),
-          IconButton(
-            tooltip: 'Poništi filtere',
-            icon: const Icon(Icons.clear, color: Colors.grey),
-            onPressed: _clearFilters,
-          ),
-        ],
-      ],
-    );
-  }
+  Widget _buildSearchAndFilter() => ReservationFilters(
+    searchController: searchController,
+    state: _selectedState,
+    paymentStatus: _selectedPaymentStatus,
+    date: _selectedDate,
+    expandToFill: true,
+    hasAppliedFilters:
+        _appliedQuery.isNotEmpty ||
+        (_appliedState != null && _appliedState != 'Sva stanja') ||
+        _appliedPaymentStatus != null ||
+        _appliedDate != null,
+    onStateChanged: (value) {
+      setState(() => _selectedState = value);
+    },
+    onPaymentStatusChanged: (value) {
+      setState(() => _selectedPaymentStatus = value);
+    },
+    onDateChanged: (value) {
+      setState(() => _selectedDate = value);
+    },
+    onApply: _applyFilters,
+    onClear: _clearFilters,
+  );
 
-  Widget _buildTable() {
-    final list = _filteredReservations;
-
-    if (list.isEmpty) {
-      return const Expanded(
-        child: Center(child: Text('Nema rezervacija za prikaz.')),
-      );
-    }
-
-    return Expanded(
-      child: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: SingleChildScrollView(
-          child: SizedBox(
-            width: double.infinity,
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
-              headingTextStyle: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-              columns: const [
-                DataColumn(label: Text('Stol')),
-                DataColumn(label: Text('Gosti')),
-                DataColumn(label: Text('Datum')),
-                DataColumn(label: Text('Termin')),
-                DataColumn(label: Text('Status')),
-                DataColumn(label: Text('Plaćeno')),
-                DataColumn(label: Text('Akcija')),
-              ],
-              rows: list.map((res) {
-                final dateStr = res.reservationDate != null
-                    ? formatDateOnly(res.reservationDate!)
-                    : '-';
-                final timeStr =
-                    '${_formatTime(res.startTime)} - ${_formatTime(res.endTime)}';
-
-                return DataRow(
-                  cells: [
-                    DataCell(Text(res.tableName ?? '-')),
-                    DataCell(Text('${res.numberOfGuests ?? '-'}')),
-                    DataCell(Text(dateStr)),
-                    DataCell(Text(timeStr)),
-                    DataCell(
-                      _buildStatusBadge(res.reservationState ?? 'Na čekanju'),
-                    ),
-                    DataCell(
-                      Text(
-                        res.paymentLabel,
-                        style: TextStyle(
-                          color: res.refundedAmountKm != null
-                              ? Colors.deepOrange
-                              : null,
-                        ),
-                      ),
-                    ),
-                    DataCell(_buildRowActions(res)),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildTable() => Expanded(
+    child: ReservationsTable(
+      reservations: _reservations,
+      showLocale: false,
+      buildActions: _buildRowActions,
+    ),
+  );
 
   Widget _buildRowActions(Reservation res) {
     if (_cancelling.contains(res.id)) {
@@ -615,90 +423,8 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
           ),
         ],
       );
-    } else if (state == 'otkazana' &&
-        (res.cancellationReason ?? '').isNotEmpty) {
-      return IconButton(
-        icon: const Icon(Icons.info_outline, color: Colors.grey),
-        tooltip: 'Razlog: ${res.cancellationReason}',
-        onPressed: () {
-          showDialog(
-            context: context,
-            builder: (ctx) => AlertDialog(
-              title: const Text('Razlog otkazivanja'),
-              content: Text(res.cancellationReason!),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Zatvori'),
-                ),
-              ],
-            ),
-          );
-        },
-      );
     }
 
-    return const Text('-', style: TextStyle(color: Colors.grey));
-  }
-
-  Widget _buildStatusBadge(String state) {
-    Color bg;
-    Color text;
-    IconData icon;
-
-    final lower = state.toLowerCase();
-    if (lower == 'na čekanju') {
-      bg = const Color(0xFFFEF3C7);
-      text = const Color(0xFFB45309);
-      icon = Icons.hourglass_top_rounded;
-    } else if (lower == 'potvrđena' || lower == 'potvrdena') {
-      bg = const Color(0xFFDCFCE7);
-      text = const Color(0xFF15803D);
-      icon = Icons.check_circle_rounded;
-    } else if (lower == 'završena' || lower == 'zavrsena') {
-      bg = const Color(0xFFDBEAFE);
-      text = const Color(0xFF1E40AF);
-      icon = Icons.task_alt_rounded;
-    } else if (lower == 'otkazana') {
-      bg = const Color(0xFFFFE4E6);
-      text = const Color(0xFFBE123C);
-      icon = Icons.cancel_rounded;
-    } else {
-      bg = const Color(0xFFF1F5F9);
-      text = const Color(0xFF475569);
-      icon = Icons.info_outline;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: text),
-          const SizedBox(width: 4),
-          Text(
-            state,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: text,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatTime(String? time) {
-    if (time == null || time.isEmpty) return '--:--';
-    final parts = time.split(':');
-    if (parts.length >= 2) {
-      return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
-    }
-    return time;
+    return const SizedBox.shrink();
   }
 }

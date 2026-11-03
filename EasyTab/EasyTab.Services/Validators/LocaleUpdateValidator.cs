@@ -56,7 +56,7 @@ namespace EasyTab.Services.Validators
 
             RuleFor(x => x.LengthOfReservation)
                 .Must(value => value.HasValue && double.IsFinite(value.Value) &&
-                    value.Value >= 0.5 && value.Value <= 24 && value.Value * 2 == Math.Truncate(value.Value * 2))
+                    value.Value >= 0.5 && value.Value <= 5 && value.Value * 2 == Math.Truncate(value.Value * 2))
                 .WithMessage(ReservationDurationMessages.InvalidValue);
 
             RuleFor(x => x.ReservationPrice)

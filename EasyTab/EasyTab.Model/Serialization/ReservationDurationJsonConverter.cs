@@ -8,7 +8,7 @@ namespace EasyTab.Model.Serialization;
 public static class ReservationDurationMessages
 {
     public const string InvalidValue =
-        "Trajanje rezervacije mora biti od 30 do 1440 minuta, u koracima od 30 minuta. " +
+        "Trajanje rezervacije mora biti od 30 minuta do 5 sati (300 minuta), u koracima od 30 minuta. " +
         "Za decimalne vrijednosti koristite tačku (npr. 1.5), ne zarez (1,5).";
 }
 

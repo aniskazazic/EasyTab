@@ -98,12 +98,15 @@ class _AdminCountryDetailsScreenState extends State<AdminCountryDetailsScreen> {
                 padding: const EdgeInsets.all(30.0),
                 child: FormBuilderTextField(
                   name: "name",
+                  maxLength: 100,
                   decoration: const InputDecoration(
                     labelText: "Naziv države",
                     border: OutlineInputBorder(),
                   ),
-                  validator: (value) => value == null || value.isEmpty
+                  validator: (value) => value == null || value.trim().isEmpty
                       ? 'Naziv je obavezan'
+                      : value.length > 100
+                      ? 'Naziv države ne može imati više od 100 karaktera.'
                       : null,
                 ),
               ),

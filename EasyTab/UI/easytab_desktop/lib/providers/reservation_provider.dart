@@ -1,11 +1,36 @@
 import 'dart:convert';
 import 'package:easytab_desktop/models/payment_summary.dart';
 import 'package:easytab_desktop/models/reservation.dart';
+import 'package:easytab_desktop/models/search_result.dart';
 import 'package:easytab_desktop/providers/base_provider.dart';
 import 'package:http/http.dart' as http;
 
 class ReservationProvider extends BaseProvider<Reservation> {
   ReservationProvider() : super("Reservations");
+
+  Future<SearchResult<Reservation>> getReservations({
+    required int page,
+    required int pageSize,
+    String? searchTerm,
+    int? localeId,
+    String? reservationState,
+    String? paymentStatus,
+    DateTime? reservationDate,
+  }) => get(
+    filter: {
+      'Page': page,
+      'PageSize': pageSize,
+      'IncludeTotalCount': true,
+      if (searchTerm?.trim().isNotEmpty == true)
+        'SearchTerm': searchTerm!.trim(),
+      'LocaleId': ?localeId,
+      if (reservationState != null && reservationState != 'Sva stanja')
+        'ReservationState': reservationState,
+      'PaymentStatus': ?paymentStatus,
+      if (reservationDate != null)
+        'ReservationDate': reservationDate.toIso8601String().split('T').first,
+    },
+  );
 
   Future<PaymentSummary> getPaymentSummary({
     required DateTime from,
