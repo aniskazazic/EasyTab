@@ -74,7 +74,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
     } catch (e) {
       if (mounted) {
         setState(() => _localeLoadFailed = true);
-        _showError(e.toString());
+        _showError(userError(e));
       }
     } finally {
       if (mounted) setState(() => _isLoadingLocales = false);
@@ -86,7 +86,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -136,7 +136,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
       return;
     }
 
-    _showError(error.toString());
+      _showError(userError(error));
   }
 
   Map<String, dynamic> _buildRequest(

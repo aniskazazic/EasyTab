@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
@@ -30,7 +31,7 @@ class _AdminCountryDetailsScreenState extends State<AdminCountryDetailsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -77,7 +78,7 @@ class _AdminCountryDetailsScreenState extends State<AdminCountryDetailsScreen> {
         _showSuccess('Država uspješno ažurirana!');
       }
     } catch (e) {
-      _showError(e.toString());
+      _showError(userError(e));
     } finally {
       setState(() => isLoading = false);
     }

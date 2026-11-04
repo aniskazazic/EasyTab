@@ -169,7 +169,7 @@ class _SettingsUserScreenState extends State<SettingsUserScreen> {
                   builder: (ctx) => AlertDialog(
                     title: dialogTitle(ctx, 'Odjava'),
                     content: Text(
-                      "Da li ste sigurni da zelite da se odjavite?",
+                      "Da li ste sigurni da želite da se odjavite?",
                     ),
                     actions: [
                       TextButton(

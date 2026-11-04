@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/models/table.dart';
 import 'package:easytab_desktop/models/zone.dart';
@@ -32,6 +33,7 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   List<Tables> tables = [];
   List<Zone> zones = [];
   bool isLoading = true;
+  bool _isSaving = false;
   String? _loadError;
   String? _tableDialogError;
   String? _zoneDialogError;
@@ -77,7 +79,7 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju stolova i zona: $e';
+        _loadError = 'Greška pri učitavanju stolova i zona: ${userError(e)}';
       });
     }
   }
@@ -88,7 +90,7 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -200,7 +202,9 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
         canDelete = currentTable.canDelete;
       } catch (e) {
         if (mounted) {
-          _showError('Nije moguće provjeriti rezervacije i uplate stola: $e');
+          _showError(
+            'Nije moguće provjeriti rezervacije i uplate stola: ${userError(e)}',
+          );
         }
         return;
       }
@@ -598,6 +602,7 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   }
 
   void _confirmSave() {
+    if (_isSaving) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -635,8 +640,12 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
   }
 
   Future<void> _saveLayout() async {
+    if (_isSaving) return;
+    setState(() => _isSaving = true);
+    var tablesSaved = false;
     try {
       await tableProvider.saveLayout(widget.localeId, tables);
+      tablesSaved = true;
       await zoneProvider.saveLayout(widget.localeId, zones);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -667,7 +676,15 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
         Navigator.pop(context, true);
       }
     } catch (e) {
-      _showError(e.toString());
+      if (mounted) {
+        _showError(
+          tablesSaved
+              ? 'Stolovi su sačuvani, a zone nisu sačuvane. ${userError(e)}'
+              : userError(e),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -753,41 +770,44 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                                         child: SizedBox(
                                           width: canvasWidth,
                                           height: canvasHeight,
-                                          child: Stack(
-                                            key: _canvasKey,
-                                            children: [
-                                              // Grid pozadina
-                                              CustomPaint(
-                                                size: const Size(
-                                                  canvasWidth,
-                                                  canvasHeight,
+                                          child: AbsorbPointer(
+                                            absorbing: _isSaving,
+                                            child: Stack(
+                                              key: _canvasKey,
+                                              children: [
+                                                // Grid pozadina
+                                                CustomPaint(
+                                                  size: const Size(
+                                                    canvasWidth,
+                                                    canvasHeight,
+                                                  ),
+                                                  painter: _GridPainter(),
                                                 ),
-                                                painter: _GridPainter(),
-                                              ),
 
-                                              // Zone — idu ispod stolova
-                                              ...zones.asMap().entries.map(
-                                                (entry) => _buildZone(
-                                                  entry.value,
-                                                  entry.key,
-                                                ),
-                                              ),
-
-                                              // Stolovi — idu iznad zona
-                                              ...tables.asMap().entries.map(
-                                                (entry) => _buildTable(
-                                                  entry.value,
-                                                  entry.key,
-                                                ),
-                                              ),
-                                              if (tables.isEmpty &&
-                                                  zones.isEmpty)
-                                                const Center(
-                                                  child: Text(
-                                                    'Nema stolova ni zona. Dodajte ih dugmadima ispod tlocrta.',
+                                                // Zone — idu ispod stolova
+                                                ...zones.asMap().entries.map(
+                                                  (entry) => _buildZone(
+                                                    entry.value,
+                                                    entry.key,
                                                   ),
                                                 ),
-                                            ],
+
+                                                // Stolovi — idu iznad zona
+                                                ...tables.asMap().entries.map(
+                                                  (entry) => _buildTable(
+                                                    entry.value,
+                                                    entry.key,
+                                                  ),
+                                                ),
+                                                if (tables.isEmpty &&
+                                                    zones.isEmpty)
+                                                  const Center(
+                                                    child: Text(
+                                                      'Nema stolova ni zona. Dodajte ih dugmadima ispod tlocrta.',
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -817,7 +837,9 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                                       'Dodaj novi stol',
                                       style: TextStyle(color: Colors.white),
                                     ),
-                                    onPressed: () => _showTableDialog(),
+                                    onPressed: _isSaving
+                                        ? null
+                                        : () => _showTableDialog(),
                                   ),
                                   const SizedBox(width: 16),
                                   ElevatedButton.icon(
@@ -836,7 +858,9 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                                       'Dodaj novu zonu',
                                       style: TextStyle(color: Colors.white),
                                     ),
-                                    onPressed: () => _showZoneDialog(),
+                                    onPressed: _isSaving
+                                        ? null
+                                        : () => _showZoneDialog(),
                                   ),
                                   const SizedBox(width: 16),
                                   ElevatedButton.icon(
@@ -847,15 +871,24 @@ class _OwnerTablesScreenState extends State<OwnerTablesScreen> {
                                         vertical: 14,
                                       ),
                                     ),
-                                    icon: const Icon(
-                                      Icons.save,
-                                      color: Colors.white,
-                                    ),
+                                    icon: _isSaving
+                                        ? const SizedBox(
+                                            width: 18,
+                                            height: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.save,
+                                            color: Colors.white,
+                                          ),
                                     label: const Text(
                                       'Spremi promjene',
                                       style: TextStyle(color: Colors.white),
                                     ),
-                                    onPressed: _confirmSave,
+                                    onPressed: _isSaving ? null : _confirmSave,
                                   ),
                                 ],
                               ),

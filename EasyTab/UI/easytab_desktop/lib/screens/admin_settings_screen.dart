@@ -79,7 +79,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       setState(() {
         isLoading = false;
         _isLoadingProfile = false;
-        _loadError = 'Greška pri učitavanju profila: $e';
+        _loadError = 'Greška pri učitavanju profila: ${userError(e)}';
       });
     }
   }
@@ -88,8 +88,8 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Greska'),
-        content: Text(message.replaceAll('Exception: ', '')),
+        title: const Text('Greška'),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -104,7 +104,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Uspjesno'),
+        title: const Text('Uspješno'),
         content: Text(message),
         actions: [
           TextButton(
@@ -135,6 +135,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   Future<void> _handleSave() async {
+    if (isLoading) return;
     formKey.currentState?.saveAndValidate();
     if (!(formKey.currentState?.validate() ?? false)) return;
     setState(() => isLoading = true);
@@ -176,7 +177,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       if (mounted) _showSuccess('Podaci su uspješno ažurirani.');
     } catch (e) {
       final message = e is ApiClientException
-          ? e.message
+          ? userError(e)
           : 'Podatke nije moguće sačuvati. Provjerite vezu i pokušajte ponovo.';
       final imageError = e is ApiClientException
           ? e.imageValidationErrors['profilePicture']
@@ -186,7 +187,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       } else if (!showApiFieldErrors(formKey.currentState, e)) {
         _showError(
           profileUpdated
-              ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
+              ? 'Profil je sačuvan, ali lozinka nije promijenjena: $message'
               : message,
         );
       }
@@ -196,22 +197,25 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   }
 
   Future<void> _confirmDeleteImage() async {
+    if (isLoading) return;
     final user = AuthProvider.currentUser;
     if (user?.profilePicture == null) return;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Brisanje slike'),
-        content: const Text('Da li ste sigurni da zelite obrisati sliku?'),
+        content: const Text('Da li ste sigurni da želite obrisati sliku?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Otkazi'),
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Otkaži'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              if (!mounted || isLoading) return;
+              setState(() => isLoading = true);
               try {
                 await userProvider.update(user!.id!, {
                   'username': user.username,
@@ -221,15 +225,17 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 setState(() => AuthProvider.currentUser?.profilePicture = null);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Slika uspjesno obrisana!'),
+                    content: Text('Slika je uspješno obrisana.'),
                     backgroundColor: Colors.green,
                   ),
                 );
               } catch (e) {
-                _showError(e.toString());
+                if (mounted) _showError(userError(e));
+              } finally {
+                if (mounted) setState(() => isLoading = false);
               }
             },
-            child: const Text('Obrisi', style: TextStyle(color: Colors.white)),
+            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -279,7 +285,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                         : null,
                   ),
                   TextButton.icon(
-                    onPressed: _pickImage,
+                    onPressed: isLoading ? null : _pickImage,
                     icon: const Icon(Icons.camera_alt),
                     label: const Text('Promijeni sliku'),
                   ),
@@ -295,7 +301,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                     ),
                   if (user?.profilePicture != null && _imageFile == null)
                     TextButton.icon(
-                      onPressed: _confirmDeleteImage,
+                      onPressed: isLoading ? null : _confirmDeleteImage,
                       icon: const Icon(Icons.delete),
                       label: const Text('Obriši sliku'),
                       style: TextButton.styleFrom(foregroundColor: Colors.red),

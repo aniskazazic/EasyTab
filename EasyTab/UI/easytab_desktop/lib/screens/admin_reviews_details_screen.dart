@@ -1,3 +1,4 @@
+import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/review.dart';
 import 'package:easytab_desktop/providers/review_provider.dart';
@@ -55,7 +56,7 @@ class _AdminReviewsDetailsScreenState extends State<AdminReviewsDetailsScreen> {
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e) {
-      if (mounted) setState(() => _saveError = e.toString());
+      if (mounted) setState(() => _saveError = userError(e));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }

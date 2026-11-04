@@ -80,7 +80,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       setState(() {
         isLoading = false;
         _isLoadingProfile = false;
-        _loadError = 'Greška pri učitavanju profila: $e';
+        _loadError = 'Greška pri učitavanju profila: ${userError(e)}';
       });
     }
   }
@@ -90,7 +90,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll('Exception: ', '')),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -182,7 +182,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       if (mounted) _showSuccess('Podaci su uspješno ažurirani.');
     } catch (e) {
       final message = e is ApiClientException
-          ? e.message
+          ? userError(e)
           : 'Podatke nije moguće sačuvati. Provjerite vezu i pokušajte ponovo.';
       final imageError = e is ApiClientException
           ? e.imageValidationErrors['profilePicture']
@@ -192,7 +192,7 @@ class _OwnerSettingsScreenState extends State<OwnerSettingsScreen> {
       } else if (!showApiFieldErrors(formKey.currentState, e)) {
         _showError(
           profileUpdated
-              ? 'Profil je sacuvan, ali lozinka nije promijenjena: $message'
+              ? 'Profil je sačuvan, ali lozinka nije promijenjena: $message'
               : message,
         );
       }

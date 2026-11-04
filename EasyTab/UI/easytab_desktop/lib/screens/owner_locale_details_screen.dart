@@ -130,7 +130,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -141,7 +141,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -174,46 +174,47 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   }
 
   Future<void> _handleSave() async {
+    if (_isSaving) return;
     formKey.currentState?.saveAndValidate();
     if (!(formKey.currentState?.validate() ?? false)) return;
 
-    var request = Map<String, dynamic>.from(formKey.currentState!.value);
-
-    // Upload slike ako je odabrana
-    if (_image != null) {
-      request['logo'] = base64Encode(await _image!.readAsBytes());
-      request['logoFileName'] = _image!.uri.pathSegments.last;
-      request['logoContentType'] = _image!.path.toLowerCase().endsWith('.png')
-          ? 'image/png'
-          : 'image/jpeg';
-    }
-
-    if (newImages.isNotEmpty) {
-      request['images'] = newImages.map((image) => image.toJson()).toList();
-    }
-
-    // Formatiraj vremena
-    for (final key in ['startOfWorkingHours', 'endOfWorkingHours']) {
-      final val = request[key];
-      if (val is TimeOfDay) {
-        final h = val.hour.toString().padLeft(2, '0');
-        final m = val.minute.toString().padLeft(2, '0');
-        request[key] = '$h:$m:00';
-      }
-    }
-
-    request['reservationPrice'] = double.parse(
-      (request['reservationPrice'] as String).trim().replaceAll(',', '.'),
-    );
-
-    request.removeWhere(
-      (key, value) => value == null || value.toString().isEmpty,
-    );
-
-    request.remove('ownerId');
-
     setState(() => _isSaving = true);
     try {
+      var request = Map<String, dynamic>.from(formKey.currentState!.value);
+
+      // Upload slike ako je odabrana
+      if (_image != null) {
+        request['logo'] = base64Encode(await _image!.readAsBytes());
+        request['logoFileName'] = _image!.uri.pathSegments.last;
+        request['logoContentType'] = _image!.path.toLowerCase().endsWith('.png')
+            ? 'image/png'
+            : 'image/jpeg';
+      }
+
+      if (newImages.isNotEmpty) {
+        request['images'] = newImages.map((image) => image.toJson()).toList();
+      }
+
+      // Formatiraj vremena
+      for (final key in ['startOfWorkingHours', 'endOfWorkingHours']) {
+        final val = request[key];
+        if (val is TimeOfDay) {
+          final h = val.hour.toString().padLeft(2, '0');
+          final m = val.minute.toString().padLeft(2, '0');
+          request[key] = '$h:$m:00';
+        }
+      }
+
+      request['reservationPrice'] = double.parse(
+        (request['reservationPrice'] as String).trim().replaceAll(',', '.'),
+      );
+
+      request.removeWhere(
+        (key, value) => value == null || value.toString().isEmpty,
+      );
+
+      request.remove('ownerId');
+
       request['lengthOfReservation'] =
           (request['lengthOfReservation'] as int) / 60.0;
 
@@ -225,6 +226,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         _showSuccess('Postavke uspješno sačuvane!');
       }
     } catch (e) {
+      if (!mounted) return;
       final imageErrors = e is ApiClientException
           ? e.imageValidationErrors
           : const <String, String>{};
@@ -234,7 +236,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
           _galleryError = imageErrors['images'];
         });
       } else if (!showApiFieldErrors(formKey.currentState, e)) {
-        _showError(e.toString());
+        _showError(userError(e));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -255,6 +257,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   }
 
   Future<void> _confirmDeleteLogo() async {
+    if (_isSaving) return;
     final shouldDelete = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -284,7 +287,13 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         ],
       ),
     );
-    if (shouldDelete != true || widget.locale?.id == null) return;
+    if (shouldDelete != true ||
+        !mounted ||
+        _isSaving ||
+        widget.locale?.id == null) {
+      return;
+    }
+    setState(() => _isSaving = true);
 
     try {
       final city = await cityProvider.getById(widget.locale!.cityId!);
@@ -316,11 +325,14 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         ),
       );
     } catch (e) {
-      _showError(e.toString());
+      if (mounted) _showError(userError(e));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
   Future<void> _deleteLocaleImage(LocaleImage image) async {
+    if (_isSaving) return;
     final messenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
@@ -345,6 +357,8 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(dialogContext);
+              if (!mounted || _isSaving) return;
+              setState(() => _isSaving = true);
               try {
                 if (image.id != 0) {
                   await localeImageProvider.delete(image.id!);
@@ -371,7 +385,9 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                   );
                 }
               } catch (e) {
-                if (mounted) _showError(e.toString());
+                if (mounted) _showError(userError(e));
+              } finally {
+                if (mounted) setState(() => _isSaving = false);
               }
             },
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),
@@ -479,7 +495,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                   top: 5,
                   right: 13,
                   child: InkWell(
-                    onTap: () => _deleteLocaleImage(image),
+                    onTap: _isSaving ? null : () => _deleteLocaleImage(image),
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
@@ -527,6 +543,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
   Widget _buildForm() {
     return FormBuilder(
       key: formKey,
+      enabled: !_isSaving,
       initialValue: {
         "name": widget.locale?.name ?? '',
         "address": widget.locale?.address ?? '',
@@ -593,7 +610,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       InkWell(
-                        onTap: _getImage,
+                        onTap: _isSaving ? null : _getImage,
                         borderRadius: BorderRadius.circular(8),
                         child: InputDecorator(
                           decoration: const InputDecoration(
@@ -636,7 +653,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                           widget.locale?.logo != null &&
                           _image == null)
                         TextButton.icon(
-                          onPressed: _confirmDeleteLogo,
+                          onPressed: _isSaving ? null : _confirmDeleteLogo,
                           icon: const Icon(Icons.delete),
                           label: const Text('Obriši logo'),
                           style: TextButton.styleFrom(
@@ -899,7 +916,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                   Text('Slike lokala', style: TextStyle(fontSize: 22)),
                   const SizedBox(width: 16),
                   IconButton(
-                    onPressed: _pickFiles,
+                    onPressed: _isSaving ? null : _pickFiles,
                     icon: const Icon(Icons.add),
                   ),
                 ],
@@ -964,7 +981,7 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
         }
       }
     } catch (e) {
-      _showError(e.toString());
+      _showError(userError(e));
     }
   }
 }

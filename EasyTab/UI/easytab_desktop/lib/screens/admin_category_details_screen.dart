@@ -32,7 +32,7 @@ class _AdminCategoryDetailsScreenState
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -80,7 +80,7 @@ class _AdminCategoryDetailsScreenState
       }
     } catch (e) {
       if (!showApiFieldErrors(formKey.currentState, e)) {
-        _showError(e.toString());
+        _showError(userError(e));
       }
     } finally {
       setState(() => isLoading = false);

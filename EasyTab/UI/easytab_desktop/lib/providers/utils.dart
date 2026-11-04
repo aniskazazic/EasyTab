@@ -7,7 +7,37 @@ import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:intl/intl.dart';
 
+String userError(Object error) {
+  const fallback =
+      'Nije moguće izvršiti zahtjev. Provjerite vezu i pokušajte ponovo.';
+  if (error is ApiClientException) {
+    final message = error.message.trim();
+    if (message.isNotEmpty &&
+        !message.startsWith('{') &&
+        !message.startsWith('[') &&
+        !message.startsWith('<') &&
+        !RegExp(
+          r'exception|stack\s*trace|\b\w*Error:|BytePositionInLine|\n\s*at ',
+          caseSensitive: false,
+        ).hasMatch(message)) {
+      return ApiErrorParser.messageFromBody(jsonEncode({'message': message})) ??
+          fallback;
+    }
+  }
+  return fallback;
+}
+
 final dateOnlyFormatter = DateFormat('dd.MM.yyyy.');
+
+void showFeedback(BuildContext context, String message) {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.green),
+    );
+}
+
 final usernameInputFormatters = <TextInputFormatter>[
   FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]')),
 ];

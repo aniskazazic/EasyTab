@@ -16,6 +16,7 @@ class AdminReviewsScreen extends StatefulWidget {
 
 class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   bool isLoading = true;
+  bool _isMutating = false;
   String? _loadError;
   late ReviewProvider _reviewProvider;
   int _totalCount = 0;
@@ -69,6 +70,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
             const SizedBox(height: 16),
             _buildSearchAndFilter(),
             const SizedBox(height: 16),
+            if (_isMutating) const LinearProgressIndicator(),
             isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _buildTable(),
@@ -214,7 +216,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -252,7 +254,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -364,18 +366,24 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                       IconButton(
                         icon: const Icon(Icons.visibility, color: Colors.blue),
                         tooltip: 'Detalji',
-                        onPressed: () => _openReview(review),
+                        onPressed: _isMutating
+                            ? null
+                            : () => _openReview(review),
                       ),
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         tooltip: 'Uredi',
-                        onPressed: () => _openReview(review, editMode: true),
+                        onPressed: _isMutating
+                            ? null
+                            : () => _openReview(review, editMode: true),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         tooltip: 'Obriši',
-                        onPressed: () => _confirmDelete(review),
+                        onPressed: _isMutating
+                            ? null
+                            : () => _confirmDelete(review),
                       ),
                     ],
                   ),
@@ -389,6 +397,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   }
 
   void _confirmDelete(Review review) {
+    if (_isMutating) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -413,11 +422,17 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   }
 
   Future<void> _deleteReview(int id) async {
+    if (_isMutating) return;
+    setState(() => _isMutating = true);
     try {
       await _reviewProvider.delete(id);
+      if (!mounted) return;
+      showFeedback(context, 'Recenzija je uspješno obrisana.');
       await _loadReviews();
     } catch (e) {
-      _showError(e.toString());
+      if (mounted) _showError(userError(e));
+    } finally {
+      if (mounted) setState(() => _isMutating = false);
     }
   }
 }

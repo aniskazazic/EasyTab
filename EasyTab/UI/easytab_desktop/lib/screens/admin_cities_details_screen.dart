@@ -41,7 +41,7 @@ class _AdminCityDetailsScreenState extends State<AdminCityDetailsScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => isLoading = false);
-      _showError(e.toString());
+      _showError(userError(e));
     }
   }
 
@@ -50,7 +50,7 @@ class _AdminCityDetailsScreenState extends State<AdminCityDetailsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -97,7 +97,7 @@ class _AdminCityDetailsScreenState extends State<AdminCityDetailsScreen> {
         _showSuccess('Grad uspješno ažuriran!');
       }
     } catch (e) {
-      _showError(e.toString());
+      _showError(userError(e));
     } finally {
       setState(() => isLoading = false);
     }

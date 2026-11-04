@@ -182,7 +182,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
                 Expanded(
                   child: Text(
                     reservation.isPaid
-                        ? 'Rezervacija je otkazana. Povrat novca je obrađen.'
+                        ? 'Rezervacija je otkazana. Povrat uplate je pokrenut.'
                         : 'Rezervacija je uspješno otkazana.',
                   ),
                 ),

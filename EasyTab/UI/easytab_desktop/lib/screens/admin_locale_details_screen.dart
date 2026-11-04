@@ -49,6 +49,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   int? selectedCountryId;
   int? selectedCityId;
   bool isLoading = true;
+  bool _isSaving = false;
   String? _loadError;
 
   bool get _isInsert => widget.locale == null;
@@ -121,7 +122,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -132,7 +133,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -164,37 +165,39 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   }
 
   Future<void> _handleSave() async {
+    if (_isSaving) return;
     formKey.currentState?.saveAndValidate();
     if (!(formKey.currentState?.validate() ?? false)) return;
 
-    var request = Map<String, dynamic>.from(formKey.currentState!.value);
-
-    if (_image != null) {
-      request['logo'] = base64Encode(await _image!.readAsBytes());
-      request['logoFileName'] = _image!.uri.pathSegments.last;
-      request['logoContentType'] = _image!.path.toLowerCase().endsWith('.png')
-          ? 'image/png'
-          : 'image/jpeg';
-    }
-
-    for (final key in ['startOfWorkingHours', 'endOfWorkingHours']) {
-      final val = request[key];
-      if (val is TimeOfDay) {
-        final h = val.hour.toString().padLeft(2, '0');
-        final m = val.minute.toString().padLeft(2, '0');
-        request[key] = '$h:$m:00';
-      }
-    }
-
-    request['reservationPrice'] = double.parse(
-      (request['reservationPrice'] as String).trim().replaceAll(',', '.'),
-    );
-
-    request.removeWhere(
-      (key, value) => value == null || value.toString().isEmpty,
-    );
-
+    setState(() => _isSaving = true);
     try {
+      var request = Map<String, dynamic>.from(formKey.currentState!.value);
+
+      if (_image != null) {
+        request['logo'] = base64Encode(await _image!.readAsBytes());
+        request['logoFileName'] = _image!.uri.pathSegments.last;
+        request['logoContentType'] = _image!.path.toLowerCase().endsWith('.png')
+            ? 'image/png'
+            : 'image/jpeg';
+      }
+
+      for (final key in ['startOfWorkingHours', 'endOfWorkingHours']) {
+        final val = request[key];
+        if (val is TimeOfDay) {
+          final h = val.hour.toString().padLeft(2, '0');
+          final m = val.minute.toString().padLeft(2, '0');
+          request[key] = '$h:$m:00';
+        }
+      }
+
+      request['reservationPrice'] = double.parse(
+        (request['reservationPrice'] as String).trim().replaceAll(',', '.'),
+      );
+
+      request.removeWhere(
+        (key, value) => value == null || value.toString().isEmpty,
+      );
+
       request['lengthOfReservation'] =
           (request['lengthOfReservation'] as int) / 60.0;
 
@@ -207,14 +210,17 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
         _showSuccess('Lokal uspješno ažuriran!');
       }
     } catch (e) {
+      if (!mounted) return;
       final imageError = e is ApiClientException
           ? e.imageValidationErrors['logo']
           : null;
       if (imageError != null) {
         setState(() => _logoError = imageError);
       } else if (!showApiFieldErrors(formKey.currentState, e)) {
-        _showError(e.toString());
+        _showError(userError(e));
       }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -267,11 +273,13 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
             backgroundColor: const Color(0xFF1E40AF),
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
-          onPressed: _handleSave,
-          child: Text(
-            _isInsert ? 'Dodaj lokal' : 'Spremi izmjene',
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-          ),
+          onPressed: _isSaving ? null : _handleSave,
+          child: _isSaving
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Text(
+                  _isInsert ? 'Dodaj lokal' : 'Spremi izmjene',
+                  style: const TextStyle(color: Colors.white, fontSize: 16),
+                ),
         ),
       ),
     );
@@ -280,6 +288,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   Widget _buildForm() {
     return FormBuilder(
       key: formKey,
+      enabled: !_isSaving,
       initialValue: {
         "name": widget.locale?.name ?? '',
         "address": widget.locale?.address ?? '',
@@ -353,7 +362,7 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       InkWell(
-                        onTap: getImage,
+                        onTap: _isSaving ? null : getImage,
                         borderRadius: BorderRadius.circular(8),
                         child: InputDecorator(
                           decoration: const InputDecoration(
@@ -401,37 +410,44 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                           ),
                           icon: const Icon(Icons.delete, size: 18),
                           label: const Text('Obriši logo'),
-                          onPressed: () => _deleteImage(
-                            fileUrl: widget.locale!.logo!,
-                            subfolder: 'ImageFolder/LocaleLogo',
-                            onDeleted: () async {
-                              final city = await cityProvider.getById(
-                                widget.locale!.cityId!,
-                              );
-                              await localeProvider.update(widget.locale!.id!, {
-                                'name': widget.locale!.name,
-                                'address': widget.locale!.address,
-                                'logo': '',
-                                'phoneNumber': widget.locale!.phoneNumber,
-                                'countryId': city.countryId,
-                                'cityId': widget.locale!.cityId,
-                                'categoryId': widget.locale!.categoryId,
-                                'startOfWorkingHours':
-                                    widget.locale!.startOfWorkingHours == null
-                                    ? null
-                                    : '${widget.locale!.startOfWorkingHours!.hour.toString().padLeft(2, '0')}:${widget.locale!.startOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
-                                'endOfWorkingHours':
-                                    widget.locale!.endOfWorkingHours == null
-                                    ? null
-                                    : '${widget.locale!.endOfWorkingHours!.hour.toString().padLeft(2, '0')}:${widget.locale!.endOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
-                                'lengthOfReservation':
-                                    widget.locale!.lengthOfReservation,
-                                'reservationPrice':
-                                    widget.locale!.reservationPrice,
-                              });
-                              if (mounted) Navigator.pop(context);
-                            },
-                          ),
+                          onPressed: _isSaving
+                              ? null
+                              : () => _deleteImage(
+                                  onDeleted: () async {
+                                    final city = await cityProvider.getById(
+                                      widget.locale!.cityId!,
+                                    );
+                                    await localeProvider.update(
+                                      widget.locale!.id!,
+                                      {
+                                        'name': widget.locale!.name,
+                                        'address': widget.locale!.address,
+                                        'logo': '',
+                                        'phoneNumber':
+                                            widget.locale!.phoneNumber,
+                                        'countryId': city.countryId,
+                                        'cityId': widget.locale!.cityId,
+                                        'categoryId': widget.locale!.categoryId,
+                                        'startOfWorkingHours':
+                                            widget
+                                                    .locale!
+                                                    .startOfWorkingHours ==
+                                                null
+                                            ? null
+                                            : '${widget.locale!.startOfWorkingHours!.hour.toString().padLeft(2, '0')}:${widget.locale!.startOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
+                                        'endOfWorkingHours':
+                                            widget.locale!.endOfWorkingHours ==
+                                                null
+                                            ? null
+                                            : '${widget.locale!.endOfWorkingHours!.hour.toString().padLeft(2, '0')}:${widget.locale!.endOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
+                                        'lengthOfReservation':
+                                            widget.locale!.lengthOfReservation,
+                                        'reservationPrice':
+                                            widget.locale!.reservationPrice,
+                                      },
+                                    );
+                                  },
+                                ),
                         ),
                     ],
                   ),
@@ -751,43 +767,44 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
   }
 
   Future<void> _deleteImage({
-    required String fileUrl,
-    required String subfolder,
-    required VoidCallback onDeleted,
+    required Future<void> Function() onDeleted,
   }) async {
+    if (_isSaving) return;
     final messenger = ScaffoldMessenger.of(context);
-    showDialog(
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Brisanje slike'),
         content: const Text('Da li ste sigurni da želite obrisati sliku?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Otkaži'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(dialogContext);
-              try {
-                onDeleted();
-                if (mounted) {
-                  messenger.showSnackBar(
-                    const SnackBar(
-                      content: Text('Slika uspješno obrisana!'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) _showError(e.toString());
-              }
-            },
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
+    if (confirmed != true || !mounted || _isSaving) return;
+    setState(() => _isSaving = true);
+    try {
+      await onDeleted();
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Logo je uspješno obrisan.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (mounted) _showError(userError(e));
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 }

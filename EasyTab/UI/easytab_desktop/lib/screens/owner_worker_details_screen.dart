@@ -60,7 +60,9 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
       if (mounted) setState(() => _worker = worker);
     } catch (e) {
       if (mounted) {
-        setState(() => _loadError = 'Greška pri učitavanju podataka: $e');
+        setState(
+          () => _loadError = 'Greška pri učitavanju podataka: ${userError(e)}',
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoadingWorker = false);
@@ -73,7 +75,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -121,6 +123,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   }
 
   Future<void> _handleSave() async {
+    if (isLoading) return;
     formKey.currentState?.saveAndValidate();
     if (!(formKey.currentState?.validate() ?? false)) return;
 
@@ -162,7 +165,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
         _showSuccess('Radnik uspješno ažuriran!');
       }
     } catch (e) {
-      final message = e.toString().replaceAll("Exception: ", "");
+      final message = userError(e);
       final imageError = e is ApiClientException
           ? e.imageValidationErrors['profilePicture']
           : null;
@@ -306,7 +309,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       InkWell(
-                        onTap: _getImage,
+                        onTap: isLoading ? null : _getImage,
                         borderRadius: BorderRadius.circular(8),
                         child: InputDecorator(
                           decoration: const InputDecoration(
@@ -355,7 +358,9 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
                           ),
                           icon: const Icon(Icons.delete, size: 18),
                           label: const Text('Obriši sliku'),
-                          onPressed: _confirmDeleteProfilePicture,
+                          onPressed: isLoading
+                              ? null
+                              : _confirmDeleteProfilePicture,
                         ),
                     ],
                   ),
@@ -502,6 +507,7 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
   }
 
   Future<void> _confirmDeleteProfilePicture() async {
+    if (isLoading) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -529,7 +535,10 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
         ],
       ),
     );
-    if (confirmed != true || _worker?.id == null) return;
+    if (confirmed != true || !mounted || isLoading || _worker?.id == null) {
+      return;
+    }
+    setState(() => isLoading = true);
 
     try {
       await workerProvider.update(_worker!.id!, {
@@ -548,7 +557,9 @@ class _OwnerWorkerDetailsScreenState extends State<OwnerWorkerDetailsScreen> {
       );
       Navigator.pop(context);
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) _showError(userError(e));
+    } finally {
+      if (mounted) setState(() => isLoading = false);
     }
   }
 }

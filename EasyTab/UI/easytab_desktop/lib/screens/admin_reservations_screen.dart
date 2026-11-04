@@ -25,7 +25,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   bool isLoading = true;
   String? _loadError;
   int _loadVersion = 0;
-  final Set<int> _cancelling = {};
+  final Set<int> _processing = {};
   String? _selectedPaymentStatus;
   String? _appliedPaymentStatus;
   late ReservationProvider _reservationProvider;
@@ -103,7 +103,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       if (!mounted) return;
       setState(() {
         _isLoadingLocales = false;
-        _localeLoadError = 'Greška pri učitavanju lokala: $e';
+        _localeLoadError = 'Greška pri učitavanju lokala: ${userError(e)}';
       });
     }
   }
@@ -135,7 +135,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       if (!mounted || loadVersion != _loadVersion) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -170,7 +170,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   }
 
   Future<void> _confirmReservation(Reservation reservation) async {
-    if (reservation.id == null) return;
+    if (reservation.id == null || _processing.contains(reservation.id)) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -195,7 +195,10 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
       ),
     );
 
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted || _processing.contains(reservation.id)) {
+      return;
+    }
+    setState(() => _processing.add(reservation.id!));
 
     try {
       await _reservationProvider.confirmReservation(reservation.id!);
@@ -206,22 +209,24 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
             backgroundColor: Color(0xFF16A34A),
           ),
         );
-        _loadReservations();
+        await _loadReservations();
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Greška pri potvrđivanju: $e'),
+            content: Text('Greška pri potvrđivanju: ${userError(e)}'),
             backgroundColor: Colors.red,
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _processing.remove(reservation.id));
     }
   }
 
   Future<void> _cancelReservation(Reservation reservation) async {
-    if (reservation.id == null || _cancelling.contains(reservation.id)) return;
+    if (reservation.id == null || _processing.contains(reservation.id)) return;
 
     final reason = await showDialog<String>(
       context: context,
@@ -234,22 +239,24 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
             : null,
       ),
     );
-    if (!mounted || reason == null) return;
+    if (!mounted || reason == null || _processing.contains(reservation.id)) {
+      return;
+    }
     try {
-      setState(() => _cancelling.add(reservation.id!));
+      setState(() => _processing.add(reservation.id!));
       await _reservationProvider.cancelReservation(reservation.id!, reason);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               reservation.isPaid
-                  ? 'Rezervacija je otkazana. Izvršen je povrat novca korisniku.'
+                  ? 'Rezervacija je otkazana. Povrat uplate je pokrenut.'
                   : 'Rezervacija je uspješno otkazana.',
             ),
             backgroundColor: Colors.orange,
           ),
         );
-        _loadReservations();
+        await _loadReservations();
       }
     } catch (e) {
       if (mounted) {
@@ -257,7 +264,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
           SnackBar(
             content: Text(
               e is ApiClientException
-                  ? e.message
+                  ? userError(e)
                   : 'Nije moguće otkazati rezervaciju. Pokušajte ponovo.',
             ),
             backgroundColor: Colors.red,
@@ -265,7 +272,7 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _cancelling.remove(reservation.id));
+      if (mounted) setState(() => _processing.remove(reservation.id));
     }
   }
 
@@ -342,10 +349,17 @@ class _AdminReservationsScreenState extends State<AdminReservationsScreen> {
   );
 
   Widget _buildRowActions(Reservation res) {
-    if (_cancelling.contains(res.id)) {
+    if (_processing.contains(res.id)) {
       return const Tooltip(
-        message: 'Otkazivanje i povrat uplate su u toku.',
-        child: IconButton(onPressed: null, icon: Icon(Icons.hourglass_top)),
+        message: 'Obrada rezervacije je u toku.',
+        child: IconButton(
+          onPressed: null,
+          icon: SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
       );
     }
     final state = (res.reservationState ?? '').toLowerCase();

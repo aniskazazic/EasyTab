@@ -102,7 +102,7 @@ namespace EasyTab.Services.Services
             {
                 UserId = completedPayment.Reservation.UserId,
                 Title = "Povrat uplate",
-                Message = $"Izvršen je povrat uplate u iznosu od {completedPayment.AmountKm:F2} KM ({completedPayment.Amount:F2} {completedPayment.Currency}) za rezervaciju u {localeName}.",
+                Message = $"Povrat uplate je pokrenut. Iznos povrata: {completedPayment.AmountKm:F2} KM ({completedPayment.Amount:F2} {completedPayment.Currency}) za rezervaciju u {localeName}.",
                 IsRead = false,
                 CreatedAt = DateTime.UtcNow
             };
@@ -179,7 +179,7 @@ namespace EasyTab.Services.Services
                         checkout.StartTime!.Value.ToTimeSpan() != request.StartTime || checkout.EndTime!.Value.ToTimeSpan() != request.EndTime ||
                         checkout.NumberOfGuests != request.NumberOfGuests)
                         throw new UserException("Podaci započetog plaćanja se ne mogu mijenjati.");
-                    if (checkout.Status == PaymentStatus.Refunded) throw new UserException("Uplata za ovaj pokušaj je vraćena. Odaberite novi termin.");
+                    if (checkout.Status == PaymentStatus.Refunded) throw new UserException("Povrat uplate je pokrenut. Odaberite novi termin.");
                     EnsureCheckoutNotExpired(checkout);
                     if (!checkout.ReservationId.HasValue && !await IsAvailableAsync(checkout))
                         throw new UserException("Odabrani termin više nije dostupan.");
@@ -251,7 +251,7 @@ namespace EasyTab.Services.Services
             {
                 return _mapper.Map<PaymentResponse>(checkout);
             }
-            if (checkout.Status == PaymentStatus.Refunded) throw new UserException("Uplata je vraćena jer termin nije bio dostupan. Rezervacija nije kreirana.");
+            if (checkout.Status == PaymentStatus.Refunded) throw new UserException("Povrat uplate je pokrenut. Termin nije bio dostupan; rezervacija nije kreirana.");
 
             // An approved order has not been charged yet. Recheck under the same lock as deactivation.
             var localeInactive = await _context.Tables.AsNoTracking()
@@ -299,7 +299,7 @@ namespace EasyTab.Services.Services
                 var notification = new Notification
                 {
                     UserId = checkout.UserId!.Value, Title = "Povrat uplate",
-                    Message = "Termin više nije dostupan. Pokrenut je povrat uplate; rezervacija nije kreirana.",
+                    Message = "Termin više nije dostupan. Povrat uplate je pokrenut. Rezervacija nije kreirana.",
                     CreatedAt = DateTime.UtcNow
                 };
                 _context.Notifications.Add(notification);

@@ -134,7 +134,7 @@ class _WorkerReservationDetailsScreenState
       showFeedback(
         context,
         details.isPaid
-            ? 'Rezervacija je otkazana. Povrat novca je obrađen.'
+            ? 'Rezervacija je otkazana. Povrat uplate je pokrenut.'
             : 'Rezervacija je uspješno otkazana.',
       );
       Navigator.pop(context, true);

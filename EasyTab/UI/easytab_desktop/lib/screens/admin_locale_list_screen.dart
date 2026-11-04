@@ -97,7 +97,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju filtera: $e';
+        _loadError = 'Greška pri učitavanju filtera: ${userError(e)}';
       });
     }
   }
@@ -132,7 +132,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -142,7 +142,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -156,9 +156,11 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   Future<void> _deleteLocale(int id) async {
     try {
       await localeProvider.delete(id);
+      if (!mounted) return;
+      showFeedback(context, 'Lokal je uspješno deaktiviran.');
     } catch (e) {
       if (!mounted) return;
-      _showError(e.toString());
+      _showError(userError(e));
     }
     if (mounted) await _loadLocales();
   }
@@ -168,9 +170,11 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
     setState(() => _localeActionInProgress = true);
     try {
       await localeProvider.reactivate(locale.id!);
+      if (!mounted) return;
+      showFeedback(context, 'Lokal je uspješno reaktiviran.');
       await _loadLocales();
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) _showError(userError(e));
     } finally {
       if (mounted) setState(() => _localeActionInProgress = false);
     }
@@ -199,7 +203,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
             'Želite li deaktivirati lokal ${locale.name}?\n\n'
             'Broj budućih rezervacija koje će biti otkazane: '
             '${preview.futureReservationsCount}.\n'
-            'Za plaćene rezervacije izvršit će se povrat uplate.\n'
+            'Za plaćene rezervacije pokrenut će se povrat uplate.\n'
             'Reaktivacija lokala neće vratiti otkazane rezervacije.',
           ),
           actions: [
@@ -220,7 +224,9 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
       );
       if (confirmed == true && mounted) await _deleteLocale(locale.id!);
     } catch (e) {
-      if (mounted) _showError('Pregled deaktivacije nije učitan. $e');
+      if (mounted) {
+        _showError('Pregled deaktivacije nije učitan. ${userError(e)}');
+      }
     } finally {
       if (mounted) setState(() => _localeActionInProgress = false);
     }
@@ -508,13 +514,15 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.blue),
                         tooltip: 'Uredi',
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                LocaleDetailsScreen(locale: locale),
-                          ),
-                        ).then((_) => _loadLocales()),
+                        onPressed: _localeActionInProgress
+                            ? null
+                            : () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      LocaleDetailsScreen(locale: locale),
+                                ),
+                              ).then((_) => _loadLocales()),
                       ),
                     IconButton(
                       icon: Icon(

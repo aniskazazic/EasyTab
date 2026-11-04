@@ -24,6 +24,7 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
 
   final TextEditingController searchController = TextEditingController();
   bool isLoading = true;
+  bool _isMutating = false;
   String? _loadError;
 
   bool _initialized = false;
@@ -77,7 +78,7 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -87,7 +88,7 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -98,7 +99,23 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
     );
   }
 
+  Future<void> _deleteCountry(int id) async {
+    if (_isMutating) return;
+    setState(() => _isMutating = true);
+    try {
+      await countryProvider.delete(id);
+      if (!mounted) return;
+      showFeedback(context, 'Država je uspješno obrisana.');
+      await _loadCountries();
+    } catch (e) {
+      if (mounted) _showError(userError(e));
+    } finally {
+      if (mounted) setState(() => _isMutating = false);
+    }
+  }
+
   void _confirmDelete(Country country) {
+    if (_isMutating) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -115,12 +132,7 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(context);
-              try {
-                await countryProvider.delete(country.id!);
-                await _loadCountries();
-              } catch (e) {
-                _showError(e.toString());
-              }
+              await _deleteCountry(country.id!);
             },
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),
           ),
@@ -138,6 +150,7 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
         children: [
           _buildSearch(),
           const SizedBox(height: 16),
+          if (_isMutating) const LinearProgressIndicator(),
           isLoading
               ? const Expanded(
                   child: Center(child: CircularProgressIndicator()),
@@ -201,12 +214,14 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
               backgroundColor: const Color(0xFF1E40AF),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             ),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const AdminCountryDetailsScreen(),
-              ),
-            ).then((_) => _onSearchPressed()),
+            onPressed: _isMutating
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AdminCountryDetailsScreen(),
+                    ),
+                  ).then((_) => _onSearchPressed()),
             child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
           ),
         ),
@@ -254,18 +269,24 @@ class _AdminCountriesListScreenState extends State<AdminCountriesListScreen> {
                         IconButton(
                           icon: const Icon(Icons.edit, color: Colors.blue),
                           tooltip: 'Uredi',
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  AdminCountryDetailsScreen(country: country),
-                            ),
-                          ).then((_) => _loadCountries()),
+                          onPressed: _isMutating
+                              ? null
+                              : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        AdminCountryDetailsScreen(
+                                          country: country,
+                                        ),
+                                  ),
+                                ).then((_) => _loadCountries()),
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           tooltip: 'Obriši',
-                          onPressed: () => _confirmDelete(country),
+                          onPressed: _isMutating
+                              ? null
+                              : () => _confirmDelete(country),
                         ),
                       ],
                     ),

@@ -75,7 +75,7 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -90,7 +90,7 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -139,7 +139,7 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
                   ),
                 );
               } catch (e) {
-                if (mounted) _showError(e.toString());
+                if (mounted) _showError(userError(e));
               }
             },
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),

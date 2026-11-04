@@ -27,6 +27,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
   final TextEditingController searchController = TextEditingController();
   bool showDeleted = false;
   bool isLoading = true;
+  bool _isMutating = false;
   String? _loadError;
 
   bool _initialized = false;
@@ -84,7 +85,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -94,7 +95,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -106,27 +107,40 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
   }
 
   Future<void> _deleteUser(int id) async {
+    if (_isMutating) return;
+    setState(() => _isMutating = true);
     try {
       await userProvider.delete(id);
+      if (!mounted) return;
+      showFeedback(context, 'Korisnik je uspješno obrisan.');
       await _loadUsers();
     } catch (e) {
-      _showError(e.toString());
+      if (mounted) _showError(userError(e));
+    } finally {
+      if (mounted) setState(() => _isMutating = false);
     }
   }
 
   Future<void> _reactivateUser(User user) async {
+    if (_isMutating) return;
+    setState(() => _isMutating = true);
     try {
       await userProvider.update(user.id!, {
         "username": user.username,
         "isDeleted": false,
       });
+      if (!mounted) return;
+      showFeedback(context, 'Korisnik je uspješno reaktiviran.');
       await _loadUsers();
     } catch (e) {
-      _showError(e.toString());
+      if (mounted) _showError(userError(e));
+    } finally {
+      if (mounted) setState(() => _isMutating = false);
     }
   }
 
   void _confirmDelete(User user) {
+    if (_isMutating) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -153,6 +167,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
   }
 
   void _confirmReactivate(User user) {
+    if (_isMutating) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -191,6 +206,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
           _buildSearch(),
           _buildShowDeletedCheckbox(),
           const SizedBox(height: 16),
+          if (_isMutating) const LinearProgressIndicator(),
           isLoading
               ? const Expanded(
                   child: Center(child: CircularProgressIndicator()),
@@ -360,7 +376,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
                             icon: const Icon(Icons.edit),
                             color: Colors.blue,
                             tooltip: isProtected ? protectedReason : 'Uredi',
-                            onPressed: isProtected
+                            onPressed: isProtected || _isMutating
                                 ? null
                                 : () {
                                     Navigator.push(
@@ -380,7 +396,7 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
                               : isDeleted
                               ? 'Reaktiviraj'
                               : 'Obriši',
-                          onPressed: isProtected
+                          onPressed: isProtected || _isMutating
                               ? null
                               : () => isDeleted
                                     ? _confirmReactivate(user)

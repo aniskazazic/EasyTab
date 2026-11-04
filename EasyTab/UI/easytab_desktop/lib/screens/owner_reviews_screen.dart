@@ -27,6 +27,7 @@ class OwnerReviewsScreen extends StatefulWidget {
 
 class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   bool isLoading = true;
+  bool _isMutating = false;
   String? _loadError;
   late ReviewProvider _reviewProvider;
   int _totalCount = 0;
@@ -75,6 +76,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
             const SizedBox(height: 16),
             _buildSearchAndFilter(),
             const SizedBox(height: 16),
+            if (_isMutating) const LinearProgressIndicator(),
             isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _buildTable(),
@@ -228,7 +230,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -266,7 +268,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -375,7 +377,9 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         tooltip: 'Obriši',
-                        onPressed: () => _confirmDelete(review),
+                        onPressed: _isMutating
+                            ? null
+                            : () => _confirmDelete(review),
                       ),
                     ],
                   ),
@@ -389,6 +393,7 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   }
 
   Future<void> _confirmDelete(Review review) async {
+    if (_isMutating) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -424,18 +429,17 @@ class _OwnerReviewsScreenState extends State<OwnerReviewsScreen> {
   }
 
   Future<void> _deleteReview(int id) async {
+    if (_isMutating) return;
+    setState(() => _isMutating = true);
     try {
       await _reviewProvider.delete(id);
-      await _loadReviews();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Recenzija je uspješno obrisana.'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      showFeedback(context, 'Recenzija je uspješno obrisana.');
+      await _loadReviews();
     } catch (e) {
-      if (mounted) _showError(e.toString());
+      if (mounted) _showError(userError(e));
+    } finally {
+      if (mounted) setState(() => _isMutating = false);
     }
   }
 }

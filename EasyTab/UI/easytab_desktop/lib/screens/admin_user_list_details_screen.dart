@@ -53,7 +53,9 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
       if (mounted) setState(() => _user = user);
     } catch (e) {
       if (mounted) {
-        setState(() => _loadError = 'Greška pri učitavanju podataka: $e');
+        setState(
+          () => _loadError = 'Greška pri učitavanju podataka: ${userError(e)}',
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoadingUser = false);
@@ -65,7 +67,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -109,6 +111,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   }
 
   Future<void> _handleSave() async {
+    if (isLoading) return;
     formKey.currentState?.saveAndValidate();
     if (!(formKey.currentState?.validate() ?? false)) return;
 
@@ -156,7 +159,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
         _showSuccess('Korisnik uspješno ažuriran!');
       }
     } catch (e) {
-      final message = e.toString().replaceAll("Exception: ", "");
+      final message = userError(e);
       final imageError = e is ApiClientException
           ? e.imageValidationErrors['profilePicture']
           : null;
@@ -279,7 +282,7 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       InkWell(
-                        onTap: _pickImage,
+                        onTap: isLoading ? null : _pickImage,
                         child: InputDecorator(
                           decoration: const InputDecoration(
                             labelText: "Profilna slika",
@@ -322,7 +325,9 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                           ),
                           icon: const Icon(Icons.delete, size: 18),
                           label: const Text('Obriši sliku'),
-                          onPressed: () => _deleteImage(userId: _user!.id),
+                          onPressed: isLoading
+                              ? null
+                              : () => _deleteImage(userId: _user!.id),
                         ),
                     ],
                   ),
@@ -450,20 +455,23 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
   }
 
   Future<void> _deleteImage({int? userId}) async {
+    if (isLoading) return;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Brisanje slike'),
         content: const Text('Da li ste sigurni da želite obrisati sliku?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Otkaži'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
+              if (!mounted || isLoading) return;
+              setState(() => isLoading = true);
               try {
                 await userProvider.update(userId!, {
                   'username': _user?.username,
@@ -477,7 +485,9 @@ class _AdminUserDetailsScreenState extends State<AdminUserDetailsScreen> {
                   _showSuccess('Slika uspješno obrisana!');
                 }
               } catch (e) {
-                _showError(e.toString());
+                if (mounted) _showError(userError(e));
+              } finally {
+                if (mounted) setState(() => isLoading = false);
               }
             },
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),

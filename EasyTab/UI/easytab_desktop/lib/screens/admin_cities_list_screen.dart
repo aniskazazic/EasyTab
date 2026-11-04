@@ -23,6 +23,7 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
 
   final TextEditingController searchController = TextEditingController();
   bool isLoading = true;
+  bool _isMutating = false;
   String? _loadError;
 
   bool _initialized = false;
@@ -76,7 +77,7 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
       if (!mounted) return;
       setState(() {
         isLoading = false;
-        _loadError = 'Greška pri učitavanju podataka: $e';
+        _loadError = 'Greška pri učitavanju podataka: ${userError(e)}';
       });
     }
   }
@@ -86,7 +87,7 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Greška'),
-        content: Text(message.replaceAll("Exception: ", "")),
+        content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -97,7 +98,23 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
     );
   }
 
+  Future<void> _deleteCity(int id) async {
+    if (_isMutating) return;
+    setState(() => _isMutating = true);
+    try {
+      await cityProvider.delete(id);
+      if (!mounted) return;
+      showFeedback(context, 'Grad je uspješno obrisan.');
+      await _loadCities();
+    } catch (e) {
+      if (mounted) _showError(userError(e));
+    } finally {
+      if (mounted) setState(() => _isMutating = false);
+    }
+  }
+
   void _confirmDelete(City city) {
+    if (_isMutating) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -114,12 +131,7 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(context);
-              try {
-                await cityProvider.delete(city.id!);
-                await _loadCities();
-              } catch (e) {
-                _showError(e.toString());
-              }
+              await _deleteCity(city.id!);
             },
             child: const Text('Obriši', style: TextStyle(color: Colors.white)),
           ),
@@ -137,6 +149,7 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
         children: [
           _buildSearch(),
           const SizedBox(height: 16),
+          if (_isMutating) const LinearProgressIndicator(),
           isLoading
               ? const Expanded(
                   child: Center(child: CircularProgressIndicator()),
@@ -200,12 +213,14 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
               backgroundColor: const Color(0xFF1E40AF),
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
             ),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const AdminCityDetailsScreen(),
-              ),
-            ).then((_) => _onSearchPressed()),
+            onPressed: _isMutating
+                ? null
+                : () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AdminCityDetailsScreen(),
+                    ),
+                  ).then((_) => _onSearchPressed()),
             child: const Text('Dodaj', style: TextStyle(color: Colors.white)),
           ),
         ),
@@ -255,18 +270,22 @@ class _AdminCitiesListScreenState extends State<AdminCitiesListScreen> {
                         IconButton(
                           icon: const Icon(Icons.edit, color: Colors.blue),
                           tooltip: 'Uredi',
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  AdminCityDetailsScreen(city: city),
-                            ),
-                          ).then((_) => _loadCities()),
+                          onPressed: _isMutating
+                              ? null
+                              : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        AdminCityDetailsScreen(city: city),
+                                  ),
+                                ).then((_) => _loadCities()),
                         ),
                         IconButton(
                           icon: const Icon(Icons.delete, color: Colors.red),
                           tooltip: 'Obriši',
-                          onPressed: () => _confirmDelete(city),
+                          onPressed: _isMutating
+                              ? null
+                              : () => _confirmDelete(city),
                         ),
                       ],
                     ),
