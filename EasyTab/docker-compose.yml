@@ -43,6 +43,7 @@ services:
       - PayPal__CancelUrl=${PayPal__CancelUrl}
       - PayPal__Currency=${PayPal__Currency}
       - PayPal__BamToEurRate=${PayPal__BamToEurRate}
+      - PayPal__CheckoutHoldMinutes=${PayPal__CheckoutHoldMinutes:?PayPal__CheckoutHoldMinutes is required}
     ports:
       - "5241:5241"
     expose:

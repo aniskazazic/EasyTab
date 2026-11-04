@@ -157,8 +157,10 @@ namespace EasyTab.Services.Services
         {
             if (_currentUser.UserId <= 0) throw new ForbiddenException("Potrebna je prijava.");
             if (request.CheckoutId == Guid.Empty || request.TableId <= 0 || request.NumberOfGuests <= 0 ||
-                request.StartTime < TimeSpan.Zero || request.EndTime >= TimeSpan.FromDays(1) ||
-                request.EndTime <= request.StartTime)
+                request.StartTime < TimeSpan.Zero || request.StartTime >= TimeSpan.FromDays(1) ||
+                request.EndTime < TimeSpan.Zero || request.EndTime >= TimeSpan.FromDays(1) ||
+                request.EndTime == request.StartTime || request.ReservationDate.Date < LocalClock.Now.Date ||
+                request.ReservationDate.Date >= DateTime.MaxValue.Date.AddDays(-1))
                 throw new UserException("Odaberite važeći stol i termin rezervacije.");
 
             Payment checkout;
@@ -178,6 +180,9 @@ namespace EasyTab.Services.Services
                         checkout.NumberOfGuests != request.NumberOfGuests)
                         throw new UserException("Podaci započetog plaćanja se ne mogu mijenjati.");
                     if (checkout.Status == PaymentStatus.Refunded) throw new UserException("Uplata za ovaj pokušaj je vraćena. Odaberite novi termin.");
+                    EnsureCheckoutNotExpired(checkout);
+                    if (!checkout.ReservationId.HasValue && !await IsAvailableAsync(checkout))
+                        throw new UserException("Odabrani termin više nije dostupan.");
                 }
                 else
                 {
@@ -205,6 +210,9 @@ namespace EasyTab.Services.Services
             await LockTableAsync(checkout.TableId!.Value);
             await EnsureLocaleActiveAsync(checkout.TableId.Value);
             await _context.Entry(checkout).ReloadAsync();
+            EnsureCheckoutNotExpired(checkout);
+            if (!checkout.ReservationId.HasValue && !await IsAvailableAsync(checkout))
+                throw new UserException("Odabrani termin više nije dostupan.");
             if (checkout.PayPalOrderId == null)
             {
                 var order = await _payPalService.CreateOrderAsync(checkout.Amount, checkout.Currency,
@@ -320,13 +328,23 @@ namespace EasyTab.Services.Services
                 throw new UserException("Lokal je deaktiviran. Plaćanje rezervacije nije moguće.");
         }
 
+        private void EnsureCheckoutNotExpired(Payment checkout)
+        {
+            if (!checkout.ReservationId.HasValue &&
+                checkout.CreatedAt <= DateTime.UtcNow.AddMinutes(-_payPalOptions.Value.CheckoutHoldMinutes))
+                throw new UserException("Vrijeme za plaćanje je isteklo. Vratite se na odabir termina i pokrenite novo plaćanje.");
+        }
+
         private async Task<bool> IsAvailableAsync(Payment checkout)
         {
             var table = await _context.Tables.Include(x => x.Locale).AsNoTracking().SingleAsync(x => x.Id == checkout.TableId);
             if (table.IsRemoved() || table.Locale.IsDeleted || table.NumberOfGuests != checkout.NumberOfGuests ||
                 ReservationTime.GetStart(checkout.ReservationDate!.Value, checkout.StartTime!.Value) <= LocalClock.Now) return false;
-            var slots = await _reservationService.GetAvailableSlotsAsync(checkout.TableId!.Value, checkout.ReservationDate!.Value);
+            var workingDate = ReservationTime.GetWorkingDate(checkout.ReservationDate!.Value, checkout.StartTime!.Value,
+                table.Locale.StartOfWorkingHours, table.Locale.EndOfWorkingHours);
+            var slots = await _reservationService.GetAvailableSlotsAsync(checkout.TableId!.Value, workingDate, checkout.Id);
             return slots.Any(x =>
+                x.ReservationDate.Date == checkout.ReservationDate.Value.Date &&
                 TimeSpan.TryParse(x.Start, CultureInfo.InvariantCulture, out var start) && start == checkout.StartTime!.Value.ToTimeSpan() &&
                 TimeSpan.TryParse(x.End, CultureInfo.InvariantCulture, out var end) && end == checkout.EndTime!.Value.ToTimeSpan());
         }

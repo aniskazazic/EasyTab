@@ -180,6 +180,7 @@ namespace EasyTab.Services.ReservationStateMachine
                     LocaleName = table.Locale.Name,
                     ReservationDate = entity.ReservationDate,
                     StartTime = entity.StartTime.ToString("HH:mm"),
+                    EndTime = entity.EndTime.ToString("HH:mm"),
                     CancellationReason = reason
                 };
 

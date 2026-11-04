@@ -386,9 +386,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
         ? '-'
         : formatDateOnly(res.reservationDate!);
 
-    final startTimeClean = _formatTime(res.startTime);
-    final endTimeClean = _formatTime(res.endTime);
-    final timeStr = '$startTimeClean - $endTimeClean';
+    final timeStr = formatReservationTimeRange(res.startTime, res.endTime);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -533,6 +531,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
                             Icons.access_time_rounded,
                             'Termin',
                             timeStr,
+                            maxLines: 3,
                           ),
                         ),
                       ],
@@ -635,7 +634,12 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
     );
   }
 
-  Widget _infoItem(IconData icon, String label, String value) {
+  Widget _infoItem(
+    IconData icon,
+    String label,
+    String value, {
+    int maxLines = 1,
+  }) {
     return Row(
       children: [
         Icon(icon, size: 16, color: const Color(0xFF1E40AF)),
@@ -659,7 +663,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
                   fontWeight: FontWeight.w600,
                   color: Color(0xFF0F172A),
                 ),
-                maxLines: 1,
+                maxLines: maxLines,
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -720,15 +724,6 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
         ],
       ),
     );
-  }
-
-  String _formatTime(String? time) {
-    if (time == null || time.isEmpty) return '--:--';
-    final parts = time.split(':');
-    if (parts.length >= 2) {
-      return '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
-    }
-    return time;
   }
 
   Widget _buildEmptyView({

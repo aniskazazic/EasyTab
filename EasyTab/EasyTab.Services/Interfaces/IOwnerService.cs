@@ -12,6 +12,7 @@ namespace EasyTab.Services.Interfaces
         Task<int> GetTodaysReservations(int localeId);
         Task<int> GetTodaysGuests(int localeId);
         Task<int> GetActiveTables(int localeId);
+        Task<int> GetTodaysReservedTables(int localeId);
         Task<int> GetTotalTables(int localeId);
         Task<OwnerLocaleResponse> GetMyLocale(int localeId);
         Task<List<TableDistributionResponse>> GetTableDistribution(int localeId);

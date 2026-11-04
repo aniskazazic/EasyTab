@@ -52,7 +52,10 @@ namespace EasyTab.Services.Validators
                 .NotNull().WithMessage("Početak radnog vremena je obavezan.");
 
             RuleFor(x => x.EndOfWorkingHours)
-                .NotNull().WithMessage("Kraj radnog vremena je obavezan.");
+                .NotNull().WithMessage("Kraj radnog vremena je obavezan.")
+                .Must((request, end) => !end.HasValue || !request.StartOfWorkingHours.HasValue ||
+                    end.Value != request.StartOfWorkingHours.Value)
+                .WithMessage("Početak i kraj radnog vremena ne mogu biti isti.");
 
             RuleFor(x => x.LengthOfReservation)
                 .Must(value => double.IsFinite(value) && value >= 0.5 && value <= 5 && value * 2 == Math.Truncate(value * 2))

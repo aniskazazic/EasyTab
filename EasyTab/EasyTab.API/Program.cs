@@ -83,8 +83,9 @@ builder.Services.AddOptions<PayPalOptions>()
             !string.IsNullOrWhiteSpace(options.ReturnUrl) &&
             !string.IsNullOrWhiteSpace(options.CancelUrl) &&
             !string.IsNullOrWhiteSpace(options.Currency) &&
-            options.BamToEurRate > 0,
-        "PayPal konfiguracija nije potpuna. Popunite ClientId, Secret, BaseUrl, ReturnUrl, CancelUrl i Currency, te postavite BamToEurRate na vrijednost veću od 0.")
+            options.BamToEurRate > 0 &&
+            options.CheckoutHoldMinutes > 0 && options.CheckoutHoldMinutes <= 1440,
+        "PayPal konfiguracija nije potpuna. Popunite ClientId, Secret, BaseUrl, ReturnUrl, CancelUrl i Currency, postavite BamToEurRate na vrijednost veću od 0 i CheckoutHoldMinutes na broj minuta od 1 do 1440.")
     .ValidateOnStart();
 builder.Services.AddHttpClient<IPayPalService, PayPalService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();

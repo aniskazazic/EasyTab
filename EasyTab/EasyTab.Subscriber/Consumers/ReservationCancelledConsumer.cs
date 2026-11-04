@@ -65,7 +65,7 @@ namespace EasyTab.Subscriber.Consumers
                 </tr>
                 <tr>
                     <td class='label'>Termin:</td>
-                    <td class='value'>{message.StartTime}</td>
+                    <td class='value'>{ReservationTimeText.Format(message.StartTime, message.EndTime)}</td>
                 </tr>
                 <tr>
                     <td class='label'>Broj rezervacije:</td>

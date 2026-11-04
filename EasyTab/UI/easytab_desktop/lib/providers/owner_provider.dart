@@ -5,14 +5,14 @@ import 'package:http/http.dart' as http;
 
 class OwnerStats {
   final int todayReservations;
-  final int activeTables;
+  final int todayReservedTables;
   final int totalTables;
   final int todayGuests;
   final List<Map<String, dynamic>> tableDistribution;
 
   OwnerStats({
     required this.todayReservations,
-    required this.activeTables,
+    required this.todayReservedTables,
     required this.totalTables,
     required this.todayGuests,
     required this.tableDistribution,
@@ -35,7 +35,7 @@ class OwnerProvider extends BaseProvider<Locale> {
         headers: headers,
       ),
       http.get(
-        Uri.parse('$base/Owner/active-tables?localeId=$localeId'),
+        Uri.parse('$base/Owner/today-reserved-tables?localeId=$localeId'),
         headers: headers,
       ),
       http.get(
@@ -76,7 +76,7 @@ class OwnerProvider extends BaseProvider<Locale> {
 
     return OwnerStats(
       todayReservations: safeInt(results[0]),
-      activeTables: safeInt(results[1]),
+      todayReservedTables: safeInt(results[1]),
       totalTables: safeInt(results[2]),
       todayGuests: safeInt(results[3]),
       tableDistribution: safeList(results[4]),

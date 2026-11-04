@@ -41,14 +41,33 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
   model.Locale get locale => widget.locale;
   Tables get table => widget.selectedTable;
 
+  bool get _worksAfterMidnight {
+    final start = locale.startOfWorkingHours;
+    final end = locale.endOfWorkingHours;
+    return start != null &&
+        end != null &&
+        end.hour * 60 + end.minute < start.hour * 60 + start.minute;
+  }
+
   @override
   void initState() {
     super.initState();
     _reservationProvider = context.read<ReservationProvider>();
-    _loadSlots();
+    final now = DateTime.now();
+    final end = locale.endOfWorkingHours;
+    final inOvernightTail =
+        _worksAfterMidnight &&
+        end != null &&
+        now.hour * 60 + now.minute < end.hour * 60 + end.minute;
+    _selectedDate = DateTime(
+      now.year,
+      now.month,
+      now.day - (inOvernightTail ? 1 : 0),
+    );
+    _loadSlots(fallbackToToday: inOvernightTail);
   }
 
-  Future<void> _loadSlots() async {
+  Future<void> _loadSlots({bool fallbackToToday = false}) async {
     final version = ++_slotRequestVersion;
     final tableId = table.id;
     if (tableId == null) return;
@@ -66,6 +85,12 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
         _selectedDate,
       );
       if (!mounted || version != _slotRequestVersion) return;
+      if (fallbackToToday && slots.isEmpty) {
+        final now = DateTime.now();
+        setState(() => _selectedDate = DateTime(now.year, now.month, now.day));
+        await _loadSlots();
+        return;
+      }
       setState(() {
         _slots = slots;
         _slotsLoading = false;
@@ -81,11 +106,19 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
 
   Future<void> _pickDate() async {
     final now = DateTime.now();
+    final firstDate = DateTime(
+      now.year,
+      now.month,
+      now.day - (_worksAfterMidnight ? 1 : 0),
+    );
     final picked = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 90)),
+      initialDate: _selectedDate.isBefore(firstDate)
+          ? firstDate
+          : _selectedDate,
+      firstDate: firstDate,
+      lastDate: DateTime(now.year, now.month, now.day + 90),
+      helpText: 'Odaberite datum radnog dana',
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -125,7 +158,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
       final request = ReservationCheckoutRequest(
         tableId: table.id!,
         numberOfGuests: table.numberOfGuests ?? 2,
-        reservationDate: _selectedDate,
+        reservationDate: slot.reservationDate,
         startTime: slot.start,
         endTime: slot.end,
       );
@@ -331,7 +364,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
       child: Column(
         children: [
           _SectionCard(
-            label: 'Datum',
+            label: 'Datum radnog dana',
             child: InkWell(
               onTap: _isProcessing ? null : _pickDate,
               child: Row(
@@ -421,7 +454,7 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                 crossAxisCount: MediaQuery.sizeOf(context).width < 380 ? 2 : 3,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
-                mainAxisExtent: MediaQuery.textScalerOf(context).scale(48),
+                mainAxisExtent: MediaQuery.textScalerOf(context).scale(92),
               ),
               itemBuilder: (context, i) {
                 final slot = _slots[i];
@@ -460,14 +493,19 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                               ),
                             ],
                     ),
-                    child: Text(
-                      '${slot.start} - ${slot.end}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: isSelected
-                            ? Colors.white
-                            : const Color(0xFF0F172A),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Text(
+                        //'${formatDateOnly(slot.reservationDate)}\n'
+                        '${formatReservationTimeRange(slot.start, slot.end)}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF0F172A),
+                        ),
                       ),
                     ),
                   ),

@@ -487,8 +487,11 @@ class _ReservationCard extends StatelessWidget {
                       child: _ReservationInfo(
                         icon: Icons.access_time_rounded,
                         label: 'Termin',
-                        value:
-                            '${_formatTime(reservation.startTime)} - ${_formatTime(reservation.endTime)}',
+                        value: formatReservationTimeRange(
+                          reservation.startTime,
+                          reservation.endTime,
+                        ),
+                        maxLines: 3,
                         alignment: MainAxisAlignment.start,
                         textAlign: TextAlign.left,
                       ),
@@ -575,17 +578,13 @@ class _ReservationCard extends StatelessWidget {
       ),
     );
   }
-
-  String _formatTime(String? value) {
-    if (value == null || value.isEmpty) return '--:--';
-    return value.length >= 5 ? value.substring(0, 5) : value;
-  }
 }
 
 class _ReservationInfo extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final int maxLines;
   final MainAxisAlignment alignment;
   final TextAlign textAlign;
 
@@ -593,6 +592,7 @@ class _ReservationInfo extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.maxLines = 1,
     required this.alignment,
     required this.textAlign,
   });
@@ -616,7 +616,7 @@ class _ReservationInfo extends StatelessWidget {
               Text(
                 value,
                 textAlign: textAlign,
-                maxLines: 1,
+                maxLines: maxLines,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Color(0xFF0F172A),

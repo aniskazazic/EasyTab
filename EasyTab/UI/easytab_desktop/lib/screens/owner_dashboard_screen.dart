@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:easytab_desktop/providers/reservation_provider.dart';
 import 'package:easytab_desktop/models/locale.dart' as models;
+import 'package:easytab_desktop/models/payment_summary.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
+import 'package:easytab_desktop/providers/notification_provider.dart';
 import 'package:easytab_desktop/screens/owner_locale_details_screen.dart';
 import 'package:easytab_desktop/screens/owner_reservations_screen.dart';
 import 'package:easytab_desktop/screens/owner_reviews_screen.dart';
@@ -27,7 +31,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   String activeSection = 'Dashboard';
 
   int todayReservations = 0;
-  int activeTables = 0;
+  int todayReservedTables = 0;
   int totalTables = 0;
   int todayGuests = 0;
   List<Map<String, dynamic>> tableDistribution = [];
@@ -36,17 +40,39 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   String? statsError;
   late OwnerProvider ownerProvider;
   late LocaleProvider localeProvider;
+  late NotificationProvider _notificationProvider;
+  int _lastNotificationRefreshVersion = 0;
+  int _statsRequestVersion = 0;
 
   @override
   void initState() {
     super.initState();
     ownerProvider = context.read<OwnerProvider>();
     localeProvider = context.read<LocaleProvider>();
+    _notificationProvider = context.read<NotificationProvider>();
+    _lastNotificationRefreshVersion =
+        _notificationProvider.reservationRefreshVersion;
+    _notificationProvider.addListener(_onNotificationReceived);
     _loadFirstLocale();
+  }
+
+  @override
+  void dispose() {
+    _notificationProvider.removeListener(_onNotificationReceived);
+    super.dispose();
+  }
+
+  void _onNotificationReceived() {
+    final version = _notificationProvider.reservationRefreshVersion;
+    if (version == _lastNotificationRefreshVersion) return;
+    _lastNotificationRefreshVersion = version;
+    final localeId = activeLocaleId;
+    if (mounted && localeId != null) unawaited(_loadStats(localeId));
   }
 
   Future<void> _loadFirstLocale() async {
     if (!mounted) return;
+    ++_statsRequestVersion;
     setState(() {
       isLoading = true;
       statsError = null;
@@ -69,7 +95,7 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
           activeLocale = null;
           activeLocaleId = null;
           todayReservations = 0;
-          activeTables = 0;
+          todayReservedTables = 0;
           totalTables = 0;
           todayGuests = 0;
           tableDistribution = [];
@@ -90,6 +116,8 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   }
 
   Future<void> _loadStats(int localeId) async {
+    if (!mounted || activeLocaleId != localeId) return;
+    final version = ++_statsRequestVersion;
     setState(() {
       isLoading = true;
       statsError = null;
@@ -97,10 +125,12 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     try {
       final stats = await ownerProvider.getStats(localeId);
       debugPrint('tableDistribution: ${stats.tableDistribution}');
-      if (mounted) {
+      if (mounted &&
+          version == _statsRequestVersion &&
+          activeLocaleId == localeId) {
         setState(() {
           todayReservations = stats.todayReservations;
-          activeTables = stats.activeTables;
+          todayReservedTables = stats.todayReservedTables;
           totalTables = stats.totalTables;
           todayGuests = stats.todayGuests;
           tableDistribution = stats.tableDistribution;
@@ -109,7 +139,9 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
       }
     } catch (e) {
       debugPrint('Error loading stats: $e');
-      if (mounted) {
+      if (mounted &&
+          version == _statsRequestVersion &&
+          activeLocaleId == localeId) {
         setState(() {
           isLoading = false;
           statsError = e.toString();
@@ -208,32 +240,39 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
   Future<void> _generateReport() async {
     if (isGeneratingReport || isLoading || activeLocaleId == null) return;
 
-    final reportDate = DateUtils.dateOnly(DateTime.now());
-    final reportLocaleId = activeLocaleId;
+    var reportDate = DateUtils.dateOnly(DateTime.now());
+    final reportLocaleId = activeLocaleId!;
     final reportLocaleName = activeLocale?.name ?? '';
-    final reportReservations = todayReservations;
-    final reportActiveTables = activeTables;
-    final reportTotalTables = totalTables;
-    final reportGuests = todayGuests;
-    final reportDistribution = List<Map<String, dynamic>>.of(tableDistribution);
     setState(() => isGeneratingReport = true);
     try {
-      final payments = await context
-          .read<ReservationProvider>()
-          .getPaymentSummary(
+      final reservations = context.read<ReservationProvider>();
+      late OwnerStats stats;
+      late PaymentSummary payments;
+      for (var attempt = 0; attempt < 2; attempt++) {
+        (stats, payments) = await (
+          ownerProvider.getStats(reportLocaleId),
+          reservations.getPaymentSummary(
             from: reportDate,
             to: reportDate,
             localeId: reportLocaleId,
-          );
+          ),
+        ).wait;
+        final currentDate = DateUtils.dateOnly(DateTime.now());
+        if (DateUtils.isSameDay(reportDate, currentDate)) break;
+        if (attempt == 1) {
+          throw Exception('Datum se promijenio. Ponovo generišite izvještaj.');
+        }
+        reportDate = currentDate;
+      }
       final path = await ReportService.saveOwnerReport(
         date: reportDate,
         payments: payments,
         localeName: reportLocaleName,
-        todayReservations: reportReservations,
-        activeTables: reportActiveTables,
-        totalTables: reportTotalTables,
-        todayGuests: reportGuests,
-        tableDistribution: reportDistribution,
+        todayReservations: stats.todayReservations,
+        todayReservedTables: stats.todayReservedTables,
+        totalTables: stats.totalTables,
+        todayGuests: stats.todayGuests,
+        tableDistribution: stats.tableDistribution,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -343,18 +382,22 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
                   icon: Icons.calendar_today,
                   title: 'Današnje rezervacije',
                   value: '$todayReservations',
-                  subtitle: 'Broj potvrđenih rezervacija',
+                  subtitle: 'Bez otkazanih rezervacija',
                 ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildStatCard(
-                  icon: Icons.table_restaurant,
-                  title: 'Aktivni stolovi',
-                  value: '$activeTables / $totalTables',
-                  subtitle: totalTables > 0
-                      ? '${((activeTables / totalTables) * 100).toStringAsFixed(0)}% popunjenosti'
-                      : '0% popunjenosti',
+                child: Tooltip(
+                  message:
+                      'Svaki stol s neotkazanom rezervacijom koja se odvija danas broji se jednom.',
+                  child: _buildStatCard(
+                    icon: Icons.table_restaurant,
+                    title: 'Rezervisani stolovi danas',
+                    value: '$todayReservedTables / $totalTables',
+                    subtitle: totalTables > 0
+                        ? '${((todayReservedTables / totalTables) * 100).toStringAsFixed(0)}% stolova rezervisano danas'
+                        : '0% stolova rezervisano danas',
+                  ),
                 ),
               ),
               const SizedBox(width: 16),

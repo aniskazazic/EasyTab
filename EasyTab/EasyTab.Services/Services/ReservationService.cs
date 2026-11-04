@@ -3,6 +3,7 @@ using EasyTab.Model.Exceptions;
 using EasyTab.Model.Requests;
 using EasyTab.Model;
 using EasyTab.Model.SearchObjects;
+using EasyTab.Model.Serialization;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
@@ -12,6 +13,8 @@ using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using EasyTab.Services.PayPal;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -26,13 +29,15 @@ namespace EasyTab.Services.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly ILocaleAccessService _localeAccessService;
         private readonly ICurrentUserService _currentUser;
+        private readonly IOptions<PayPalOptions> _payPalOptions;
 
-        public ReservationService(_220030Context context, IMapper mapper, ILogger<ReservationService> logger, IServiceProvider serviceProvider, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser) : base(context, mapper, insertValidator, updateValidator)
+        public ReservationService(_220030Context context, IMapper mapper, ILogger<ReservationService> logger, IServiceProvider serviceProvider, IValidator<ReservationInsertRequest> insertValidator, IValidator<ReservationUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser, IOptions<PayPalOptions> payPalOptions) : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
             _serviceProvider = serviceProvider;
             _localeAccessService = localeAccessService;
             _currentUser = currentUser;
+            _payPalOptions = payPalOptions;
         }
 
         protected override IQueryable<Reservation> ApplyFilter(IQueryable<Reservation> query, ReservationSearchObject search)
@@ -81,8 +86,18 @@ namespace EasyTab.Services.Services
             {
                 var date = search.ReservationDate.Value.Date;
                 var nextDate = date.AddDays(1);
-                query = query.Where(x => x.ReservationDate >= date &&
-                                         x.ReservationDate < nextDate);
+                if (_currentUser.Role == RoleNames.Vlasnik && search.IsUpcoming != false)
+                {
+                    var previousDate = date == DateTime.MinValue.Date ? date : date.AddDays(-1);
+                    query = query.Where(x =>
+                        (x.ReservationDate >= date && x.ReservationDate < nextDate) ||
+                        (x.ReservationDate >= previousDate && x.ReservationDate < date &&
+                         (x.ReservationState == PendingReservationState.StateName ||
+                          x.ReservationState == ConfirmedReservationState.StateName) &&
+                         x.EndTime < x.StartTime && x.EndTime > TimeOnly.MinValue));
+                }
+                else
+                    query = query.Where(x => x.ReservationDate >= date && x.ReservationDate < nextDate);
             }
 
             if (search?.ReservationState != null)
@@ -300,14 +315,13 @@ namespace EasyTab.Services.Services
             return reservation.UserId == _currentUser.UserId;
         }
 
-        public async Task<List<TimeSlots>> GetAvailableSlotsAsync(int tableId, DateTime date)
+        public async Task<List<TimeSlots>> GetAvailableSlotsAsync(int tableId, DateTime date, int? excludedCheckoutId = null)
         {
-            var locale = Context.Tables.OnLayout()
-                .Include(x => x.Locale)
-                .Where(x => x.Id == tableId)
-                .Select(x => x.Locale)
-                .FirstOrDefaultAsync();
-            var localeEntity = await locale;
+            if (date.Date == DateTime.MinValue.Date || date.Date >= DateTime.MaxValue.Date.AddDays(-1))
+                throw new UserException("Datum radnog dana je izvan dozvoljenog raspona.");
+
+            var localeEntity = await Context.Tables.OnLayout()
+                .Where(x => x.Id == tableId).Select(x => x.Locale).AsNoTracking().FirstOrDefaultAsync();
 
             if (localeEntity == null)
             {
@@ -318,68 +332,53 @@ namespace EasyTab.Services.Services
             if (localeEntity.IsDeleted)
                 throw new UserException("Lokal je deaktiviran. Rezervacije nisu dostupne.");
 
-            var open = localeEntity.StartOfWorkingHours.ToTimeSpan();
-            var close = localeEntity.EndOfWorkingHours.ToTimeSpan();
+            if (localeEntity.StartOfWorkingHours == localeEntity.EndOfWorkingHours)
+                throw new UserException("Početak i kraj radnog vremena ne mogu biti isti.");
+            if (!double.IsFinite(localeEntity.LengthOfReservation) || localeEntity.LengthOfReservation < 0.5 ||
+                localeEntity.LengthOfReservation > 5 || localeEntity.LengthOfReservation * 2 != Math.Truncate(localeEntity.LengthOfReservation * 2))
+                throw new UserException(ReservationDurationMessages.InvalidValue);
 
-            // Fallback ako radno vrijeme nije podešeno u bazi ili je 00:00 - 00:00
-            if (open == TimeSpan.Zero && close == TimeSpan.Zero)
-            {
-                open = new TimeSpan(8, 0, 0);   // 08:00
-                close = new TimeSpan(23, 0, 0); // 23:00
-            }
-            else if (close <= open)
-            {
-                if (close == TimeSpan.Zero)
-                {
-                    close = TimeSpan.FromHours(24); // 24:00 (kraj dana)
-                }
-                else
-                {
-                    close = new TimeSpan(23, 0, 0);
-                }
-            }
+            var open = ReservationTime.GetStart(date, localeEntity.StartOfWorkingHours);
+            var close = ReservationTime.GetEnd(date, localeEntity.StartOfWorkingHours, localeEntity.EndOfWorkingHours);
+            var slotLength = TimeSpan.FromHours(localeEntity.LengthOfReservation);
+            var from = date.Date.AddDays(-1);
+            var until = date.Date.AddDays(2);
 
-            var slotHours = (localeEntity.LengthOfReservation > 0) ? localeEntity.LengthOfReservation : 2.0;
-            var slotLength = TimeSpan.FromHours(slotHours);
-
-            // Generiši sve slotove
-            var allSlots = new List<(TimeSpan Start, TimeSpan End)>();
-            for (var t = open; t + slotLength <= close; t += slotLength)
-            {
-                allSlots.Add((t, t + slotLength));
-            }
-
-            // Dohvati zauzete termine
-            var reserved = Context.Reservations
+            // Include adjacent start dates: an occupied interval may cross either midnight.
+            var reserved = await Context.Reservations.AsNoTracking()
                 .Where(r => r.TableId == tableId &&
-                            r.ReservationDate.Date == date.Date &&
+                            r.ReservationDate >= from && r.ReservationDate < until &&
                             r.ReservationState != CancelledReservationState.StateName)
-                .Select(r => new { r.StartTime, r.EndTime })
-                .ToListAsync();
-            var reservedSlots = await reserved;
-
-            var now = LocalClock.Now;
-
-            string FormatSlotTime(TimeSpan ts)
-            {
-                int h = (int)ts.TotalHours;
-                if (h >= 24) h %= 24;
-                int m = ts.Minutes;
-                return $"{h:D2}:{m:D2}";
-            }
-
-            // Filtriraj slobodne slotove
-            var slots = allSlots
-                .Where(slot =>
-                    !reservedSlots.Any(res =>
-                        slot.Start < res.EndTime.ToTimeSpan() && res.StartTime.ToTimeSpan() < slot.End) &&
-                    ReservationTime.GetStart(date, slot.Start) > now)
-                .Select(s => new TimeSlots
-                {
-                    Start = FormatSlotTime(s.Start),
-                    End = FormatSlotTime(s.End)
-                })
+                .Select(r => new { r.ReservationDate, r.StartTime, r.EndTime }).ToListAsync();
+            var holdCutoff = DateTime.UtcNow.AddMinutes(-_payPalOptions.Value.CheckoutHoldMinutes);
+            var checkouts = await Context.Payments.AsNoTracking()
+                .Where(p => p.TableId == tableId && p.Status == PaymentStatus.Created &&
+                    p.CheckoutId != null && p.ReservationId == null &&
+                    (!excludedCheckoutId.HasValue || p.Id != excludedCheckoutId.Value) &&
+                    p.CreatedAt > holdCutoff && p.ReservationDate >= from && p.ReservationDate < until &&
+                    p.StartTime.HasValue && p.EndTime.HasValue)
+                .Select(p => new { p.ReservationDate, p.StartTime, p.EndTime }).ToListAsync();
+            var occupied = reserved.Select(r =>
+                (Start: ReservationTime.GetStart(r.ReservationDate, r.StartTime),
+                 End: ReservationTime.GetEnd(r.ReservationDate, r.StartTime, r.EndTime)))
+                .Concat(checkouts.Select(p =>
+                    (Start: ReservationTime.GetStart(p.ReservationDate!.Value, p.StartTime!.Value),
+                     End: ReservationTime.GetEnd(p.ReservationDate!.Value, p.StartTime!.Value, p.EndTime!.Value))))
                 .ToList();
+            var now = LocalClock.Now;
+            var slots = new List<TimeSlots>();
+            for (var start = open; start + slotLength <= close; start += slotLength)
+            {
+                var end = start + slotLength;
+                if (start <= now || occupied.Any(interval => start < interval.End && interval.Start < end))
+                    continue;
+                slots.Add(new TimeSlots
+                {
+                    ReservationDate = start.Date,
+                    Start = start.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture),
+                    End = end.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+                });
+            }
 
             _logger.LogDebug("Available slots fetched. TableId: {TableId}, Count: {Count}", tableId, slots.Count);
             return slots;
@@ -520,8 +519,8 @@ namespace EasyTab.Services.Services
                 .AsNoTracking()
                 .Where(r =>
                     r.ReservationState == ConfirmedReservationState.StateName &&
-                    (r.ReservationDate.Date < date ||
-                     (r.ReservationDate.Date == date && r.EndTime <= time)))
+                    (r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) < date ||
+                     (r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) == date && r.EndTime <= time)))
                 .OrderBy(r => r.Id)
                 .Select(r => r.Id)
                 .ToListAsync();

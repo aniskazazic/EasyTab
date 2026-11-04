@@ -6,5 +6,12 @@ public static class ReservationTime
         => GetStart(reservationDate, startTime.ToTimeSpan());
 
     public static DateTime GetStart(DateTime reservationDate, TimeSpan startTime)
-        => reservationDate.Date.Add(startTime);
+        => DateTime.SpecifyKind(reservationDate.Date, DateTimeKind.Unspecified).Add(startTime);
+
+    public static DateTime GetEnd(DateTime reservationDate, TimeOnly startTime, TimeOnly endTime)
+        => GetStart(reservationDate, endTime).AddDays(endTime < startTime ? 1 : 0);
+
+    public static DateTime GetWorkingDate(DateTime reservationDate, TimeOnly startTime,
+        TimeOnly openingTime, TimeOnly closingTime)
+        => reservationDate.Date.AddDays(closingTime < openingTime && startTime < openingTime ? -1 : 0);
 }

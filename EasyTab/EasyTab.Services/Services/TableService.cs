@@ -76,12 +76,17 @@ namespace EasyTab.Services.Services
         {
             var now = LocalClock.Now;
             var currentTime = TimeOnly.FromDateTime(now);
+            var yesterday = now.Date.AddDays(-1);
             return Context.Tables.Where(table => tableIds.Contains(table.Id) &&
                 (table.Reservations.Any(reservation =>
                     reservation.ReservationState != CancelledReservationState.StateName &&
                     reservation.ReservationState != CompletedReservationState.StateName &&
-                    (reservation.ReservationDate.Date > now.Date ||
-                     (reservation.ReservationDate.Date == now.Date && reservation.EndTime > currentTime))) ||
+                    ((reservation.EndTime >= reservation.StartTime &&
+                      (reservation.ReservationDate.Date > now.Date ||
+                       (reservation.ReservationDate.Date == now.Date && reservation.EndTime > currentTime))) ||
+                     (reservation.EndTime < reservation.StartTime &&
+                      (reservation.ReservationDate.Date >= now.Date ||
+                       (reservation.ReservationDate.Date == yesterday && reservation.EndTime > currentTime))))) ||
                  Context.Payments.Any(payment => payment.Status == PaymentStatus.Created &&
                     (payment.TableId == table.Id ||
                      (payment.Reservation != null && payment.Reservation.TableId == table.Id)))));

@@ -41,6 +41,13 @@ namespace EasyTab.API.Controllers
         }
 
         [Authorization(RoleNames.Vlasnik)]
+        [HttpGet("today-reserved-tables")]
+        public async Task<IActionResult> GetTodaysReservedTables(int localeId)
+        {
+            return Ok(await _ownerService.GetTodaysReservedTables(localeId));
+        }
+
+        [Authorization(RoleNames.Vlasnik)]
         [HttpGet("total-tables")]
         public async Task<IActionResult> GetTotalTables(int localeId)
         {

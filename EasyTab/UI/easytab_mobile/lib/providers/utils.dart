@@ -8,6 +8,22 @@ final dateOnlyFormatter = DateFormat('dd.MM.yyyy.');
 
 String formatDateOnly(DateTime date) => dateOnlyFormatter.format(date);
 
+String formatReservationTimeRange(String? startTime, String? endTime) {
+  String formatTime(String? value) {
+    if (value == null || value.isEmpty) return '--:--';
+    final parts = value.split(':');
+    return parts.length < 2
+        ? value
+        : '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
+  }
+
+  final start = formatTime(startTime);
+  final end = formatTime(endTime);
+  final nextDay =
+      start != '--:--' && end != '--:--' && end.compareTo(start) < 0;
+  return '$start - $end${nextDay ? ' (sljedeći dan)' : ''}';
+}
+
 String formatSystemDateOnly(DateTime date) =>
     dateOnlyFormatter.format(date.toLocal());
 

@@ -510,7 +510,14 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                             context: context,
                             initialTime: time ?? TimeOfDay.now(),
                           );
-                          if (picked != null) field.didChange(picked);
+                          if (picked != null) {
+                            field.didChange(picked);
+                            final end = formKey
+                                .currentState
+                                ?.fields['endOfWorkingHours'];
+                            if (end?.value != null) end!.validate();
+                            setState(() {});
+                          }
                         },
                         child: InputDecorator(
                           decoration: InputDecoration(
@@ -541,8 +548,10 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                 Expanded(
                   child: FormBuilderField<TimeOfDay>(
                     name: "endOfWorkingHours",
-                    validator: FormBuilderValidators.required(
-                      errorText: 'Kraj radnog vremena je obavezan',
+                    validator: (value) => validateWorkingHoursEnd(
+                      formKey.currentState?.fields['startOfWorkingHours']?.value
+                          as TimeOfDay?,
+                      value,
                     ),
                     builder: (field) {
                       final time = field.value;
@@ -557,6 +566,17 @@ class _LocaleDetailsScreenState extends State<LocaleDetailsScreen> {
                         child: InputDecorator(
                           decoration: InputDecoration(
                             labelText: 'Kraj radnog vremena',
+                            helperText:
+                                worksAfterMidnight(
+                                  formKey
+                                          .currentState
+                                          ?.fields['startOfWorkingHours']
+                                          ?.value
+                                      as TimeOfDay?,
+                                  field.value,
+                                )
+                                ? 'radi i poslije ponoći'
+                                : null,
                             border: const OutlineInputBorder(),
                             errorText: field.errorText,
                           ),

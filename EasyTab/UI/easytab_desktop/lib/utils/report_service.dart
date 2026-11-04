@@ -104,7 +104,7 @@ class ReportService {
     required PaymentSummary payments,
     required String localeName,
     required int todayReservations,
-    required int activeTables,
+    required int todayReservedTables,
     required int totalTables,
     required int todayGuests,
     required List<Map<String, dynamic>> tableDistribution,
@@ -114,7 +114,7 @@ class ReportService {
         ? 'Nije odabran lokal'
         : localeName;
     final occupancy = totalTables > 0
-        ? ((activeTables / totalTables) * 100).toStringAsFixed(0)
+        ? ((todayReservedTables / totalTables) * 100).toStringAsFixed(0)
         : '0';
     final document = _newDocument();
 
@@ -138,8 +138,11 @@ class ReportService {
             runSpacing: 12,
             children: [
               _statCard('Rezervacije', '$todayReservations'),
-              _statCard('Aktivni stolovi', '$activeTables / $totalTables'),
-              _statCard('Popunjenost', '$occupancy %'),
+              _statCard(
+                'Rezervisani stolovi danas',
+                '$todayReservedTables / $totalTables',
+              ),
+              _statCard('Dnevna rezervisanost', '$occupancy %'),
               _statCard('Ocekivani gosti', '$todayGuests'),
             ],
           ),

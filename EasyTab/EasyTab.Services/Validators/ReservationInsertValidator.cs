@@ -19,7 +19,14 @@ namespace EasyTab.Services.Validators
                 .WithMessage("Datum rezervacije ne može biti u prošlosti.");
 
             RuleFor(x => x.StartTime)
-                .NotEmpty().WithMessage("Početak rezervacije je obavezan.");
+                .Must(time => time >= TimeSpan.Zero && time < TimeSpan.FromDays(1))
+                .WithMessage("Početak rezervacije mora biti između 00:00 i 23:59.");
+
+            RuleFor(x => x.EndTime)
+                .Must(time => time >= TimeSpan.Zero && time < TimeSpan.FromDays(1))
+                .WithMessage("Kraj rezervacije mora biti između 00:00 i 23:59.")
+                .NotEqual(x => x.StartTime)
+                .WithMessage("Početak i kraj rezervacije ne mogu biti isti.");
         }
     }
 }

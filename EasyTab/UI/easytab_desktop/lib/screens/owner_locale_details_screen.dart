@@ -723,7 +723,13 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                               field.value ??
                               const TimeOfDay(hour: 8, minute: 0),
                         );
-                        if (picked != null) field.didChange(picked);
+                        if (picked != null) {
+                          field.didChange(picked);
+                          final end =
+                              formKey.currentState?.fields['endOfWorkingHours'];
+                          if (end?.value != null) end!.validate();
+                          setState(() {});
+                        }
                       },
                       child: InputDecorator(
                         decoration: InputDecoration(
@@ -749,8 +755,10 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                 Expanded(
                   child: FormBuilderField<TimeOfDay>(
                     name: "endOfWorkingHours",
-                    validator: FormBuilderValidators.required(
-                      errorText: 'Kraj radnog vremena je obavezan',
+                    validator: (value) => validateWorkingHoursEnd(
+                      formKey.currentState?.fields['startOfWorkingHours']?.value
+                          as TimeOfDay?,
+                      value,
                     ),
                     builder: (field) => InkWell(
                       onTap: () async {
@@ -765,6 +773,17 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                       child: InputDecorator(
                         decoration: InputDecoration(
                           labelText: 'Kraj radnog vremena',
+                          helperText:
+                              worksAfterMidnight(
+                                formKey
+                                        .currentState
+                                        ?.fields['startOfWorkingHours']
+                                        ?.value
+                                    as TimeOfDay?,
+                                field.value,
+                              )
+                              ? 'radi i poslije ponoći'
+                              : null,
                           border: const OutlineInputBorder(),
                           errorText: field.errorText,
                         ),

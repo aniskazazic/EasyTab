@@ -11,5 +11,6 @@ namespace EasyTab.Services.PayPal
         public string CancelUrl { get; set; } = string.Empty;
         public string Currency { get; set; } = string.Empty;
         public decimal BamToEurRate { get; set; }
+        public int CheckoutHoldMinutes { get; set; }
     }
 }

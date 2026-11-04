@@ -83,7 +83,8 @@ class ReservationsTable extends StatelessWidget {
             : formatDateOnly(reservation.reservationDate!),
       ),
       _textCell(
-        '${_formatTime(reservation.startTime)} - ${_formatTime(reservation.endTime)}',
+        formatReservationTimeRange(reservation.startTime, reservation.endTime),
+        maxLines: 2,
       ),
       DataCell(_statusBadge(reservation.reservationState ?? 'Na čekanju')),
       _textCell(
@@ -104,12 +105,16 @@ class ReservationsTable extends StatelessWidget {
     ],
   );
 
-  static DataCell _textCell(String value, {TextStyle? style}) => DataCell(
+  static DataCell _textCell(
+    String value, {
+    TextStyle? style,
+    int maxLines = 1,
+  }) => DataCell(
     Tooltip(
       message: value,
       child: Text(
         value,
-        maxLines: 1,
+        maxLines: maxLines,
         overflow: TextOverflow.ellipsis,
         style: style,
       ),
@@ -173,13 +178,5 @@ class ReservationsTable extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  static String _formatTime(String? time) {
-    if (time == null || time.isEmpty) return '--:--';
-    final parts = time.split(':');
-    return parts.length < 2
-        ? time
-        : '${parts[0].padLeft(2, '0')}:${parts[1].padLeft(2, '0')}';
   }
 }

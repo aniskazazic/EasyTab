@@ -54,11 +54,6 @@ class _WorkerReservationDetailsScreenState
     return formatDateOnly(date);
   }
 
-  String _formatTime(String? value) {
-    if (value == null || value.isEmpty) return '--:--';
-    return value.length >= 5 ? value.substring(0, 5) : value;
-  }
-
   String _guestName(Reservation reservation) {
     final name = reservation.customerName;
     return name.isEmpty ? 'Gost' : name;
@@ -246,8 +241,10 @@ class _WorkerReservationDetailsScreenState
               _InfoRow(
                 icon: Icons.access_time,
                 label: 'Vrijeme',
-                value:
-                    '${_formatTime(details.startTime)} - ${_formatTime(details.endTime)}',
+                value: formatReservationTimeRange(
+                  details.startTime,
+                  details.endTime,
+                ),
                 color: Colors.black,
               ),
               _InfoRow(

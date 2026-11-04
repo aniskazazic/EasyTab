@@ -2,6 +2,7 @@ using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using EasyTab.Model.Exceptions;
 using EasyTab.Model.Responses;
+using EasyTab.Services.ReservationStateMachine;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
@@ -52,16 +53,40 @@ namespace EasyTab.Services.Services
         public async Task<int> GetActiveTables(int localeId)
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
-            var today = LocalClock.Now.Date;
+            var now = LocalClock.Now;
+            var today = now.Date;
+            var yesterday = today.AddDays(-1);
+            var time = TimeOnly.FromDateTime(now);
             var count = await _db.Reservations
-                .Where(r => r.ReservationDate.Date == today &&
-                            r.Table.Xcoordinate >= 0 && r.Table.Ycoordinate >= 0 &&
+                .Where(r => r.Table.Xcoordinate >= 0 && r.Table.Ycoordinate >= 0 &&
                             r.Table.LocaleId == localeId &&
-                            r.ReservationState != "Otkazana")
+                            (r.ReservationState == PendingReservationState.StateName ||
+                             r.ReservationState == ConfirmedReservationState.StateName) &&
+                            ((r.ReservationDate.Date == today && r.StartTime <= time &&
+                              (r.EndTime < r.StartTime || r.EndTime > time)) ||
+                             (r.ReservationDate.Date == yesterday && r.EndTime < r.StartTime &&
+                              r.EndTime > time)))
                 .Select(r => r.TableId)
                 .Distinct()
                 .CountAsync();
             return count;
+        }
+
+        public async Task<int> GetTodaysReservedTables(int localeId)
+        {
+            await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
+            var today = LocalClock.Now.Date;
+            var yesterday = today.AddDays(-1);
+            return await _db.Reservations
+                .Where(r => r.Table.Xcoordinate >= 0 && r.Table.Ycoordinate >= 0 &&
+                            r.Table.LocaleId == localeId &&
+                            r.ReservationState != CancelledReservationState.StateName &&
+                            (r.ReservationDate.Date == today ||
+                             (r.ReservationDate.Date == yesterday && r.EndTime < r.StartTime &&
+                              r.EndTime > TimeOnly.MinValue)))
+                .Select(r => r.TableId)
+                .Distinct()
+                .CountAsync();
         }
 
         public async Task<int> GetTotalTables(int localeId)
@@ -135,6 +160,7 @@ namespace EasyTab.Services.Services
             page = Math.Max(page, 0);
             pageSize = Math.Clamp(pageSize, 1, 100);
             var selectedDate = (date?.Date ?? LocalClock.Now.Date);
+            var previousDate = selectedDate == DateTime.MinValue.Date ? selectedDate : selectedDate.AddDays(-1);
 
             var query = _db.Reservations
                 .Include(r => r.Table).ThenInclude(t => t.Locale)
@@ -148,15 +174,16 @@ namespace EasyTab.Services.Services
                 throw new ForbiddenException("Niste dodijeljeni lokalu. Obratite se vlasniku lokala.");
 
             if (isOwner)
-                query = query.Where(x => x.ReservationDate.Date == selectedDate &&
-                                         x.Table.Locale.OwnerId == userId &&
-                                         x.ReservationState != "Otkazana" &&
-                                         x.ReservationState != "Završena");
+                query = query.Where(x => x.Table.Locale.OwnerId == userId);
             else if (worker != null)
-                query = query.Where(x => x.ReservationDate.Date == selectedDate &&
-                                         x.Table.LocaleId == worker.LocaleId &&
-                                         x.ReservationState != "Otkazana" &&
-                                         x.ReservationState != "Završena");
+                query = query.Where(x => x.Table.LocaleId == worker.LocaleId);
+
+            query = query.Where(x =>
+                (x.ReservationState == PendingReservationState.StateName ||
+                 x.ReservationState == ConfirmedReservationState.StateName) &&
+                (x.ReservationDate.Date == selectedDate ||
+                 (x.ReservationDate.Date == previousDate && x.EndTime < x.StartTime &&
+                  x.EndTime > TimeOnly.MinValue)));
 
             if (!string.IsNullOrWhiteSpace(q))
                 query = query.Where(s =>
