@@ -68,7 +68,7 @@ namespace EasyTab.Services.PayPal
             HttpResponseMessage? response = null;
             try
             {
-                response = await _httpClient.SendAsync(request);
+                response = await _httpClient.SendAsync(request, CancellationToken.None);
                 return (response, await response.Content.ReadAsStringAsync());
             }
             catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException)

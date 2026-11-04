@@ -42,6 +42,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   String? _loadError;
 
   bool _initialized = false;
+  bool _localeActionInProgress = false;
 
   @override
   void didChangeDependencies() {
@@ -155,71 +156,93 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
   Future<void> _deleteLocale(int id) async {
     try {
       await localeProvider.delete(id);
-      await _loadLocales();
     } catch (e) {
+      if (!mounted) return;
       _showError(e.toString());
     }
+    if (mounted) await _loadLocales();
   }
 
   Future<void> _reactivateLocale(Locale locale) async {
+    if (_localeActionInProgress) return;
+    setState(() => _localeActionInProgress = true);
     try {
-      final city = await cityProvider.getById(locale.cityId!);
-      await localeProvider.update(locale.id!, {
-        "name": locale.name,
-        "address": locale.address,
-        "phoneNumber": locale.phoneNumber,
-        "countryId": city.countryId,
-        "cityId": locale.cityId,
-        "categoryId": locale.categoryId,
-        "startOfWorkingHours": locale.startOfWorkingHours == null
-            ? null
-            : '${locale.startOfWorkingHours!.hour.toString().padLeft(2, '0')}:${locale.startOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
-        "endOfWorkingHours": locale.endOfWorkingHours == null
-            ? null
-            : '${locale.endOfWorkingHours!.hour.toString().padLeft(2, '0')}:${locale.endOfWorkingHours!.minute.toString().padLeft(2, '0')}:00',
-        "lengthOfReservation": locale.lengthOfReservation,
-        "reservationPrice": locale.reservationPrice,
-        "isDeleted": false,
-      });
+      await localeProvider.reactivate(locale.id!);
       await _loadLocales();
     } catch (e) {
-      _showError(e.toString());
+      if (mounted) _showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _localeActionInProgress = false);
     }
   }
 
-  void _confirmDelete(Locale locale) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Brisanje lokala'),
-        content: Text(
-          'Da li ste sigurni da želite obrisati lokal ${locale.name}?',
+  Future<void> _confirmDelete(Locale locale) async {
+    if (_localeActionInProgress) return;
+    setState(() => _localeActionInProgress = true);
+    try {
+      final preview = await localeProvider.getDeactivationPreview(locale.id!);
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Row(
+            children: [
+              const Expanded(child: Text('Deaktivacija lokala')),
+              IconButton(
+                tooltip: 'Zatvori',
+                onPressed: () => Navigator.pop(dialogContext, false),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+          content: Text(
+            'Želite li deaktivirati lokal ${locale.name}?\n\n'
+            'Broj budućih rezervacija koje će biti otkazane: '
+            '${preview.futureReservationsCount}.\n'
+            'Za plaćene rezervacije izvršit će se povrat uplate.\n'
+            'Reaktivacija lokala neće vratiti otkazane rezervacije.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Otkaži'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text(
+                'Deaktiviraj',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Otkaži'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteLocale(locale.id!);
-            },
-            child: const Text('Obriši', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
+      );
+      if (confirmed == true && mounted) await _deleteLocale(locale.id!);
+    } catch (e) {
+      if (mounted) _showError('Pregled deaktivacije nije učitan. $e');
+    } finally {
+      if (mounted) setState(() => _localeActionInProgress = false);
+    }
   }
 
   void _confirmReactivate(Locale locale) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Reaktivacija lokala'),
+        title: Row(
+          children: [
+            const Expanded(child: Text('Reaktivacija lokala')),
+            IconButton(
+              tooltip: 'Zatvori',
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close),
+            ),
+          ],
+        ),
         content: Text(
-          'Da li ste sigurni da želite reaktivirati lokal ${locale.name}?',
+          'Da li ste sigurni da želite reaktivirati lokal ${locale.name}?\n\n'
+          'Otkazane rezervacije neće biti vraćene.',
         ),
         actions: [
           TextButton(
@@ -252,6 +275,7 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
           children: [
             _buildSearch(),
             _buildShowDeletedCheckbox(),
+            if (_localeActionInProgress) const LinearProgressIndicator(),
             const SizedBox(height: 16),
             isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -497,10 +521,16 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
                         isDeleted ? Icons.restore : Icons.delete,
                         color: isDeleted ? Colors.green : Colors.red,
                       ),
-                      tooltip: isDeleted ? 'Reaktiviraj' : 'Obriši',
-                      onPressed: () => isDeleted
-                          ? _confirmReactivate(locale)
-                          : _confirmDelete(locale),
+                      tooltip: _localeActionInProgress
+                          ? 'Obrada lokala je u toku'
+                          : isDeleted
+                          ? 'Reaktiviraj'
+                          : 'Deaktiviraj',
+                      onPressed: _localeActionInProgress
+                          ? null
+                          : () => isDeleted
+                                ? _confirmReactivate(locale)
+                                : _confirmDelete(locale),
                     ),
                   ],
                 ),

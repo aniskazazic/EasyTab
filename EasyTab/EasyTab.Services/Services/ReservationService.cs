@@ -315,6 +315,9 @@ namespace EasyTab.Services.Services
                 throw new UserException("Lokal nije pronađen!");
             }
 
+            if (localeEntity.IsDeleted)
+                throw new UserException("Lokal je deaktiviran. Rezervacije nisu dostupne.");
+
             var open = localeEntity.StartOfWorkingHours.ToTimeSpan();
             var close = localeEntity.EndOfWorkingHours.ToTimeSpan();
 
@@ -370,7 +373,7 @@ namespace EasyTab.Services.Services
                 .Where(slot =>
                     !reservedSlots.Any(res =>
                         slot.Start < res.EndTime.ToTimeSpan() && res.StartTime.ToTimeSpan() < slot.End) &&
-                    date.Date.Add(slot.Start) > now)
+                    ReservationTime.GetStart(date, slot.Start) > now)
                 .Select(s => new TimeSlots
                 {
                     Start = FormatSlotTime(s.Start),

@@ -3,14 +3,18 @@ using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObject;
+using EasyTab.Model.Responses;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using EasyTab.Services.Validators;
+using EasyTab.Services.ReservationStateMachine;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,12 +29,17 @@ namespace EasyTab.Services.Services
         private readonly ILogger<LocaleService> _logger;
         private readonly ILocaleAccessService _localeAccessService;
         private readonly ICurrentUserService _currentUser;
+        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IHttpContextAccessor _httpContextAccessor;
+        private const string DeactivationReason = "Lokal je deaktiviran";
 
-        public LocaleService(_220030Context context, IMapper mapper, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser) : base(context, mapper, insertValidator, updateValidator)
+        public LocaleService(_220030Context context, IMapper mapper, ILogger<LocaleService> logger, IValidator<LocaleInsertRequest> insertValidator, IValidator<LocaleUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, ICurrentUserService currentUser, IServiceScopeFactory scopeFactory, IHttpContextAccessor httpContextAccessor) : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
             _localeAccessService = localeAccessService;
             _currentUser = currentUser;
+            _scopeFactory = scopeFactory;
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public override async Task<Locales> CreateAsync(LocaleInsertRequest request)
@@ -69,6 +78,9 @@ namespace EasyTab.Services.Services
 
         public override async Task<Locales?> UpdateAsync(int id, LocaleUpdateRequest request)
         {
+            if (request.IsDeleted.HasValue)
+                EnsureAdmin();
+
             await _updateValidator.ValidateAndThrowAsync(request);
             ImageContentValidator.ValidateOptionalImage(request.Logo, nameof(request.Logo));
             ValidateGalleryImages(request.Images);
@@ -82,10 +94,21 @@ namespace EasyTab.Services.Services
             }
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(id);
+            await ValidateUpdateReferencesAsync(entity, request);
 
+            if (request.IsDeleted == true)
+            {
+                await DeactivateAsync(id, request);
+                return MapToResponse(entity);
+            }
+
+            await using var transaction = await Context.Database.BeginTransactionAsync(CancellationToken.None);
+            await ReservationOperationLock.LocaleAsync(Context, id);
+            await Context.Entry(entity).ReloadAsync(CancellationToken.None);
             await BeforeUpdate(entity, request);
             // Čuva sve izmene
             await Context.SaveChangesAsync();
+            await transaction.CommitAsync(CancellationToken.None);
 
             // Vraća response
             return MapToResponse(entity);
@@ -153,9 +176,124 @@ namespace EasyTab.Services.Services
 
         public override async Task<bool> DeleteAsync(int id)
         {
-            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(id);
-            _logger.LogWarning("Deleting locale. LocaleId: {LocaleId}", id);
-            return await base.DeleteAsync(id);
+            EnsureAdmin();
+            return await DeactivateAsync(id);
+        }
+
+        public async Task<LocaleDeactivationPreviewResponse> GetDeactivationPreviewAsync(int id, CancellationToken cancellationToken = default)
+        {
+            EnsureAdmin();
+            if (!await Context.Locales.AnyAsync(locale => locale.Id == id, cancellationToken))
+                throw new NotFoundException("Lokal nije pronađen.");
+            return new LocaleDeactivationPreviewResponse
+            {
+                FutureReservationsCount = (await GetFutureReservationIdsAsync(id, cancellationToken)).Count
+            };
+        }
+
+        private void EnsureAdmin()
+        {
+            if (!_currentUser.IsAdmin)
+                throw new ForbiddenException("Samo administrator može deaktivirati ili reaktivirati lokal.");
+        }
+
+        private async Task<List<int>> GetFutureReservationIdsAsync(int localeId, CancellationToken cancellationToken)
+        {
+            var candidates = await Context.Reservations.AsNoTracking()
+                .Where(reservation => reservation.Table.LocaleId == localeId &&
+                    (reservation.ReservationState == PendingReservationState.StateName ||
+                     reservation.ReservationState == ConfirmedReservationState.StateName))
+                .OrderBy(reservation => reservation.Id)
+                .Select(reservation => new { reservation.Id, reservation.ReservationDate, reservation.StartTime })
+                .ToListAsync(cancellationToken);
+            var now = LocalClock.Now;
+            // Project only identifiers and time fields; the start rule is shared with slot selection.
+            return candidates.Where(reservation => ReservationTime.GetStart(reservation.ReservationDate, reservation.StartTime) > now)
+                .Select(reservation => reservation.Id).ToList();
+        }
+
+        private async Task<bool> DeactivateAsync(int id, LocaleUpdateRequest? request = null)
+        {
+            EnsureAdmin();
+            if (!await Context.Locales.AnyAsync(locale => locale.Id == id))
+                throw new NotFoundException("Lokal nije pronađen.");
+
+            var cancellationToken = _httpContextAccessor.HttpContext?.RequestAborted ?? CancellationToken.None;
+            var cancelledCount = 0;
+            void CheckRequest()
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    throw new UserException($"Deaktivacija je prekinuta. Lokal je i dalje aktivan. Već otkazano rezervacija: {cancelledCount}. Ponovite postupak za preostale rezervacije.");
+            }
+
+            while (true)
+            {
+                CheckRequest();
+                var ids = await GetFutureReservationIdsAsync(id, CancellationToken.None);
+                foreach (var reservationId in ids)
+                {
+                    CheckRequest();
+                    try
+                    {
+                        // One independent, non-cancellable unit: refund, reservation, notifications, email.
+                        await using var scope = _scopeFactory.CreateAsyncScope();
+                        var db = scope.ServiceProvider.GetRequiredService<_220030Context>();
+                        var stateName = await db.Reservations.AsNoTracking()
+                            .Where(reservation => reservation.Id == reservationId)
+                            .Select(reservation => reservation.ReservationState).SingleAsync(CancellationToken.None);
+                        BaseReservationState? state = stateName switch
+                        {
+                            PendingReservationState.StateName => scope.ServiceProvider.GetRequiredService<PendingReservationState>(),
+                            ConfirmedReservationState.StateName => scope.ServiceProvider.GetRequiredService<ConfirmedReservationState>(),
+                            _ => null
+                        };
+                        if (state == null)
+                            continue;
+                        try
+                        {
+                            await state.CancelBySystemAsync(reservationId, DeactivationReason, futureOnly: true);
+                        }
+                        finally
+                        {
+                            if (state.CancellationCommitted)
+                                cancelledCount++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Locale deactivation stopped at reservation {ReservationId}. LocaleId: {LocaleId}, CancelledCount: {CancelledCount}", reservationId, id, cancelledCount);
+                        var reason = ex is UserException ? ex.Message : "Povrat uplate ili snimanje rezervacije nije uspjelo. Pokušajte ponovo.";
+                        throw new UserException($"Lokal nije deaktiviran. Već otkazano rezervacija: {cancelledCount}. {reason}");
+                    }
+                }
+
+                CheckRequest();
+                try
+                {
+                    await using var transaction = await Context.Database.BeginTransactionAsync(CancellationToken.None);
+                    await ReservationOperationLock.LocaleAsync(Context, id);
+                    await ReservationOperationLock.LockTablesAsync(Context, id);
+                    // Checkout uses the same locks, so no reservation can slip past this final check.
+                    if ((await GetFutureReservationIdsAsync(id, CancellationToken.None)).Count != 0)
+                        continue;
+
+                    var locale = await Context.Locales.SingleAsync(locale => locale.Id == id, CancellationToken.None);
+                    await Context.Entry(locale).ReloadAsync(CancellationToken.None);
+                    if (request != null)
+                        await BeforeUpdate(locale, request);
+                    locale.IsDeleted = true;
+                    locale.DeletedAt ??= DateTime.UtcNow;
+                    await Context.SaveChangesAsync(CancellationToken.None);
+                    await transaction.CommitAsync(CancellationToken.None);
+                    _logger.LogInformation("Locale deactivated. LocaleId: {LocaleId}, CancelledCount: {CancelledCount}", id, cancelledCount);
+                    return true;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Locale deactivation could not be saved. LocaleId: {LocaleId}, CancelledCount: {CancelledCount}", id, cancelledCount);
+                    throw new UserException($"Deaktivacija nije snimljena. Već otkazano rezervacija: {cancelledCount}. Pokušajte ponovo.");
+                }
+            }
         }
 
         protected override IQueryable<Locale> ApplyFilter(IQueryable<Locale> query, LocaleSearchObject? search)
@@ -309,16 +447,6 @@ namespace EasyTab.Services.Services
         protected override async Task BeforeUpdate(Locale entity, LocaleUpdateRequest request)
         {
 
-            var oldCityId = entity.CityId;
-            var oldCategoryId = entity.CategoryId;
-            var oldName = entity.Name;
-            var oldAddress = entity.Address;
-            var oldPhoneNumber = entity.PhoneNumber;
-            var oldLogo = entity.Logo;
-            var oldStartOfWorkingHours = entity.StartOfWorkingHours;
-            var oldEndOfWorkingHours = entity.EndOfWorkingHours;
-            var oldLengthOfReservation = entity.LengthOfReservation;
-
             if (!string.IsNullOrWhiteSpace(request.Name))
                 entity.Name = request.Name;
 
@@ -354,20 +482,6 @@ namespace EasyTab.Services.Services
             if (request.IsDeleted.HasValue)
                 entity.IsDeleted = request.IsDeleted.Value;
 
-            var cityIdToCheck = request.CityId ?? oldCityId;
-            var cityExists = await Context.Cities.AnyAsync(c => c.Id == cityIdToCheck);
-            if (!cityExists)
-            {
-                throw new KeyNotFoundException($"Grad sa ID {cityIdToCheck} ne postoji. Molim odaberite validnu lokaciju.");
-            }
-
-            var categoryIdToCheck = request.CategoryId ?? oldCategoryId;
-            var categoryExists = await Context.Categories.AnyAsync(c => c.Id == categoryIdToCheck);
-            if (!categoryExists)
-            {
-                throw new KeyNotFoundException($"Kategorija sa ID {categoryIdToCheck} ne postoji. Molim odaberite validnu kategoriju.");
-            }
-
             if (request.Images != null && request.Images.Any())
             {
                 foreach (var imageRequest in request.Images)
@@ -385,9 +499,18 @@ namespace EasyTab.Services.Services
                 }
             }
 
-            entity.DeletedAt = null;
+            if (request.IsDeleted == false)
+                entity.DeletedAt = null;
 
             await Task.CompletedTask;
+        }
+
+        private async Task ValidateUpdateReferencesAsync(Locale entity, LocaleUpdateRequest request)
+        {
+            if (!await Context.Cities.AnyAsync(city => city.Id == (request.CityId ?? entity.CityId)))
+                throw new UserException("Odabrani grad ne postoji.");
+            if (!await Context.Categories.AnyAsync(category => category.Id == (request.CategoryId ?? entity.CategoryId)))
+                throw new UserException("Odabrana kategorija ne postoji.");
         }
     }
 }

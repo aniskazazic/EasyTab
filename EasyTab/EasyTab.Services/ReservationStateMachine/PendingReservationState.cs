@@ -23,12 +23,17 @@ namespace EasyTab.Services.ReservationStateMachine
 
         public override async Task<Reservations> ConfirmAsync(int id, int approvedById)
         {
+            await using var transaction = await _context.Database.BeginTransactionAsync(CancellationToken.None);
             var entity = await GetReservationOrThrowAsync(id);
 
             if (!string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
             {
                 throw new UserException("Rezervacija mora biti u stanju 'Na čekanju' da bi bila potvrđena.");
             }
+
+            if (await _context.Tables.AsNoTracking().AnyAsync(
+                table => table.Id == entity.TableId && table.Locale.IsDeleted, CancellationToken.None))
+                throw new UserException("Lokal je deaktiviran. Rezervacija se ne može potvrditi.");
 
             entity.ReservationState = ConfirmedReservationState.StateName;
             entity.ApprovedById = approvedById;
@@ -37,7 +42,6 @@ namespace EasyTab.Services.ReservationStateMachine
             entity.CancelledAt = null;
             entity.CancellationReason = null;
 
-            await using var transaction = await _context.Database.BeginTransactionAsync();
             var user = await _context.Users.FindAsync(entity.UserId);
             var table = await _context.Tables
                 .Include(t => t.Locale)
@@ -57,8 +61,8 @@ namespace EasyTab.Services.ReservationStateMachine
             };
 
             _context.Notifications.AddRange(notifications);
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await _context.SaveChangesAsync(CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
 
             await PushNotificationsAsync(notifications);
 
@@ -89,21 +93,27 @@ namespace EasyTab.Services.ReservationStateMachine
             return await CancelCoreAsync(id, reason, cancelledById);
         }
 
-        public override async Task<Reservations> CancelBySystemAsync(int id, string reason)
+        public override async Task<Reservations> CancelBySystemAsync(int id, string reason, bool futureOnly = false)
         {
-            return await CancelCoreAsync(id, reason, null);
+            return await CancelCoreAsync(id, reason, null, futureOnly);
         }
 
-        private async Task<Reservations> CancelCoreAsync(int id, string reason, int? cancelledById)
+        private async Task<Reservations> CancelCoreAsync(int id, string reason, int? cancelledById, bool futureOnly = false)
         {
+            CancellationCommitted = false;
+            await using var transaction = await _context.Database.BeginTransactionAsync(CancellationToken.None);
             var entity = await GetReservationOrThrowAsync(id);
 
-            if (!string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
+            var isActive = entity.ReservationState == StateName ||
+                entity.ReservationState == ConfirmedReservationState.StateName;
+            if (futureOnly && (!isActive || ReservationTime.GetStart(entity.ReservationDate, entity.StartTime) <= LocalClock.Now))
+                return _mapper.Map<Reservations>(entity);
+
+            if (!futureOnly && !string.Equals(entity.ReservationState, StateName, StringComparison.OrdinalIgnoreCase))
             {
                 throw new UserException("Rezervacija mora biti u stanju 'Na čekanju' da bi bila otkazana.");
             }
 
-            await using var transaction = await _context.Database.BeginTransactionAsync();
             var user = await _context.Users.FindAsync(entity.UserId);
             var table = await _context.Tables
                 .Include(t => t.Locale)
@@ -153,9 +163,10 @@ namespace EasyTab.Services.ReservationStateMachine
             }
 
             _context.Notifications.AddRange(notifications);
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
+            await _context.SaveChangesAsync(CancellationToken.None);
+            await transaction.CommitAsync(CancellationToken.None);
 
+            CancellationCommitted = true;
             await PushNotificationsAsync(notifications);
 
             if (user != null && table?.Locale != null)

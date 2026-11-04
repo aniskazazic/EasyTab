@@ -1,9 +1,33 @@
+import 'dart:convert';
+
+import 'package:easytab_desktop/models/locale_deactivation_preview.dart';
 import 'package:easytab_desktop/providers/base_provider.dart';
 import 'package:easytab_desktop/models/locale.dart';
 import 'package:easytab_desktop/providers/utils.dart';
+import 'package:http/http.dart' as http;
 
 class LocaleProvider extends BaseProvider<Locale> {
   LocaleProvider() : super("Locale");
+
+  Future<LocaleDeactivationPreview> getDeactivationPreview(int id) async {
+    final response = await http.get(
+      Uri.parse('${BaseProvider.baseUrl}/Locale/$id/deactivation-preview'),
+      headers: createHeaders(),
+    );
+    validateResponse(response);
+    return LocaleDeactivationPreview.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> reactivate(int id) async {
+    final response = await http.put(
+      Uri.parse('${BaseProvider.baseUrl}/Admin/locales/$id/reactivate'),
+      headers: createHeaders(),
+    );
+    validateResponse(response);
+    notifyListeners();
+  }
 
   @override
   Future<Locale> insert(dynamic request) async {

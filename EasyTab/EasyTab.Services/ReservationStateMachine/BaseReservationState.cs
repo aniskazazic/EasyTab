@@ -17,6 +17,7 @@ namespace EasyTab.Services.ReservationStateMachine
         protected _220030Context _context { get; set; }
         protected IMapper _mapper { get; set; }
         protected IServiceProvider _serviceProvider { get; set; }
+        internal bool CancellationCommitted { get; set; }
 
         public BaseReservationState(_220030Context context, IMapper mapper, IServiceProvider serviceProvider)
         {
@@ -45,7 +46,7 @@ namespace EasyTab.Services.ReservationStateMachine
             throw new UserException("Rezervacija se ne može otkazati u trenutnom stanju.");
         }
 
-        public virtual Task<Reservations> CancelBySystemAsync(int id, string reason)
+        public virtual Task<Reservations> CancelBySystemAsync(int id, string reason, bool futureOnly = false)
         {
             throw new UserException("Rezervacija se ne može otkazati u trenutnom stanju.");
         }
@@ -67,13 +68,7 @@ namespace EasyTab.Services.ReservationStateMachine
 
         protected async Task<Reservation> GetReservationOrThrowAsync(int id)
         {
-            var entity = await _context.Reservations.FindAsync(id);
-            if (entity == null)
-            {
-                throw new NotFoundException("Rezervacija nije pronađena.");
-            }
-
-            return entity;
+            return await ReservationOperationLock.ReservationAsync(_context, id);
         }
 
         protected async Task PushNotificationsAsync(IEnumerable<Notification> notifications)

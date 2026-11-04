@@ -165,6 +165,7 @@ namespace EasyTab.Services.Services
             await using (var transaction = await _context.Database.BeginTransactionAsync())
             {
                 await LockTableAsync(request.TableId);
+                await EnsureLocaleActiveAsync(request.TableId);
                 if (!await _context.Tables.OnLayout().AnyAsync(table => table.Id == request.TableId))
                     throw new UserException("Stol više nije dostupan za rezervaciju.");
                 var existingCheckout = await _context.Payments.SingleOrDefaultAsync(x => x.CheckoutId == request.CheckoutId);
@@ -202,6 +203,7 @@ namespace EasyTab.Services.Services
 
             await using var orderTransaction = await _context.Database.BeginTransactionAsync();
             await LockTableAsync(checkout.TableId!.Value);
+            await EnsureLocaleActiveAsync(checkout.TableId.Value);
             await _context.Entry(checkout).ReloadAsync();
             if (checkout.PayPalOrderId == null)
             {
@@ -243,8 +245,13 @@ namespace EasyTab.Services.Services
             }
             if (checkout.Status == PaymentStatus.Refunded) throw new UserException("Uplata je vraćena jer termin nije bio dostupan. Rezervacija nije kreirana.");
 
+            // An approved order has not been charged yet. Recheck under the same lock as deactivation.
+            var localeInactive = await _context.Tables.AsNoTracking()
+                .AnyAsync(table => table.Id == tableId && table.Locale.IsDeleted, CancellationToken.None);
             var order = await _payPalService.GetOrderAsync(checkout.PayPalOrderId!);
             var captured = order.PurchaseUnits?.SelectMany(x => x.Payments?.Captures ?? []).SingleOrDefault();
+            if (localeInactive && captured == null)
+                throw new UserException("Lokal je deaktiviran. Naplata nije pokrenuta; rezervacija nije kreirana.");
             var available = await IsAvailableAsync(checkout);
             PayPalCaptureResult capture;
             if (captured != null)
@@ -304,17 +311,20 @@ namespace EasyTab.Services.Services
 
         private async Task LockTableAsync(int tableId)
         {
-            // Serialize checkouts for a table across API instances, including the availability check and capture.
-            var table = await _context.Tables.FromSqlInterpolated($"SELECT * FROM [Tables] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {tableId}")
-                .AsNoTracking().SingleOrDefaultAsync();
-            if (table == null) throw new NotFoundException("Stol nije pronađen.");
+            await ReservationOperationLock.TableAsync(_context, tableId);
+        }
+
+        private async Task EnsureLocaleActiveAsync(int tableId)
+        {
+            if (await _context.Tables.AsNoTracking().AnyAsync(table => table.Id == tableId && table.Locale.IsDeleted, CancellationToken.None))
+                throw new UserException("Lokal je deaktiviran. Plaćanje rezervacije nije moguće.");
         }
 
         private async Task<bool> IsAvailableAsync(Payment checkout)
         {
             var table = await _context.Tables.Include(x => x.Locale).AsNoTracking().SingleAsync(x => x.Id == checkout.TableId);
             if (table.IsRemoved() || table.Locale.IsDeleted || table.NumberOfGuests != checkout.NumberOfGuests ||
-                checkout.ReservationDate!.Value.Add(checkout.StartTime!.Value.ToTimeSpan()) <= LocalClock.Now) return false;
+                ReservationTime.GetStart(checkout.ReservationDate!.Value, checkout.StartTime!.Value) <= LocalClock.Now) return false;
             var slots = await _reservationService.GetAvailableSlotsAsync(checkout.TableId!.Value, checkout.ReservationDate!.Value);
             return slots.Any(x =>
                 TimeSpan.TryParse(x.Start, CultureInfo.InvariantCulture, out var start) && start == checkout.StartTime!.Value.ToTimeSpan() &&

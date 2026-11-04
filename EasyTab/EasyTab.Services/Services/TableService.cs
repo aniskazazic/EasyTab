@@ -51,11 +51,11 @@ namespace EasyTab.Services.Services
 
         private async Task<Table> GetTableForUpdateAsync(int id)
         {
-            var table = await Context.Tables
-                .FromSqlInterpolated($"SELECT * FROM [Tables] WITH (UPDLOCK, HOLDLOCK) WHERE [Id] = {id}")
-                .SingleOrDefaultAsync();
-            if (table == null || table.IsRemoved())
+            var snapshot = await ReservationOperationLock.TableAsync(Context, id);
+            if (snapshot.IsRemoved())
                 throw new NotFoundException("Stol nije pronađen.");
+            var table = await Context.Tables.SingleAsync(table => table.Id == id);
+            await Context.Entry(table).ReloadAsync(CancellationToken.None);
             return table;
         }
 
@@ -148,9 +148,11 @@ namespace EasyTab.Services.Services
                 TableLayoutExtensions.ValidatePosition(table.XCoordinate, table.YCoordinate);
 
             await using var transaction = await Context.Database.BeginTransactionAsync();
+            await ReservationOperationLock.LocaleAsync(Context, request.LocaleId);
             var existingTables = await Context.Tables
                .FromSqlInterpolated($"SELECT * FROM [Tables] WITH (UPDLOCK, HOLDLOCK) WHERE [LocaleId] = {request.LocaleId}")
                .OnLayout()
+               .OrderBy(table => table.Id)
                .ToListAsync();
 
             if (request.Tables.Any(table => table.Id != 0 && !existingTables.Any(existing => existing.Id == table.Id)))

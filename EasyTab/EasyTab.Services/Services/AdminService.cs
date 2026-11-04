@@ -104,6 +104,8 @@ namespace EasyTab.Services.Services
         public async Task ReactivateLocale(int id)
         {
             _logger.LogInformation("Reactivating locale. LocaleId: {LocaleId}", id);
+            await using var transaction = await _db.Database.BeginTransactionAsync(CancellationToken.None);
+            await ReservationOperationLock.LocaleAsync(_db, id);
             var locale = await _db.Locales.FirstOrDefaultAsync(x => x.IsDeleted && x.Id == id);
             if (locale == null)
             {
@@ -111,11 +113,13 @@ namespace EasyTab.Services.Services
                 throw new UserException("Lokal nije pronađen!");
             }
 
+            await _db.Entry(locale).ReloadAsync(CancellationToken.None);
             locale.IsDeleted = false;
             locale.DeletedAt = null;
 
             _db.Locales.Update(locale);
             await _db.SaveChangesAsync();
+            await transaction.CommitAsync(CancellationToken.None);
             _logger.LogInformation("Locale reactivated successfully. LocaleId: {LocaleId}", id);
         }
 
