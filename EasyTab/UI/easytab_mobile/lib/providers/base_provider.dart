@@ -4,7 +4,6 @@ import 'package:easytab_mobile/config/app_config.dart';
 import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/search_result.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
-import 'package:easytab_mobile/providers/session_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
 import 'package:http/http.dart' as http;
@@ -139,6 +138,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   }
 
   Map<String, String> createHeaders() {
+    if (!AuthProvider.hasActiveSession) {
+      throw ApiClientException('Sesija nije aktivna.');
+    }
     String accessToken = AuthProvider.accessToken ?? "";
 
     var headers = {
@@ -203,21 +205,5 @@ abstract class BaseProvider<T> extends ChangeNotifier {
 
   Future<Response> sendRequestWithRetry(
     Future<Response> Function() requestBuilder,
-  ) async {
-    var response = await requestBuilder();
-
-    if (response.statusCode == 401 && AuthProvider.isAuthenticated) {
-      final success = await SessionManager().triggerSessionExpiredFlow();
-      if (success) {
-        // Retry original request since token has been refreshed
-        response = await requestBuilder();
-        if (response.statusCode == 401 && AuthProvider.isAuthenticated) {
-          await SessionManager().logoutAndRedirect();
-        }
-      } else {
-        throw ApiClientException('Niste autorizirani. Prijavite se ponovo.');
-      }
-    }
-    return response;
-  }
+  ) => AuthProvider.sendAuthorizedRequest(requestBuilder);
 }

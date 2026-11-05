@@ -14,10 +14,8 @@ class UserProvider extends BaseProvider<User> {
   Future<void> changePassword(Map<String, dynamic> request) async {
     var url = "${BaseProvider.baseUrl}/Users/ChangePassword";
     var uri = Uri.parse(url);
-    var response = await http.put(
-      uri,
-      headers: createHeaders(),
-      body: jsonEncode(request),
+    var response = await sendRequestWithRetry(
+      () => http.put(uri, headers: createHeaders(), body: jsonEncode(request)),
     );
 
     validateResponse(response);

@@ -13,12 +13,10 @@ namespace EasyTab.API.Controllers
     {
         private readonly IAccessManager _accessManager;
         private readonly IUserService _userService;
-        private readonly ICurrentUserService _currentUser;
-        public AccessController(IAccessManager accessManager, IUserService userService, ICurrentUserService currentUser)
+        public AccessController(IAccessManager accessManager, IUserService userService)
         {
             _accessManager = accessManager;
             _userService = userService;
-            _currentUser = currentUser;
         }
 
         [HttpPost("Login")]
@@ -41,7 +39,7 @@ namespace EasyTab.API.Controllers
         [Authorize]
         public async Task<IActionResult> Logout()
         {
-            await _accessManager.LogoutAsync(_currentUser.UserId);
+            await _accessManager.LogoutAsync();
             return NoContent();
         }
 

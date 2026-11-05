@@ -274,9 +274,16 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         todayGuests: stats.todayGuests,
         tableDistribution: stats.tableDistribution,
       );
+      final opened = await ReportService.openForPrinting(path);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF izvještaj je sačuvan u Downloads: $path')),
+        SnackBar(
+          content: Text(
+            opened
+                ? 'PDF je sačuvan: $path. Za ispis koristite Ctrl+P u PDF pregledniku.'
+                : 'PDF je sačuvan: $path. Automatsko otvaranje nije uspjelo; otvorite ga iz Downloads foldera za ispis.',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;

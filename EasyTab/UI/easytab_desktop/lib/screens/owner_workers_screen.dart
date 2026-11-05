@@ -1,5 +1,6 @@
 import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/models/worker.dart';
+import 'package:easytab_desktop/widgets/list_avatar.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
 import 'package:easytab_desktop/screens/owner_worker_details_screen.dart';
 import 'package:easytab_desktop/widgets/owner_sidebar.dart';
@@ -303,12 +304,14 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: DataTable(
+            columnSpacing: 24,
             headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
             headingTextStyle: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
             columns: const [
+              DataColumn(label: Text('Slika')),
               DataColumn(label: Text('Ime i prezime')),
               DataColumn(label: Text('Korisničko ime')),
               DataColumn(label: Text('Email')),
@@ -318,6 +321,14 @@ class _OwnerWorkersScreenState extends State<OwnerWorkersScreen> {
             rows: _workers.map((worker) {
               return DataRow(
                 cells: [
+                  DataCell(
+                    ProfileListAvatar(
+                      key: ValueKey(worker.id),
+                      loadImage: () async => (await workerProvider.getById(
+                        worker.id!,
+                      )).profilePicture,
+                    ),
+                  ),
                   DataCell(
                     Text('${worker.firstName ?? ''} ${worker.lastName ?? ''}'),
                   ),

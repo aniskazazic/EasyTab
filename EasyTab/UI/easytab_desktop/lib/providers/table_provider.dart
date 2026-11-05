@@ -23,7 +23,9 @@ class TableProvider extends BaseProvider<Tables> {
       "tables": tables.map((t) => t.toJson()).toList(),
     });
 
-    var response = await http.post(uri, headers: createHeaders(), body: body);
+    var response = await sendRequestWithRetry(
+      () => http.post(uri, headers: createHeaders(), body: body),
+    );
 
     if (!isValidResponse(response)) {
       throw Exception("Greška pri snimanju rasporeda stolova");

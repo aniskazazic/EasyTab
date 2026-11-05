@@ -12,6 +12,7 @@ class NotificationProvider extends ChangeNotifier {
   HubConnection? _connection;
   bool _isStarting = false;
   bool _sessionActive = false;
+  Future<void>? _startFuture;
   int? _sessionUserId;
   List<AppNotification> notifications = [];
   int reservationRefreshVersion = 0;
@@ -38,7 +39,14 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> _startConnection() async {
+  Future<void> _startConnection() {
+    if (!_sessionActive || !AuthProvider.hasActiveSession) {
+      return Future.value();
+    }
+    return _startFuture ??= _connect().whenComplete(() => _startFuture = null);
+  }
+
+  Future<void> _connect() async {
     if (_connection != null || _isStarting) return;
 
     final baseUrl = BaseProvider.baseUrl;
@@ -83,6 +91,8 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<void> stopConnection() async {
+    _sessionActive = false;
+    final starting = _startFuture;
     final connection = _connection;
     _connection = null;
     _isStarting = false;
@@ -95,6 +105,7 @@ class NotificationProvider extends ChangeNotifier {
       }
     }
 
+    if (starting != null) await starting;
     notifications = [];
     _sessionUserId = null;
     isLoading = false;
@@ -103,16 +114,24 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<void> getMyNotifications() async {
+    if (!AuthProvider.hasActiveSession) return;
+    final version = AuthProvider.sessionVersion;
     isLoading = true;
     error = null;
     notifyListeners();
 
     try {
-      final response = await http.get(
-        Uri.parse('${BaseProvider.baseUrl}/Notifications'),
-        headers: _headers(),
+      final response = await AuthProvider.sendAuthorizedRequest(
+        () => http.get(
+          Uri.parse('${BaseProvider.baseUrl}/Notifications'),
+          headers: _headers(),
+        ),
       );
       _validateResponse(response);
+      if (!AuthProvider.hasActiveSession ||
+          version != AuthProvider.sessionVersion) {
+        return;
+      }
       final data = jsonDecode(response.body) as List<dynamic>;
       final userId = _currentUserId;
       final ownNotifications = data
@@ -124,6 +143,10 @@ class NotificationProvider extends ChangeNotifier {
           .toList();
       _mergeNotifications(ownNotifications);
     } catch (e) {
+      if (!AuthProvider.hasActiveSession ||
+          version != AuthProvider.sessionVersion) {
+        return;
+      }
       debugPrint('Greška pri učitavanju desktop notifikacija: $e');
       error = 'Greška pri učitavanju notifikacija.';
     } finally {
@@ -141,9 +164,13 @@ class NotificationProvider extends ChangeNotifier {
         'SortBy': 'CreatedAt',
       },
     );
-    final response = await http.get(
-      Uri.parse('${BaseProvider.baseUrl}/Notifications/All${query.toString()}'),
-      headers: _headers(),
+    final response = await AuthProvider.sendAuthorizedRequest(
+      () => http.get(
+        Uri.parse(
+          '${BaseProvider.baseUrl}/Notifications/All${query.toString()}',
+        ),
+        headers: _headers(),
+      ),
     );
     _validateResponse(response);
 
@@ -159,9 +186,13 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> markAsRead(int notificationId) async {
     try {
-      final response = await http.put(
-        Uri.parse('${BaseProvider.baseUrl}/Notifications/$notificationId/read'),
-        headers: _headers(),
+      final response = await AuthProvider.sendAuthorizedRequest(
+        () => http.put(
+          Uri.parse(
+            '${BaseProvider.baseUrl}/Notifications/$notificationId/read',
+          ),
+          headers: _headers(),
+        ),
       );
       _validateResponse(response);
       final index = notifications.indexWhere(
@@ -178,9 +209,11 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> markAllAsRead() async {
     try {
-      final response = await http.put(
-        Uri.parse('${BaseProvider.baseUrl}/Notifications/read-all'),
-        headers: _headers(),
+      final response = await AuthProvider.sendAuthorizedRequest(
+        () => http.put(
+          Uri.parse('${BaseProvider.baseUrl}/Notifications/read-all'),
+          headers: _headers(),
+        ),
       );
       _validateResponse(response);
       notifications = notifications
@@ -193,6 +226,7 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void _handleNotificationReceived(List<Object?>? arguments) {
+    if (!_sessionActive || !AuthProvider.hasActiveSession) return;
     try {
       final payload = arguments?.isNotEmpty == true ? arguments!.first : null;
       if (payload is! Map) return;
@@ -209,7 +243,7 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<void> _reloadNotifications() async {
-    if (_sessionActive) {
+    if (_sessionActive && AuthProvider.hasActiveSession) {
       await getMyNotifications();
     }
   }

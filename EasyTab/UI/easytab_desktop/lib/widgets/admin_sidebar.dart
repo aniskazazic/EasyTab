@@ -118,6 +118,13 @@ class AdminSidebar extends StatelessWidget {
                     onTap: () =>
                         Navigator.pushReplacementNamed(context, '/categories'),
                   ),
+                  _item(
+                    context: context,
+                    icon: Icons.admin_panel_settings,
+                    label: 'Uloge',
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/roles'),
+                  ),
                 ],
               ),
             ),

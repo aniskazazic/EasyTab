@@ -202,6 +202,17 @@ builder.Services.AddAuthentication(options => // dodavanje authentfikacije i aut
     };
     o.Events = new JwtBearerEvents
     {
+        OnTokenValidated = async context =>
+        {
+            var services = context.HttpContext.RequestServices;
+            var currentUser = services.GetRequiredService<ICurrentUserService>();
+            var session = currentUser.GetSession(context.Principal);
+            if (session == null || !await services.GetRequiredService<IRefreshTokenService>()
+                .IsSessionActiveAsync(session.Value.SessionId, session.Value.UserId, context.HttpContext.RequestAborted))
+            {
+                context.Fail("Sesija nije važeća. Prijavite se ponovo.");
+            }
+        },
         OnMessageReceived = context =>
         {
             var accessToken = context.Request.Query["access_token"];

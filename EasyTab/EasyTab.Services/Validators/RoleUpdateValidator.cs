@@ -1,19 +1,29 @@
 using EasyTab.Model.Requests;
 using FluentValidation;
+using EasyTab.Services.Database;
+using Microsoft.EntityFrameworkCore;
 
 namespace EasyTab.Services.Validators
 {
     public class RoleUpdateValidator : AbstractValidator<RoleUpdateRequest>
     {
-        public RoleUpdateValidator()
+        public RoleUpdateValidator(_220030Context context)
         {
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("Ime role je obavezno.")
-                .MaximumLength(100).WithMessage("Ime role ne može imati više od 100 karaktera.");
+                .Cascade(CascadeMode.Stop)
+                .NotEmpty().WithMessage("Naziv uloge je obavezan.")
+                .MaximumLength(50).WithMessage("Naziv uloge može imati najviše 50 znakova.")
+                .MustAsync(async (request, name, validationContext, cancellationToken) =>
+                {
+                    var id = validationContext.RootContextData.TryGetValue("Id", out var value)
+                        ? (int)value : 0;
+                    var normalizedName = name.Trim().ToUpperInvariant();
+                    return !await context.Roles.AnyAsync(
+                        role => role.Id != id && role.Name.Trim().ToUpper() == normalizedName, cancellationToken);
+                }).WithMessage("Uloga s ovim nazivom već postoji.");
 
             RuleFor(x => x.Description)
-                .NotEmpty().WithMessage("Opis role je obavezan.")
-                .MaximumLength(100).WithMessage("Opis role ne može imati više od 100 karaktera.");
+                .MaximumLength(100).WithMessage("Opis uloge može imati najviše 100 znakova.");
         }
     }
 }

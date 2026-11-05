@@ -1,5 +1,6 @@
 import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
+import 'package:easytab_desktop/widgets/list_avatar.dart';
 import 'package:easytab_desktop/models/user.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
@@ -322,12 +323,14 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: DataTable(
+            columnSpacing: 24,
             headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
             headingTextStyle: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
             ),
             columns: const [
+              DataColumn(label: Text('Slika')),
               DataColumn(label: Text('Ime')),
               DataColumn(label: Text('Prezime')),
               DataColumn(label: Text('Email')),
@@ -354,6 +357,9 @@ class _AdminUsersListScreenState extends State<AdminUsersListScreen> {
 
               return DataRow(
                 cells: [
+                  DataCell(
+                    UserListAvatar(key: ValueKey(user.id), userId: user.id!),
+                  ),
                   DataCell(Text(user.firstName ?? '')),
                   DataCell(Text(user.lastName ?? '')),
                   DataCell(Text(user.email ?? '')),

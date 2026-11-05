@@ -17,6 +17,7 @@ class SessionManager with WidgetsBindingObserver {
   bool _isPopupShowing = false;
   bool _isObserving = false;
   Completer<bool>? _refreshCompleter;
+  DialogRoute<bool>? _dialogRoute;
 
   void startSession(String accessToken) {
     if (!_isObserving) {
@@ -37,6 +38,9 @@ class SessionManager with WidgetsBindingObserver {
       _refreshCompleter!.complete(false);
     }
     _refreshCompleter = null;
+    final route = _dialogRoute;
+    _dialogRoute = null;
+    if (route != null && route.isActive) route.navigator?.removeRoute(route);
   }
 
   void _scheduleExpirationTimer(String token) {
@@ -67,8 +71,8 @@ class SessionManager with WidgetsBindingObserver {
     }
   }
 
-  Future<bool> triggerSessionExpiredFlow() async {
-    if (!AuthProvider.isAuthenticated || AuthProvider.accessToken == null) {
+  Future<bool> triggerSessionExpiredFlow({bool tryRefresh = true}) async {
+    if (!_isObserving || !AuthProvider.hasActiveSession) {
       return false;
     }
 
@@ -82,15 +86,32 @@ class SessionManager with WidgetsBindingObserver {
     _refreshCompleter = completer;
     _expirationTimer?.cancel();
 
-    final success = await _showExpiredDialog();
-
-    if (!completer.isCompleted) completer.complete(success);
-    if (identical(_refreshCompleter, completer)) {
-      _isPopupShowing = false;
-      _refreshCompleter = null;
+    final version = AuthProvider.sessionVersion;
+    var success = false;
+    try {
+      final context = globalNavigatorKey.currentContext;
+      if (context == null) return false;
+      if (tryRefresh && await context.read<AuthProvider>().renewSession()) {
+        success =
+            _isObserving &&
+            AuthProvider.hasActiveSession &&
+            version == AuthProvider.sessionVersion;
+        return success;
+      }
+      if (_isObserving &&
+          AuthProvider.hasActiveSession &&
+          version == AuthProvider.sessionVersion) {
+        success = await _showExpiredDialog();
+        return success;
+      }
+      return false;
+    } finally {
+      if (!completer.isCompleted) completer.complete(success);
+      if (identical(_refreshCompleter, completer)) {
+        _isPopupShowing = false;
+        _refreshCompleter = null;
+      }
     }
-
-    return success;
   }
 
   Future<bool> _showExpiredDialog() async {
@@ -98,7 +119,8 @@ class SessionManager with WidgetsBindingObserver {
     if (context == null) return false;
     var isRenewing = false;
 
-    final result = await showDialog<bool>(
+    final version = AuthProvider.sessionVersion;
+    final route = DialogRoute<bool>(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) => StatefulBuilder(
@@ -144,7 +166,14 @@ class SessionManager with WidgetsBindingObserver {
         },
       ),
     );
-
+    _dialogRoute = route;
+    final result = await globalNavigatorKey.currentState!.push(route);
+    if (identical(_dialogRoute, route)) _dialogRoute = null;
+    if (!_isObserving ||
+        !AuthProvider.hasActiveSession ||
+        version != AuthProvider.sessionVersion) {
+      return false;
+    }
     if (result == true) {
       return true;
     } else {

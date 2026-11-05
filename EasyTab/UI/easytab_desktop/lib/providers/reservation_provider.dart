@@ -48,7 +48,9 @@ class ReservationProvider extends BaseProvider<Reservation> {
             if (localeId != null) 'LocaleId': '$localeId',
           },
         );
-    final response = await http.get(uri, headers: createHeaders());
+    final response = await sendRequestWithRetry(
+      () => http.get(uri, headers: createHeaders()),
+    );
     validateResponse(response);
     return PaymentSummary.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -64,7 +66,9 @@ class ReservationProvider extends BaseProvider<Reservation> {
     final url = '${BaseProvider.baseUrl}/Reservations/confirm/$id';
     final uri = Uri.parse(url);
 
-    final response = await http.put(uri, headers: createHeaders());
+    final response = await sendRequestWithRetry(
+      () => http.put(uri, headers: createHeaders()),
+    );
     validateResponse(response);
 
     final data = jsonDecode(response.body);
@@ -76,10 +80,12 @@ class ReservationProvider extends BaseProvider<Reservation> {
     final url = '${BaseProvider.baseUrl}/Reservations/cancel/$id';
     final uri = Uri.parse(url);
 
-    final response = await http.put(
-      uri,
-      headers: createHeaders(),
-      body: jsonEncode({'reason': reason}),
+    final response = await sendRequestWithRetry(
+      () => http.put(
+        uri,
+        headers: createHeaders(),
+        body: jsonEncode({'reason': reason}),
+      ),
     );
     validateResponse(response);
   }
@@ -89,7 +95,9 @@ class ReservationProvider extends BaseProvider<Reservation> {
     final url = '${BaseProvider.baseUrl}/Reservations/complete/$id';
     final uri = Uri.parse(url);
 
-    final response = await http.put(uri, headers: createHeaders());
+    final response = await sendRequestWithRetry(
+      () => http.put(uri, headers: createHeaders()),
+    );
     validateResponse(response);
 
     final data = jsonDecode(response.body);

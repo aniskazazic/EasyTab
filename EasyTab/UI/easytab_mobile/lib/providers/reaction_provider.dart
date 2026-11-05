@@ -71,9 +71,8 @@ class ReactionProvider extends BaseProvider<Reaction> {
   /// Backend određuje korisnika iz JWT-a.
   Future<void> removeReaction(int reviewId) async {
     final url = '${BaseProvider.baseUrl}/Reactions?reviewId=$reviewId';
-    final response = await http.delete(
-      Uri.parse(url),
-      headers: createHeaders(),
+    final response = await sendRequestWithRetry(
+      () => http.delete(Uri.parse(url), headers: createHeaders()),
     );
     if (!isValidResponse(response)) {
       throw Exception('Greška pri uklanjanju reakcije');

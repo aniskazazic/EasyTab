@@ -61,29 +61,38 @@ class OwnerProvider extends BaseProvider<Locale> {
   }
 
   Future<OwnerStats> getStats(int localeId) async {
-    final headers = createHeaders();
     final base = BaseProvider.baseUrl;
 
     final results = await Future.wait([
-      http.get(
-        Uri.parse('$base/Owner/today-reservations?localeId=$localeId'),
-        headers: headers,
+      sendRequestWithRetry(
+        () => http.get(
+          Uri.parse('$base/Owner/today-reservations?localeId=$localeId'),
+          headers: createHeaders(),
+        ),
       ),
-      http.get(
-        Uri.parse('$base/Owner/active-tables?localeId=$localeId'),
-        headers: headers,
+      sendRequestWithRetry(
+        () => http.get(
+          Uri.parse('$base/Owner/active-tables?localeId=$localeId'),
+          headers: createHeaders(),
+        ),
       ),
-      http.get(
-        Uri.parse('$base/Owner/total-tables?localeId=$localeId'),
-        headers: headers,
+      sendRequestWithRetry(
+        () => http.get(
+          Uri.parse('$base/Owner/total-tables?localeId=$localeId'),
+          headers: createHeaders(),
+        ),
       ),
-      http.get(
-        Uri.parse('$base/Owner/today-guests?localeId=$localeId'),
-        headers: headers,
+      sendRequestWithRetry(
+        () => http.get(
+          Uri.parse('$base/Owner/today-guests?localeId=$localeId'),
+          headers: createHeaders(),
+        ),
       ),
-      http.get(
-        Uri.parse('$base/Owner/table-distribution?localeId=$localeId'),
-        headers: headers,
+      sendRequestWithRetry(
+        () => http.get(
+          Uri.parse('$base/Owner/table-distribution?localeId=$localeId'),
+          headers: createHeaders(),
+        ),
       ),
     ]);
 

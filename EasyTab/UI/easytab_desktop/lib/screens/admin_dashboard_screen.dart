@@ -6,6 +6,7 @@ import 'package:easytab_desktop/providers/city_provider.dart';
 import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/review_provider.dart';
+import 'package:easytab_desktop/providers/role_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/utils/report_service.dart';
 import 'package:easytab_desktop/widgets/generate_report_button.dart';
@@ -31,6 +32,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int countUsers = 0;
   int countReviews = 0;
   int countReservations = 0;
+  int countRoles = 0;
 
   @override
   void initState() {
@@ -53,6 +55,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final userProvider = context.read<UserProvider>();
       final reviewProvider = context.read<ReviewProvider>();
       final reservationProvider = context.read<ReservationProvider>();
+      final roleProvider = context.read<RoleProvider>();
 
       final results = await Future.wait([
         localeProvider.get(filter: {"IncludeTotalCount": true}),
@@ -64,6 +67,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         reservationProvider.get(
           filter: {"IncludeTotalCount": true, "PageSize": 1},
         ),
+        roleProvider.get(filter: {"IncludeTotalCount": true, "PageSize": 1}),
       ]);
 
       if (!mounted) return;
@@ -76,6 +80,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         countUsers = results[4].totalCount ?? results[4].items?.length ?? 0;
         countReviews = results[5].totalCount ?? results[5].items?.length ?? 0;
         countReservations = results[6].totalCount ?? 0;
+        countRoles = results[7].totalCount ?? 0;
         _loadError = null;
         isLoading = false;
       });
@@ -104,14 +109,23 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         payments: payments,
         users: countUsers,
         locales: countLocales,
+        reservations: countReservations,
         reviews: countReviews,
         countries: countCountries,
         cities: countCities,
         categories: countCategories,
+        roles: countRoles,
       );
+      final opened = await ReportService.openForPrinting(path);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('PDF izvještaj je sačuvan u Downloads: $path')),
+        SnackBar(
+          content: Text(
+            opened
+                ? 'PDF je sačuvan: $path. Za ispis koristite Ctrl+P u PDF pregledniku.'
+                : 'PDF je sačuvan: $path. Automatsko otvaranje nije uspjelo; otvorite ga iz Downloads foldera za ispis.',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;

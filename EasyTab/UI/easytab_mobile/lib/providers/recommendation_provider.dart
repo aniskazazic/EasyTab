@@ -37,12 +37,14 @@ class RecommendationProvider extends BaseProvider<RecommendedLocale> {
 
     List<RecommendedLocale> result;
     try {
-      final response = await _client
-          .get(
-            Uri.parse('${BaseProvider.baseUrl}/$endpoint'),
-            headers: createHeaders(),
-          )
-          .timeout(_requestTimeout);
+      final response = await sendRequestWithRetry(
+        () => _client
+            .get(
+              Uri.parse('${BaseProvider.baseUrl}/$endpoint'),
+              headers: createHeaders(),
+            )
+            .timeout(_requestTimeout),
+      );
       validateResponse(response);
       final Object? data = jsonDecode(response.body);
       if (data is! List<Object?>) {

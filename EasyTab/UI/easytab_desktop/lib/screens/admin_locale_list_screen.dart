@@ -1,5 +1,6 @@
 import 'package:easytab_desktop/widgets/load_error.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
+import 'package:easytab_desktop/widgets/list_avatar.dart';
 import 'package:easytab_desktop/models/city.dart';
 import 'package:easytab_desktop/models/country.dart';
 import 'package:easytab_desktop/models/locale.dart';
@@ -472,12 +473,14 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: DataTable(
+        columnSpacing: 24,
         headingRowColor: WidgetStateProperty.all(const Color(0xFF1E40AF)),
         headingTextStyle: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.bold,
         ),
         columns: const [
+          DataColumn(label: Text('Logo')),
           DataColumn(label: Text('Ime')),
           DataColumn(label: Text('Država')),
           DataColumn(label: Text('Grad')),
@@ -492,6 +495,9 @@ class _LocaleListScreenState extends State<LocaleListScreen> {
 
           return DataRow(
             cells: [
+              DataCell(
+                ListAvatar(image: locale.logo, placeholder: Icons.storefront),
+              ),
               DataCell(Text(locale.name ?? '')),
               DataCell(Text(locale.countryName ?? '')),
               DataCell(Text(locale.cityName ?? '')),

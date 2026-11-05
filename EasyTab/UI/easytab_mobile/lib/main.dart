@@ -36,13 +36,17 @@ void main() {
         ChangeNotifierProvider(create: (_) => RecommendationProvider()),
         ChangeNotifierProvider(
           create: (context) => ReviewProvider(
-            onInteractionChanged: context.read<RecommendationProvider>().invalidate,
+            onInteractionChanged: context
+                .read<RecommendationProvider>()
+                .invalidate,
           ),
         ),
         ChangeNotifierProvider(create: (_) => ReactionProvider()),
         ChangeNotifierProvider(
           create: (context) => FavouriteProvider(
-            onInteractionChanged: context.read<RecommendationProvider>().invalidate,
+            onInteractionChanged: context
+                .read<RecommendationProvider>()
+                .invalidate,
           ),
         ),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
@@ -53,6 +57,7 @@ void main() {
           create: (_) => NotificationProvider(),
           update: (_, authProvider, notificationProvider) {
             notificationProvider ??= NotificationProvider();
+            authProvider.beforeLogout = notificationProvider.stopConnection;
             notificationProvider.syncSession(AuthProvider.isAuthenticated);
             return notificationProvider;
           },

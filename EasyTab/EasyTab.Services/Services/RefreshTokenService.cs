@@ -18,30 +18,40 @@ namespace EasyTab.Services.Services
         }
 
 
-        public async Task DeleteAllUserRefreshTokensAsync(int userId)
+        public async Task RevokeSessionAsync(int sessionId, int userId)
         {
-            var userTokens = await _refreshTokens
-                .Where(rt => rt.UserId == userId)
-                .ToListAsync();
-
-            _refreshTokens.RemoveRange(userTokens);
-            await _context.SaveChangesAsync();
+            await _refreshTokens.Where(token => token.Id == sessionId && token.UserId == userId)
+                .ExecuteDeleteAsync();
         }
 
         public async Task<RefreshToken?> GetStoredTokenAsync(string refreshToken)
         {
-            return await _refreshTokens.FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+            return await _refreshTokens.AsNoTracking().FirstOrDefaultAsync(rt => rt.Token == refreshToken);
         }
 
-        public async Task ReplaceUserRefreshTokenAsync(int userId, RefreshToken refreshToken)
+        public async Task CreateSessionAsync(RefreshToken refreshToken)
         {
-            var existingTokens = await _refreshTokens
-                .Where(token => token.UserId == userId)
-                .ToListAsync();
-
-            _refreshTokens.RemoveRange(existingTokens);
             await _refreshTokens.AddAsync(refreshToken);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<bool> RotateSessionAsync(int sessionId, int userId, string previousToken, string token, DateTime expiresAt)
+        {
+            var now = DateTime.UtcNow;
+            var updated = await _refreshTokens
+                .Where(session => session.Id == sessionId && session.UserId == userId &&
+                    session.Token == previousToken && session.ExpiresAt > now && !session.User.IsDeleted)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(session => session.Token, token)
+                    .SetProperty(session => session.ExpiresAt, expiresAt));
+            return updated == 1;
+        }
+
+        public Task<bool> IsSessionActiveAsync(int sessionId, int userId, CancellationToken cancellationToken = default)
+        {
+            var now = DateTime.UtcNow;
+            return _refreshTokens.AnyAsync(session => session.Id == sessionId && session.UserId == userId &&
+                session.ExpiresAt > now && !session.User.IsDeleted, cancellationToken);
         }
     }
 }

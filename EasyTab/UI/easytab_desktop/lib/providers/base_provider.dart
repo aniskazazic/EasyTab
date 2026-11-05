@@ -1,10 +1,8 @@
-import 'dart:async';
 import 'dart:convert';
 import 'package:easytab_desktop/config/app_config.dart';
 import 'package:easytab_desktop/models/search_result.dart';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/providers/auth_provider.dart';
-import 'package:easytab_desktop/providers/session_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart';
 import 'package:http/http.dart' as http;
@@ -26,7 +24,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     }
 
     var uri = Uri.parse(url);
-    var response = await _sendRequest(
+    var response = await sendRequestWithRetry(
       () => http.get(uri, headers: createHeaders()),
     );
 
@@ -47,7 +45,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var url = "$baseUrl/$_endpoint";
     var uri = Uri.parse(url);
     var jsonRequest = jsonEncode(request);
-    var response = await _sendRequest(
+    var response = await sendRequestWithRetry(
       () => http.post(uri, headers: createHeaders(), body: jsonRequest),
     );
 
@@ -61,7 +59,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var url = "$baseUrl/$_endpoint/$id";
     var uri = Uri.parse(url);
     var jsonRequest = jsonEncode(request);
-    var response = await _sendRequest(
+    var response = await sendRequestWithRetry(
       () => http.put(uri, headers: createHeaders(), body: jsonRequest),
     );
 
@@ -74,7 +72,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   Future<void> delete(int id) async {
     var url = "$baseUrl/$_endpoint/$id";
     var uri = Uri.parse(url);
-    var response = await _sendRequest(
+    var response = await sendRequestWithRetry(
       () => http.delete(uri, headers: createHeaders()),
     );
     validateResponse(response);
@@ -98,7 +96,6 @@ abstract class BaseProvider<T> extends ChangeNotifier {
       response.body,
     );
     if (response.statusCode == 401) {
-      unawaited(SessionManager().triggerSessionExpiredFlow());
       throw ApiClientException(
         ApiErrorParser.messageFromBody(response.body) ??
             'Niste autorizirani. Prijavite se ponovo.',
@@ -121,6 +118,9 @@ abstract class BaseProvider<T> extends ChangeNotifier {
   }
 
   Map<String, String> createHeaders() {
+    if (!AuthProvider.hasActiveSession) {
+      throw ApiClientException('Sesija nije aktivna.');
+    }
     String accessToken = AuthProvider.accessToken ?? "";
 
     var headers = {
@@ -172,7 +172,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     var url = "$baseUrl/$_endpoint/$id";
 
     var uri = Uri.parse(url);
-    var response = await _sendRequest(
+    var response = await sendRequestWithRetry(
       () => http.get(uri, headers: createHeaders()),
     );
     validateResponse(response);
@@ -181,13 +181,7 @@ abstract class BaseProvider<T> extends ChangeNotifier {
     return fromJson(data);
   }
 
-  Future<Response> _sendRequest(
+  Future<Response> sendRequestWithRetry(
     Future<Response> Function() requestBuilder,
-  ) async {
-    var response = await requestBuilder();
-    if (response.statusCode == 401 && AuthProvider.accessToken != null) {
-      await SessionManager().triggerSessionExpiredFlow();
-    }
-    return response;
-  }
+  ) => AuthProvider.sendAuthorizedRequest(requestBuilder);
 }

@@ -13,7 +13,7 @@ class SessionManager with WidgetsBindingObserver {
 
   Timer? _expirationTimer;
   bool _isObserving = false;
-  Completer<void>? _expirationCompleter;
+  Completer<bool>? _expirationCompleter;
   DialogRoute<void>? _dialogRoute;
 
   void startSession(String accessToken) {
@@ -33,7 +33,7 @@ class SessionManager with WidgetsBindingObserver {
     final completer = _expirationCompleter;
     _expirationCompleter = null;
     if (completer != null && !completer.isCompleted) {
-      completer.complete();
+      completer.complete(false);
     }
     final route = _dialogRoute;
     _dialogRoute = null;
@@ -56,25 +56,46 @@ class SessionManager with WidgetsBindingObserver {
     }
   }
 
-  Future<void> triggerSessionExpiredFlow() {
+  Future<bool> triggerSessionExpiredFlow({bool tryRefresh = true}) async {
     if (!_isObserving || AuthProvider.accessToken == null) {
-      return Future.value();
+      return false;
     }
     final pending = _expirationCompleter;
     if (pending != null) return pending.future;
     final context = globalNavigatorKey.currentContext;
-    if (context == null) return Future.value();
+    if (context == null) return false;
 
     _expirationTimer?.cancel();
-    final completer = Completer<void>();
+    final completer = Completer<bool>();
     _expirationCompleter = completer;
-    unawaited(_showExpiredDialog(context, completer));
-    return completer.future;
+    final version = AuthProvider.sessionVersion;
+    var restored = false;
+    try {
+      if (tryRefresh && await context.read<AuthProvider>().renewSession()) {
+        restored =
+            _isObserving &&
+            AuthProvider.hasActiveSession &&
+            version == AuthProvider.sessionVersion;
+        return restored;
+      }
+      if (_isObserving &&
+          AuthProvider.hasActiveSession &&
+          version == AuthProvider.sessionVersion &&
+          context.mounted) {
+        await _showExpiredDialog(context, completer);
+      }
+      return false;
+    } finally {
+      if (!completer.isCompleted) completer.complete(restored);
+      if (identical(_expirationCompleter, completer)) {
+        _expirationCompleter = null;
+      }
+    }
   }
 
   Future<void> _showExpiredDialog(
     BuildContext context,
-    Completer<void> completer,
+    Completer<bool> completer,
   ) async {
     final route = DialogRoute<void>(
       context: context,
@@ -110,10 +131,6 @@ class SessionManager with WidgetsBindingObserver {
       }
       await logoutAndRedirect();
     } finally {
-      if (!completer.isCompleted) completer.complete();
-      if (identical(_expirationCompleter, completer)) {
-        _expirationCompleter = null;
-      }
       if (identical(_dialogRoute, route)) _dialogRoute = null;
     }
   }

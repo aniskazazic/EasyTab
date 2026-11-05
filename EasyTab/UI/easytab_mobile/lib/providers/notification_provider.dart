@@ -19,10 +19,13 @@ class NotificationProvider extends BaseProvider<AppNotification> {
   String? error;
   HubConnection? _connection;
   bool _isStarting = false;
+  bool _sessionActive = false;
+  Future<void>? _startFuture;
 
   int get unreadCount => notifications.where((n) => n.isRead == false).length;
 
   void syncSession(bool isAuthenticated) {
+    _sessionActive = isAuthenticated && AuthProvider.hasActiveSession;
     if (isAuthenticated) {
       unawaited(_startConnection());
     } else if (_connection != null ||
@@ -33,7 +36,14 @@ class NotificationProvider extends BaseProvider<AppNotification> {
     }
   }
 
-  Future<void> _startConnection() async {
+  Future<void> _startConnection() {
+    if (!_sessionActive || !AuthProvider.hasActiveSession) {
+      return Future.value();
+    }
+    return _startFuture ??= _connect().whenComplete(() => _startFuture = null);
+  }
+
+  Future<void> _connect() async {
     if (_connection != null || _isStarting) return;
 
     final baseUrl = BaseProvider.baseUrl;
@@ -79,6 +89,8 @@ class NotificationProvider extends BaseProvider<AppNotification> {
   }
 
   Future<void> stopConnection() async {
+    _sessionActive = false;
+    final starting = _startFuture;
     final connection = _connection;
     _connection = null;
     _isStarting = false;
@@ -91,6 +103,7 @@ class NotificationProvider extends BaseProvider<AppNotification> {
       }
     }
 
+    if (starting != null) await starting;
     notifications = [];
     isLoading = false;
     error = null;
@@ -98,6 +111,7 @@ class NotificationProvider extends BaseProvider<AppNotification> {
   }
 
   void _handleNotificationReceived(List<Object?>? arguments) {
+    if (!_sessionActive || !AuthProvider.hasActiveSession) return;
     try {
       final payload = arguments?.isNotEmpty == true ? arguments!.first : null;
       if (payload is! Map) return;
@@ -105,6 +119,7 @@ class NotificationProvider extends BaseProvider<AppNotification> {
       final notification = AppNotification.fromJson(
         Map<String, dynamic>.from(payload),
       );
+      if (notification.userId != AuthProvider.currentUserId) return;
       _mergeNotifications([notification]);
       notifyListeners();
     } catch (e) {
@@ -113,7 +128,7 @@ class NotificationProvider extends BaseProvider<AppNotification> {
   }
 
   Future<void> _reloadNotifications() async {
-    if (AuthProvider.currentUserId != null) {
+    if (_sessionActive && AuthProvider.hasActiveSession) {
       await getNotifications();
     }
   }
@@ -146,6 +161,8 @@ class NotificationProvider extends BaseProvider<AppNotification> {
   }
 
   Future<List<AppNotification>> getNotifications() async {
+    if (!AuthProvider.hasActiveSession) return [];
+    final version = AuthProvider.sessionVersion;
     isLoading = true;
     error = null;
     notifyListeners();
@@ -158,6 +175,10 @@ class NotificationProvider extends BaseProvider<AppNotification> {
         () => http.get(uri, headers: createHeaders()),
       );
       validateResponse(response);
+      if (!AuthProvider.hasActiveSession ||
+          version != AuthProvider.sessionVersion) {
+        return [];
+      }
 
       final List<dynamic> data = jsonDecode(response.body);
       _mergeNotifications(
@@ -170,6 +191,10 @@ class NotificationProvider extends BaseProvider<AppNotification> {
       notifyListeners();
       return notifications;
     } catch (e) {
+      if (!AuthProvider.hasActiveSession ||
+          version != AuthProvider.sessionVersion) {
+        return [];
+      }
       debugPrint('Greška pri učitavanju notifikacija: $e');
       error = 'Greška pri učitavanju notifikacija.';
       isLoading = false;

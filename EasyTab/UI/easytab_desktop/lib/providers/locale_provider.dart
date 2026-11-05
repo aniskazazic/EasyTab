@@ -10,9 +10,11 @@ class LocaleProvider extends BaseProvider<Locale> {
   LocaleProvider() : super("Locale");
 
   Future<LocaleDeactivationPreview> getDeactivationPreview(int id) async {
-    final response = await http.get(
-      Uri.parse('${BaseProvider.baseUrl}/Locale/$id/deactivation-preview'),
-      headers: createHeaders(),
+    final response = await sendRequestWithRetry(
+      () => http.get(
+        Uri.parse('${BaseProvider.baseUrl}/Locale/$id/deactivation-preview'),
+        headers: createHeaders(),
+      ),
     );
     validateResponse(response);
     return LocaleDeactivationPreview.fromJson(
@@ -21,9 +23,11 @@ class LocaleProvider extends BaseProvider<Locale> {
   }
 
   Future<void> reactivate(int id) async {
-    final response = await http.put(
-      Uri.parse('${BaseProvider.baseUrl}/Admin/locales/$id/reactivate'),
-      headers: createHeaders(),
+    final response = await sendRequestWithRetry(
+      () => http.put(
+        Uri.parse('${BaseProvider.baseUrl}/Admin/locales/$id/reactivate'),
+        headers: createHeaders(),
+      ),
     );
     validateResponse(response);
     notifyListeners();

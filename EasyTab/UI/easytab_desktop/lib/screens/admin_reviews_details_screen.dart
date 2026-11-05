@@ -85,24 +85,41 @@ class _AdminReviewsDetailsScreenState extends State<AdminReviewsDetailsScreen> {
                 if (_isEditing)
                   SizedBox(
                     width: 600,
-                    child: DropdownButtonFormField<int>(
+                    child: FormField<int>(
                       initialValue: _rating,
-                      decoration: const InputDecoration(
-                        labelText: 'Ocjena',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: List.generate(
-                        5,
-                        (index) => DropdownMenuItem(
-                          value: index + 1,
-                          child: Text('${index + 1}'),
+                      validator: (value) =>
+                          value == null || value < 1 || value > 5
+                          ? 'Odaberite ocjenu od 1 do 5.'
+                          : null,
+                      builder: (field) => InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Ocjena',
+                          border: const OutlineInputBorder(),
+                          errorText: field.errorText,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            5,
+                            (index) => IconButton(
+                              tooltip: '${index + 1} od 5',
+                              iconSize: 32,
+                              color: const Color(0xFFFBBF24),
+                              icon: Icon(
+                                index < (field.value ?? 0)
+                                    ? Icons.star
+                                    : Icons.star_border,
+                              ),
+                              onPressed: _isSaving
+                                  ? null
+                                  : () {
+                                      _rating = index + 1;
+                                      field.didChange(_rating);
+                                    },
+                            ),
+                          ),
                         ),
                       ),
-                      onChanged: _isSaving
-                          ? null
-                          : (value) => setState(() => _rating = value),
-                      validator: (value) =>
-                          value == null ? 'Odaberite ocjenu od 1 do 5.' : null,
                     ),
                   )
                 else

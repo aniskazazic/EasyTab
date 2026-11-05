@@ -20,14 +20,16 @@ namespace EasyTab.API.Services.AccessManager
         private readonly ICryptoService _cryptoService;
         private readonly IRefreshTokenService _refreshTokenService;
         private readonly IValidator<UserLoginRequest> _loginValidator;
+        private readonly ICurrentUserService _currentUser;
 
-        public AccessManager(IUserService userService, IConfiguration configuration, ICryptoService cryptoService, IRefreshTokenService refreshTokenService, IValidator<UserLoginRequest> loginValidator)
+        public AccessManager(IUserService userService, IConfiguration configuration, ICryptoService cryptoService, IRefreshTokenService refreshTokenService, IValidator<UserLoginRequest> loginValidator, ICurrentUserService currentUser)
         {
             _userService = userService;
             _configuration = configuration;
             _cryptoService = cryptoService;
             _refreshTokenService = refreshTokenService;
             _loginValidator = loginValidator;
+            _currentUser = currentUser;
         }
         public async Task<UserLoginResponse> LoginAsync(UserLoginRequest request)
         {
@@ -45,8 +47,6 @@ namespace EasyTab.API.Services.AccessManager
                 throw new UserException("Pogrešno korisničko ime ili lozinka.");
             }
 
-            var accessToken = GenerateToken(user);
-
             var refreshTokenValue = GenerateRefreshToken();
 
             var refreshToken = new RefreshToken
@@ -56,7 +56,8 @@ namespace EasyTab.API.Services.AccessManager
                 ExpiresAt = DateTime.UtcNow.AddDays(7)
             };
 
-            await _refreshTokenService.ReplaceUserRefreshTokenAsync(user.Id, refreshToken);
+            await _refreshTokenService.CreateSessionAsync(refreshToken);
+            var accessToken = GenerateToken(user, refreshToken.Id);
 
             return new UserLoginResponse
             {
@@ -65,7 +66,7 @@ namespace EasyTab.API.Services.AccessManager
             };
         }
 
-        private string GenerateToken(Users user)
+        private string GenerateToken(Users user, int sessionId)
         {
             string secretKeyString = _configuration["JwtToken:SecretKey"] ?? string.Empty;
             var issuer = _configuration["JwtToken:Issuer"];
@@ -79,6 +80,7 @@ namespace EasyTab.API.Services.AccessManager
                 Subject = new ClaimsIdentity(new[]
                 {
                     new Claim(ClaimNames.Id, user.Id.ToString()),
+                    new Claim("sid", sessionId.ToString()),
                     new Claim(ClaimNames.FirstName, user.FirstName),
                     new Claim(ClaimNames.LastName, user.LastName),
                     new Claim(ClaimNames.Email, user.Email),
@@ -119,7 +121,7 @@ namespace EasyTab.API.Services.AccessManager
                 throw new InvalidRefreshTokenException("Refresh token nije validan!");
             }
 
-            if (refreshToken.ExpiresAt < DateTime.UtcNow)
+            if (refreshToken.ExpiresAt <= DateTime.UtcNow)
             {
                 throw new InvalidRefreshTokenException("Refresh token je istekao!");
             }
@@ -136,18 +138,14 @@ namespace EasyTab.API.Services.AccessManager
                 throw new UserException("Korisnik nije aktivan!");
             }
 
-            var accessToken = GenerateToken(user);
-
             var refreshTokenValue = GenerateRefreshToken();
-
-            var token = new RefreshToken
+            var rotated = await _refreshTokenService.RotateSessionAsync(
+                refreshToken.Id, user.Id, request.RefreshToken, refreshTokenValue, DateTime.UtcNow.AddDays(7));
+            if (!rotated)
             {
-                Token = refreshTokenValue,
-                UserId = user.Id,
-                ExpiresAt = DateTime.UtcNow.AddDays(7)
-            };
-
-            await _refreshTokenService.ReplaceUserRefreshTokenAsync(user.Id, token);
+                throw new InvalidRefreshTokenException("Refresh token više nije validan.");
+            }
+            var accessToken = GenerateToken(user, refreshToken.Id);
 
             return new UserLoginResponse
             {
@@ -156,9 +154,9 @@ namespace EasyTab.API.Services.AccessManager
             };
         }
 
-        public Task LogoutAsync(int userId)
+        public Task LogoutAsync()
         {
-            return _refreshTokenService.DeleteAllUserRefreshTokensAsync(userId);
+            return _refreshTokenService.RevokeSessionAsync(_currentUser.SessionId, _currentUser.UserId);
         }
     }
 }

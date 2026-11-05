@@ -6,6 +6,20 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 class ReportService {
+  static Future<bool> openForPrinting(String path) async {
+    if (!Platform.isWindows) return false;
+
+    try {
+      await Process.start('rundll32.exe', [
+        'url.dll,FileProtocolHandler',
+        File(path).absolute.path,
+      ], mode: ProcessStartMode.detached);
+      return true;
+    } on ProcessException {
+      return false;
+    }
+  }
+
   static final _dateTimeFormat = DateFormat('dd.MM.yyyy. HH:mm');
   static final _fileStampFormat = DateFormat('yyyy-MM-dd_HHmm');
 
@@ -38,10 +52,12 @@ class ReportService {
     required PaymentSummary payments,
     required int users,
     required int locales,
+    required int reservations,
     required int reviews,
     required int countries,
     required int cities,
     required int categories,
+    required int roles,
   }) async {
     final generatedAt = DateTime.now();
     final document = _newDocument();
@@ -65,7 +81,7 @@ class ReportService {
             children: [
               _statCard('Korisnici', users.toString()),
               _statCard('Lokali', locales.toString()),
-              _statCard('Recenzije', reviews.toString()),
+              _statCard('Rezervacije', reservations.toString()),
               _statCard('Drzave', countries.toString()),
               _statCard('Gradovi', cities.toString()),
               _statCard('Kategorije', categories.toString()),
@@ -79,10 +95,12 @@ class ReportService {
             rows: [
               ['Korisnici', '$users'],
               ['Lokali', '$locales'],
+              ['Rezervacije', '$reservations'],
               ['Recenzije', '$reviews'],
               ['Drzave', '$countries'],
               ['Gradovi', '$cities'],
               ['Kategorije', '$categories'],
+              ['Uloge', '$roles'],
             ],
           ),
           ..._paymentSummary(

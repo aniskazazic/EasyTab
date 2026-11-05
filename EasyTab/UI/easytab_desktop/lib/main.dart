@@ -5,6 +5,7 @@ import 'package:easytab_desktop/providers/country_provider.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
 import 'package:easytab_desktop/providers/owner_provider.dart';
 import 'package:easytab_desktop/providers/review_provider.dart';
+import 'package:easytab_desktop/providers/role_provider.dart';
 import 'package:easytab_desktop/providers/table_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
@@ -15,6 +16,7 @@ import 'package:easytab_desktop/screens/admin_cities_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_country_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_dashboard_screen.dart';
 import 'package:easytab_desktop/screens/admin_reviews_screen.dart';
+import 'package:easytab_desktop/screens/admin_roles_list_screen.dart';
 import 'package:easytab_desktop/screens/admin_settings_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_details_screen.dart';
 import 'package:easytab_desktop/screens/admin_user_list_screen.dart';
@@ -45,6 +47,7 @@ void main() {
         ChangeNotifierProvider(create: (_) => CityProvider()),
         ChangeNotifierProvider(create: (_) => CountryProvider()),
         ChangeNotifierProvider(create: (_) => CategoryProvider()),
+        ChangeNotifierProvider(create: (_) => RoleProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => OwnerProvider()),
         ChangeNotifierProvider(create: (_) => TableProvider()),
@@ -58,6 +61,7 @@ void main() {
           create: (_) => NotificationProvider(),
           update: (_, authProvider, notificationProvider) {
             notificationProvider ??= NotificationProvider();
+            authProvider.beforeLogout = notificationProvider.stopConnection;
             notificationProvider.syncSession(authProvider.isAuthenticated);
             return notificationProvider;
           },
@@ -96,6 +100,7 @@ class MyLoginApp extends StatelessWidget {
         '/countries': (context) => const AdminCountriesListScreen(),
         '/cities': (context) => const AdminCitiesListScreen(),
         '/categories': (context) => const AdminCategoriesListScreen(),
+        '/roles': (context) => const AdminRolesListScreen(),
         '/owner-dashboard': (context) => const OwnerDashboardScreen(),
         '/owner-add-locale': (context) => const OwnerLocaleDetailsScreen(),
         '/add-user': (context) => const AdminAddUserScreen(),
