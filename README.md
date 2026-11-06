@@ -94,8 +94,6 @@ EasyTab/                              # Korijen repozitorija
         └── easytab_mobile/
 ```
 
-Komande u narednim odjeljcima polaze od **korijena repozitorija**, gdje se nalazi ovaj README. Svaki dio za pokretanje započeti iz tog repozitorija, u zasebnom terminalu.
-
 ## Preduslovi
 
 - Instaliran i pokrenut Docker Desktop
@@ -107,7 +105,7 @@ Komande u narednim odjeljcima polaze od **korijena repozitorija**, gdje se nalaz
 
 ### 1. Priprema konfiguracije
 
-Konfiguracijski fajl mora biti na putanji **`EasyTab/.env`**, pored `docker-compose.yml`.
+Konfiguracijski fajl **`.env`** mora biti pored `docker-compose.yml`.
 
 Za pokretanje s pripremljenom konfiguracijom raspakovati `.env` iz arhive `.env-tajne.zip` u taj repozitorij. Lozinka arhive dostavlja se odvojeno uz predaju rada.
 
@@ -120,7 +118,7 @@ cp .env.example .env
 
 ### 2. Pokretanje servisa
 
-Iz repozitorija `EasyTab`, u kojem su Compose i `.env`:
+Iz repozitorija `EasyTab`, u kojem su `docker-compose.yml` i `.env`:
 
 ```sh
 docker compose up --build
@@ -159,42 +157,17 @@ docker compose up --build
 
 ## Pokretanje desktop aplikacije — Windows
 
-Iz korijena repozitorija:
-
-```sh
-cd EasyTab/UI/easytab_desktop
-flutter pub get
-flutter run -d windows
-```
-
-Default API adresa je `http://localhost:5241`. Ista adresa može se zadati eksplicitno:
-
-```sh
-flutter run -d windows --dart-define=API_BASE_URL=http://localhost:5241
-```
-
-Za drugi backend promijeniti vrijednost `API_BASE_URL` i ponovo pokrenuti aplikaciju. Desktop aplikaciji pristupaju administrator i vlasnik.
+1. Raspakujte arhivu izdanja (build) sa GitHub-a Release
+2. Otvoriti Release folder
+3. Pokrenuti `easytab_desktop.exe`
 
 ## Pokretanje mobilne aplikacije — Android
 
-Pokrenuti emulator ili povezati Android uređaj, pa iz korijena repozitorija izvršiti:
-
-```sh
-cd EasyTab/UI/easytab_mobile
-flutter pub get
-flutter devices
-flutter run -d <android-device-id> --dart-define=API_BASE_URL=http://10.0.2.2:5241
-```
-
-`<android-device-id>` zamijeniti identifikatorom iz komande `flutter devices`. Bez dart-define parametra mobile također koristi default `http://10.0.2.2:5241`.
-
-`10.0.2.2` je adresa računara domaćina iz Android emulatora. Na fizičkom uređaju koristiti IP adresu računara u istoj lokalnoj mreži, na primjer:
-
-```sh
-flutter run -d <android-device-id> --dart-define=API_BASE_URL=http://192.168.1.100:5241
-```
-
-Adresu u primjeru zamijeniti stvarnom adresom računara i omogućiti pristup portu `5241`. Mobilnoj aplikaciji pristupaju korisnik i radnik.
+1. Pokrenite Android emulator
+2. Iz GitHub Release, pronađite datoteku app-release.apk
+3. Deinstalirajte sve prethodne verzije aplikacije
+4. Prenesite i instalirajte .apk datoteku na emulator 
+5. Pokrenite EasyTab na uređaju
 
 ## Testni računi
 
