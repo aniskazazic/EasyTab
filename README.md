@@ -103,7 +103,13 @@ EasyTab/                              # Korijen repozitorija
 
 ## Pokretanje backenda
 
-### 1. Priprema konfiguracije
+### 1. Klonirajte repozitorij
+
+```sh
+git clone https://github.com/aniskazazic/EasyTab.git
+```
+
+### 2. Priprema konfiguracije
 
 Konfiguracijski fajl **`.env`** mora biti pored `docker-compose.yml`.
 
@@ -116,7 +122,7 @@ cd EasyTab
 cp .env.example .env
 ```
 
-### 2. Pokretanje servisa
+### 3. Pokretanje servisa
 
 Iz repozitorija `EasyTab`, u kojem su `docker-compose.yml` i `.env`:
 
@@ -126,7 +132,7 @@ docker compose up --build
 
 Compose podiže SQL Server, RabbitMQ, API i Subscriber. API pri pokretanju automatski primjenjuje EF Core migracije i priprema početne podatke. Sačekati završetak migracija i seeda prije prijave kroz klijente.
 
-### 3. Servisi i portovi
+### 4. Servisi i portovi
 
 | Servis | Adresa na računaru |
 | --- | --- |
