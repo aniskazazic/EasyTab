@@ -31,6 +31,11 @@ namespace EasyTab.Services.ReservationStateMachine
                 throw new UserException("Rezervacija mora biti potvrđena da bi bila završena.");
             }
 
+            if (!ReservationTime.HasStarted(entity.ReservationDate, entity.StartTime))
+            {
+                throw new UserException("Rezervacija se može završiti tek kada termin počne.");
+            }
+
             entity.ReservationState = CompletedReservationState.StateName;
             entity.CancelledById = null;
             entity.CancelledAt = null;

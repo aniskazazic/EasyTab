@@ -437,11 +437,19 @@ class _OwnerReservationsScreenState extends State<OwnerReservationsScreen> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconButton(
-            icon: const Icon(Icons.task_alt, color: Color(0xFF1E40AF)),
-            tooltip: 'Završi rezervaciju',
-            onPressed: () => _completeReservation(res),
-          ),
+          res.hasStarted
+              ? IconButton(
+                  icon: const Icon(Icons.task_alt, color: Color(0xFF1E40AF)),
+                  tooltip: 'Završi rezervaciju',
+                  onPressed: () => _completeReservation(res),
+                )
+              : const Tooltip(
+                  message: 'Rezervaciju možete završiti tek kada termin počne.',
+                  child: IconButton(
+                    onPressed: null,
+                    icon: Icon(Icons.task_alt),
+                  ),
+                ),
           IconButton(
             icon: const Icon(Icons.cancel, color: Colors.red),
             tooltip: 'Otkaži rezervaciju',

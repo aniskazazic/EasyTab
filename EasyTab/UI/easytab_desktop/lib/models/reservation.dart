@@ -35,6 +35,7 @@ class Reservation {
   final DateTime? reservationDate;
   final String? startTime;
   final String? endTime;
+  final bool hasStarted;
   final DateTime? createdAt;
   final String? reservationState;
   final int? approvedById;
@@ -63,6 +64,7 @@ class Reservation {
     this.reservationDate,
     this.startTime,
     this.endTime,
+    this.hasStarted = false,
     this.createdAt,
     this.reservationState,
     this.approvedById,

@@ -206,6 +206,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
             behavior: SnackBarBehavior.floating,
           ),
         );
+        _loadData();
       }
     } catch (e) {
       if (mounted) {
@@ -327,7 +328,7 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
             );
           }
           final res = provider.upcomingReservations[index];
-          return _buildReservationCard(res, isUpcoming: true);
+          return _buildReservationCard(res);
         },
       ),
     );
@@ -372,15 +373,15 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
             );
           }
           final res = provider.pastReservations[index];
-          return _buildReservationCard(res, isUpcoming: false);
+          return _buildReservationCard(res);
         },
       ),
     );
   }
 
-  Widget _buildReservationCard(Reservation res, {required bool isUpcoming}) {
+  Widget _buildReservationCard(Reservation res) {
     final state = res.reservationState ?? 'Na čekanju';
-    final canCancel = isUpcoming && res.isActive;
+    final canCancel = res.isActive && !res.hasStarted;
 
     final dateStr = res.reservationDate == null
         ? '-'
@@ -593,6 +594,14 @@ class _UserReservationsScreenState extends State<UserReservationsScreen>
               const Padding(
                 padding: EdgeInsets.all(14),
                 child: Text('Sačekajte završetak trenutnog zahtjeva.'),
+              ),
+            if (res.isActive && res.hasStarted)
+              const Padding(
+                padding: EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: Text(
+                  'Termin je u toku. Otkazivanje više nije moguće.',
+                  style: TextStyle(fontSize: 12.5, color: Color(0xFF64748B)),
+                ),
               ),
             // Dugme za otkazivanje
             if (canCancel)

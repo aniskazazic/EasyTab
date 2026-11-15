@@ -23,6 +23,7 @@ Reservation _$ReservationFromJson(Map<String, dynamic> json) => Reservation(
       : DateTime.parse(json['reservationDate'] as String),
   startTime: json['startTime'] as String?,
   endTime: json['endTime'] as String?,
+  hasStarted: json['hasStarted'] as bool? ?? false,
   createdAt: json['createdAt'] == null
       ? null
       : DateTime.parse(json['createdAt'] as String),
@@ -58,6 +59,7 @@ Map<String, dynamic> _$ReservationToJson(Reservation instance) =>
       'reservationDate': instance.reservationDate?.toIso8601String(),
       'startTime': instance.startTime,
       'endTime': instance.endTime,
+      'hasStarted': instance.hasStarted,
       'createdAt': instance.createdAt?.toIso8601String(),
       'reservationState': instance.reservationState,
       'approvedById': instance.approvedById,

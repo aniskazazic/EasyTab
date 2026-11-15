@@ -22,6 +22,7 @@ namespace EasyTab.Model.Models
         public DateTime ReservationDate { get; set; }
         public TimeSpan StartTime { get; set; }
         public TimeSpan EndTime { get; set; }
+        public bool HasStarted { get; set; }
         [JsonConverter(typeof(UtcDateTimeJsonConverter))]
         public DateTime CreatedAt { get; set; }
         public string? ReservationState { get; set; }

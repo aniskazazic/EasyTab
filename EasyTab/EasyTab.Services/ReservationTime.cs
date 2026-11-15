@@ -11,6 +11,9 @@ public static class ReservationTime
     public static DateTime GetEnd(DateTime reservationDate, TimeOnly startTime, TimeOnly endTime)
         => GetStart(reservationDate, endTime).AddDays(endTime < startTime ? 1 : 0);
 
+    public static bool HasStarted(DateTime reservationDate, TimeOnly startTime)
+        => GetStart(reservationDate, startTime) <= LocalClock.Now;
+
     public static DateTime GetWorkingDate(DateTime reservationDate, TimeOnly startTime,
         TimeOnly openingTime, TimeOnly closingTime)
         => reservationDate.Date.AddDays(closingTime < openingTime && startTime < openingTime ? -1 : 0);

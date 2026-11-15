@@ -116,25 +116,31 @@ namespace EasyTab.Services.Services
                 };
             }
 
-            // Aktivne rezervacije: samo one koje nisu otkazane/završene i čiji termin još nije prošao
-            if (search?.IsUpcoming == true)
+            // Kraj termina je dan rezervacije + 1 ako termin prelazi ponoć (EndTime < StartTime).
+            if (search?.IsUpcoming.HasValue == true)
             {
                 var now = LocalClock.Now;
-                query = query.Where(r =>
-                    r.ReservationState != CancelledReservationState.StateName &&
-                    r.ReservationState != CompletedReservationState.StateName &&
-                    (r.ReservationDate.Date > now.Date ||
-                    (r.ReservationDate.Date == now.Date && r.StartTime >= TimeOnly.FromTimeSpan(now.TimeOfDay))));
-            }
-            // Prošle / historija rezervacije: otkazane, završene ili one čiji je termin prošao
-            else if (search?.IsUpcoming == false)
-            {
-                var now = LocalClock.Now;
-                query = query.Where(r =>
-                    r.ReservationState == CancelledReservationState.StateName ||
-                    r.ReservationState == CompletedReservationState.StateName ||
-                    r.ReservationDate.Date < now.Date ||
-                    (r.ReservationDate.Date == now.Date && r.StartTime < TimeOnly.FromTimeSpan(now.TimeOfDay)));
+                var today = now.Date;
+                var nowTime = TimeOnly.FromDateTime(now);
+
+                // Aktivne: nisu otkazane/završene i termin još nije završio (uključujući termin u toku)
+                if (search.IsUpcoming.Value)
+                {
+                    query = query.Where(r =>
+                        r.ReservationState != CancelledReservationState.StateName &&
+                        r.ReservationState != CompletedReservationState.StateName &&
+                        (r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) > today ||
+                         (r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) == today && r.EndTime > nowTime)));
+                }
+                // Historija: tačna negacija aktivnih (otkazane, završene ili termin završio)
+                else
+                {
+                    query = query.Where(r =>
+                        r.ReservationState == CancelledReservationState.StateName ||
+                        r.ReservationState == CompletedReservationState.StateName ||
+                        r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) < today ||
+                        (r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) == today && r.EndTime <= nowTime));
+                }
             }
 
             if (string.IsNullOrWhiteSpace(search?.SortBy))
@@ -167,6 +173,7 @@ namespace EasyTab.Services.Services
         protected override Reservations MapToResponse(Reservation entity)
         {
             var dto = base.MapToResponse(entity);
+            dto.HasStarted = ReservationTime.HasStarted(entity.ReservationDate, entity.StartTime);
 
             if (entity.User != null)
             {
@@ -403,13 +410,17 @@ namespace EasyTab.Services.Services
                 throw new UserException("Razlog otkazivanja je obavezan.");
             }
 
-            if (_currentUser.Role == RoleNames.Vlasnik || _currentUser.Role == RoleNames.Radnik || _currentUser.IsAdmin)
+            if (IsLocaleStaff)
             {
                 await _localeAccessService.EnsureCanManageLocaleAsync(reservation.Table.LocaleId);
             }
             else if (reservation.UserId != _currentUser.UserId)
             {
                 throw new UserException("Možete otkazati samo vlastitu rezervaciju.");
+            }
+            else if (ReservationTime.HasStarted(reservation.ReservationDate, reservation.StartTime))
+            {
+                throw new UserException("Rezervaciju možete otkazati samo prije početka termina.");
             }
 
             var state = GetStateMachine(reservation.ReservationState);
@@ -469,9 +480,17 @@ namespace EasyTab.Services.Services
             if (!CanAccessReservation(reservation))
                 throw new UserException("Nemate dozvolu za pregled ove rezervacije.");
 
-            var state = GetStateMachine(reservation.ReservationState);
-            return state.GetAllowedActions();
+            var actions = GetStateMachine(reservation.ReservationState).GetAllowedActions();
+            var hasStarted = ReservationTime.HasStarted(reservation.ReservationDate, reservation.StartTime);
+            if (!hasStarted)
+                actions.Remove(nameof(BaseReservationState.CompleteAsync));
+            else if (!IsLocaleStaff)
+                actions.Remove(nameof(BaseReservationState.CancelAsync));
+            return actions;
         }
+
+        private bool IsLocaleStaff =>
+            _currentUser.IsAdmin || _currentUser.Role == RoleNames.Vlasnik || _currentUser.Role == RoleNames.Radnik;
 
         public async Task ProcessAutomaticTransitionsAsync(DateTime localNow)
         {
