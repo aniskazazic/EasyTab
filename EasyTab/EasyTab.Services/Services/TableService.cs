@@ -23,13 +23,15 @@ namespace EasyTab.Services.Services
         private readonly ILogger<TableService> _logger;
         private readonly ILocaleAccessService _localeAccessService;
         private readonly IOptions<PayPalOptions> _payPalOptions;
+        private readonly IValidator<TableLayoutRequest> _layoutValidator;
 
-        public TableService(_220030Context context, IMapper mapper, ILogger<TableService> logger, IValidator<TableInsertRequest> insertValidator, IValidator<TableUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, IOptions<PayPalOptions> payPalOptions)
+        public TableService(_220030Context context, IMapper mapper, ILogger<TableService> logger, IValidator<TableInsertRequest> insertValidator, IValidator<TableUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, IOptions<PayPalOptions> payPalOptions, IValidator<TableLayoutRequest> layoutValidator)
             : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
             _localeAccessService = localeAccessService;
             _payPalOptions = payPalOptions;
+            _layoutValidator = layoutValidator;
         }
 
         public override async Task<Tables> CreateAsync(TableInsertRequest request)
@@ -140,6 +142,7 @@ namespace EasyTab.Services.Services
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
             _logger.LogInformation("Saving table layout. LocaleId: {LocaleId}", request.LocaleId);
+            await _layoutValidator.ValidateAndThrowAsync(request);
 
             foreach (var table in request.Tables)
                 TableLayoutExtensions.ValidatePosition(table.XCoordinate, table.YCoordinate);

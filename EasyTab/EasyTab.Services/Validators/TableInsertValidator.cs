@@ -8,20 +8,20 @@ namespace EasyTab.Services.Validators
         public TableInsertValidator()
         {
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("Naziv stola je obavezan.")
-                .MaximumLength(50).WithMessage("Naziv stola ne može imati više od 50 karaktera.");
+                .NotEmpty().WithMessage(TableRules.NameRequired)
+                .MaximumLength(TableRules.NameMaxLength).WithMessage(TableRules.NameTooLong);
 
             RuleFor(x => x.LocaleId)
-                .GreaterThan(0).WithMessage("Lokal je obavezan.");
+                .GreaterThan(0).WithMessage(TableRules.LocaleRequired);
 
             RuleFor(x => x.NumberOfGuests)
-                .InclusiveBetween(1, 8).WithMessage("Broj gostiju mora biti između 1 i 8.");
+                .InclusiveBetween(TableRules.MinGuests, TableRules.MaxGuests).WithMessage(TableRules.GuestsOutOfRange);
 
             RuleFor(x => x.XCoordinate)
-                .GreaterThanOrEqualTo(0).WithMessage("X koordinata mora biti pozitivna.");
+                .GreaterThanOrEqualTo(0).WithMessage(TableRules.XCoordinateNegative);
 
             RuleFor(x => x.YCoordinate)
-                .GreaterThanOrEqualTo(0).WithMessage("Y koordinata mora biti pozitivna.");
+                .GreaterThanOrEqualTo(0).WithMessage(TableRules.YCoordinateNegative);
         }
     }
 }

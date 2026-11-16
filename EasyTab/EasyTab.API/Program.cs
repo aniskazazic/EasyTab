@@ -117,6 +117,7 @@ builder.Services.AddScoped<IValidator<ZoneInsertRequest>, ZoneInsertValidator>()
 builder.Services.AddScoped<IValidator<ZoneUpdateRequest>, ZoneUpdateValidator>();
 builder.Services.AddScoped<IValidator<TableInsertRequest>, TableInsertValidator>();
 builder.Services.AddScoped<IValidator<TableUpdateRequest>, TableUpdateValidator>();
+builder.Services.AddScoped<IValidator<TableLayoutRequest>, TableLayoutValidator>();
 builder.Services.AddScoped<IValidator<WorkerInsertRequest>, WorkerInsertValidator>();
 builder.Services.AddScoped<IValidator<WorkerUpdateRequest>, WorkerUpdateValidator>();
 builder.Services.AddScoped<IValidator<ReservationInsertRequest>, ReservationInsertValidator>();
