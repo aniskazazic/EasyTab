@@ -5,12 +5,13 @@ using EasyTab.Model.SearchObject;
 using EasyTab.Services.BaseServices.Implementation;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
-using EasyTab.Services.ReservationStateMachine;
+using EasyTab.Services.PayPal;
 using EasyTab.Model;
 using FluentValidation;
 using MapsterMapper;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -21,12 +22,14 @@ namespace EasyTab.Services.Services
     {
         private readonly ILogger<TableService> _logger;
         private readonly ILocaleAccessService _localeAccessService;
+        private readonly IOptions<PayPalOptions> _payPalOptions;
 
-        public TableService(_220030Context context, IMapper mapper, ILogger<TableService> logger, IValidator<TableInsertRequest> insertValidator, IValidator<TableUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) 
+        public TableService(_220030Context context, IMapper mapper, ILogger<TableService> logger, IValidator<TableInsertRequest> insertValidator, IValidator<TableUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, IOptions<PayPalOptions> payPalOptions)
             : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
             _localeAccessService = localeAccessService;
+            _payPalOptions = payPalOptions;
         }
 
         public override async Task<Tables> CreateAsync(TableInsertRequest request)
@@ -74,22 +77,11 @@ namespace EasyTab.Services.Services
 
         private IQueryable<Table> TablesWithActiveObligations(int[] tableIds)
         {
-            var now = LocalClock.Now;
-            var currentTime = TimeOnly.FromDateTime(now);
-            var yesterday = now.Date.AddDays(-1);
+            var openReservations = Context.Reservations.Open(LocalClock.Now);
+            var activeCheckouts = Context.Payments.ActiveCheckouts(_payPalOptions.Value.CheckoutHoldMinutes);
             return Context.Tables.Where(table => tableIds.Contains(table.Id) &&
-                (table.Reservations.Any(reservation =>
-                    reservation.ReservationState != CancelledReservationState.StateName &&
-                    reservation.ReservationState != CompletedReservationState.StateName &&
-                    ((reservation.EndTime >= reservation.StartTime &&
-                      (reservation.ReservationDate.Date > now.Date ||
-                       (reservation.ReservationDate.Date == now.Date && reservation.EndTime > currentTime))) ||
-                     (reservation.EndTime < reservation.StartTime &&
-                      (reservation.ReservationDate.Date >= now.Date ||
-                       (reservation.ReservationDate.Date == yesterday && reservation.EndTime > currentTime))))) ||
-                 Context.Payments.Any(payment => payment.Status == PaymentStatus.Created &&
-                    (payment.TableId == table.Id ||
-                     (payment.Reservation != null && payment.Reservation.TableId == table.Id)))));
+                (openReservations.Any(reservation => reservation.TableId == table.Id) ||
+                 activeCheckouts.Any(payment => payment.TableId == table.Id)));
         }
 
         private async Task EnsureCanDeleteAsync(int[] tableIds)

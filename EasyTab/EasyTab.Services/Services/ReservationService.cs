@@ -116,31 +116,11 @@ namespace EasyTab.Services.Services
                 };
             }
 
-            // Kraj termina je dan rezervacije + 1 ako termin prelazi ponoć (EndTime < StartTime).
+            // Aktivne su otvorene rezervacije, a historija njihova tačna negacija (pravilo je u ReservationQueryExtensions).
             if (search?.IsUpcoming.HasValue == true)
             {
                 var now = LocalClock.Now;
-                var today = now.Date;
-                var nowTime = TimeOnly.FromDateTime(now);
-
-                // Aktivne: nisu otkazane/završene i termin još nije završio (uključujući termin u toku)
-                if (search.IsUpcoming.Value)
-                {
-                    query = query.Where(r =>
-                        r.ReservationState != CancelledReservationState.StateName &&
-                        r.ReservationState != CompletedReservationState.StateName &&
-                        (r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) > today ||
-                         (r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) == today && r.EndTime > nowTime)));
-                }
-                // Historija: tačna negacija aktivnih (otkazane, završene ili termin završio)
-                else
-                {
-                    query = query.Where(r =>
-                        r.ReservationState == CancelledReservationState.StateName ||
-                        r.ReservationState == CompletedReservationState.StateName ||
-                        r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) < today ||
-                        (r.ReservationDate.Date.AddDays(r.EndTime < r.StartTime ? 1 : 0) == today && r.EndTime <= nowTime));
-                }
+                query = search.IsUpcoming.Value ? query.Open(now) : query.Closed(now);
             }
 
             if (string.IsNullOrWhiteSpace(search?.SortBy))
@@ -358,12 +338,11 @@ namespace EasyTab.Services.Services
                             r.ReservationDate >= from && r.ReservationDate < until &&
                             r.ReservationState != CancelledReservationState.StateName)
                 .Select(r => new { r.ReservationDate, r.StartTime, r.EndTime }).ToListAsync();
-            var holdCutoff = DateTime.UtcNow.AddMinutes(-_payPalOptions.Value.CheckoutHoldMinutes);
             var checkouts = await Context.Payments.AsNoTracking()
-                .Where(p => p.TableId == tableId && p.Status == PaymentStatus.Created &&
-                    p.CheckoutId != null && p.ReservationId == null &&
+                .ActiveCheckouts(_payPalOptions.Value.CheckoutHoldMinutes)
+                .Where(p => p.TableId == tableId &&
                     (!excludedCheckoutId.HasValue || p.Id != excludedCheckoutId.Value) &&
-                    p.CreatedAt > holdCutoff && p.ReservationDate >= from && p.ReservationDate < until &&
+                    p.ReservationDate >= from && p.ReservationDate < until &&
                     p.StartTime.HasValue && p.EndTime.HasValue)
                 .Select(p => new { p.ReservationDate, p.StartTime, p.EndTime }).ToListAsync();
             var occupied = reserved.Select(r =>
