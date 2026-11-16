@@ -215,6 +215,13 @@ class _WorkerReservationDetailsScreenState
                 value: _guestName(details),
               ),
               _InfoRow(
+                icon: Icons.alternate_email_rounded,
+                label: 'Korisničko ime',
+                value: details.username?.isNotEmpty == true
+                    ? details.username!
+                    : 'Nije dostupno',
+              ),
+              _InfoRow(
                 icon: Icons.mail_outline,
                 label: 'Email',
                 value: details.email ?? 'Nije dostupno',
@@ -365,7 +372,9 @@ class _WorkerReservationDetailsScreenState
       future: _allowedActionsFuture,
       builder: (context, snapshot) {
         final canCancel =
-            snapshot.hasData && snapshot.data!.contains('CancelAsync');
+            details.isActive &&
+            snapshot.hasData &&
+            snapshot.data!.contains('CancelAsync');
         final state = details.reservationState ?? '';
         final disabledReason = snapshot.hasError
             ? 'Dozvoljene akcije nisu dostupne. Pokušajte ponovo kasnije.'

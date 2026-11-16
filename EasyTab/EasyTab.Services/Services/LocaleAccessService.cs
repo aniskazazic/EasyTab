@@ -70,8 +70,8 @@ namespace EasyTab.Services.Services
             var isOwner = role == RoleNames.Vlasnik && await _context.Locales
                 .AnyAsync(locale => locale.Id == localeId && locale.OwnerId == userId);
 
-            var isWorker = allowWorker && role == RoleNames.Radnik && await _context.Workers
-                .AnyAsync(worker => worker.LocaleId == localeId && worker.UserId == userId && !worker.IsDeleted);
+            var isWorker = allowWorker && role == RoleNames.Radnik && await _context.Workers.Active()
+                .AnyAsync(worker => worker.LocaleId == localeId && worker.UserId == userId);
 
             if (!isOwner && !isWorker)
                 throw new ForbiddenException("Nemate dozvolu za upravljanje ovim lokalom.");

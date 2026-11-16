@@ -16,7 +16,7 @@ namespace EasyTab.Services.Interfaces
         Task<int> GetTotalTables(int localeId);
         Task<OwnerLocaleResponse> GetMyLocale(int localeId);
         Task<List<TableDistributionResponse>> GetTableDistribution(int localeId);
-        Task<OwnerReservationsPageResponse> GetAllReservations(int userId, string? q, DateTime? date, int page, int pageSize);
+        Task<OwnerReservationsPageResponse> GetAllReservations(int userId, string? q, DateTime? date, string? reservationState, int page, int pageSize);
         Task<bool> CheckIfOwner(int localeId, int userId);
         Task<bool> CheckIfOwnerOrWorker(int localeId, int userId);
     }

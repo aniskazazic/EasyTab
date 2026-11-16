@@ -10,6 +10,7 @@ class Reservation {
   final double? reservationPrice;
   final String? firstName;
   final String? lastName;
+  final String? username;
   final String? email;
   final String? phoneNumber;
   final int? tableId;
@@ -38,6 +39,7 @@ class Reservation {
     this.reservationPrice,
     this.firstName,
     this.lastName,
+    this.username,
     this.email,
     this.phoneNumber,
     this.tableId,

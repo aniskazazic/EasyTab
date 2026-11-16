@@ -31,6 +31,7 @@ class OwnerProvider extends BaseProvider<Locale> {
   Future<SearchResult<Reservation>> getReservations({
     required DateTime date,
     String query = '',
+    String? reservationState,
     int page = 0,
     int pageSize = 5,
   }) async {
@@ -41,6 +42,7 @@ class OwnerProvider extends BaseProvider<Locale> {
       'pageSize': pageSize.toString(),
     };
     if (query.trim().isNotEmpty) params['q'] = query.trim();
+    if (reservationState != null) params['reservationState'] = reservationState;
 
     final response = await sendRequestWithRetry(
       () => http.get(

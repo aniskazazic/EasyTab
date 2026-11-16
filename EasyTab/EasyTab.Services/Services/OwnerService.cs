@@ -155,12 +155,23 @@ namespace EasyTab.Services.Services
             return distribution;
         }
 
-        public async Task<OwnerReservationsPageResponse> GetAllReservations(int userId, string? q, DateTime? date, int page, int pageSize)
+        private static readonly string[] FilterableReservationStates =
+        {
+            PendingReservationState.StateName,
+            ConfirmedReservationState.StateName,
+            CompletedReservationState.StateName,
+            CancelledReservationState.StateName
+        };
+
+        public async Task<OwnerReservationsPageResponse> GetAllReservations(int userId, string? q, DateTime? date, string? reservationState, int page, int pageSize)
         {
             page = Math.Max(page, 0);
             pageSize = Math.Clamp(pageSize, 1, 100);
             var selectedDate = (date?.Date ?? LocalClock.Now.Date);
             var previousDate = selectedDate == DateTime.MinValue.Date ? selectedDate : selectedDate.AddDays(-1);
+
+            if (!string.IsNullOrWhiteSpace(reservationState) && !FilterableReservationStates.Contains(reservationState))
+                throw new UserException("Nepoznat status rezervacije.");
 
             var query = _db.Reservations
                 .Include(r => r.Table).ThenInclude(t => t.Locale)
@@ -168,7 +179,7 @@ namespace EasyTab.Services.Services
                 .AsQueryable();
 
             var isOwner = await _db.Locales.AnyAsync(l => l.OwnerId == userId);
-            var worker = await _db.Workers.FirstOrDefaultAsync(w => w.UserId == userId && !w.IsDeleted);
+            var worker = await _db.Workers.Active().FirstOrDefaultAsync(w => w.UserId == userId);
 
             if (!isOwner && worker == null)
                 throw new ForbiddenException("Niste dodijeljeni lokalu. Obratite se vlasniku lokala.");
@@ -178,17 +189,24 @@ namespace EasyTab.Services.Services
             else if (worker != null)
                 query = query.Where(x => x.Table.LocaleId == worker.LocaleId);
 
+            // Bez odabranog statusa lista prikazuje aktivne rezervacije (na čekanju i potvrđene).
+            if (string.IsNullOrWhiteSpace(reservationState))
+                query = query.Where(x =>
+                    x.ReservationState == PendingReservationState.StateName ||
+                    x.ReservationState == ConfirmedReservationState.StateName);
+            else
+                query = query.Where(x => x.ReservationState == reservationState);
+
             query = query.Where(x =>
-                (x.ReservationState == PendingReservationState.StateName ||
-                 x.ReservationState == ConfirmedReservationState.StateName) &&
-                (x.ReservationDate.Date == selectedDate ||
-                 (x.ReservationDate.Date == previousDate && x.EndTime < x.StartTime &&
-                  x.EndTime > TimeOnly.MinValue)));
+                x.ReservationDate.Date == selectedDate ||
+                (x.ReservationDate.Date == previousDate && x.EndTime < x.StartTime &&
+                 x.EndTime > TimeOnly.MinValue));
 
             if (!string.IsNullOrWhiteSpace(q))
                 query = query.Where(s =>
                     s.User.FirstName.Contains(q) ||
                     s.User.LastName.Contains(q) ||
+                    s.User.Username.Contains(q) ||
                     s.Table.Name.Contains(q));
 
             var total = await query.CountAsync();
@@ -204,6 +222,7 @@ namespace EasyTab.Services.Services
                     Id = s.Id,
                     FirstName = s.User.FirstName,
                     LastName = s.User.LastName,
+                    Username = s.User.Username,
                     ReservationDate = s.ReservationDate,
                     StartTime = s.StartTime,
                     EndTime = s.EndTime,
@@ -244,7 +263,7 @@ namespace EasyTab.Services.Services
                 return true;
             }
 
-            var isWorker = await _db.Workers.AnyAsync(w => w.LocaleId == localeId && w.UserId == userId);
+            var isWorker = await _db.Workers.Active().AnyAsync(w => w.LocaleId == localeId && w.UserId == userId);
             return isWorker;
         }
     

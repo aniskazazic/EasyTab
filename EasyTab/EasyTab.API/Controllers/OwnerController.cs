@@ -73,11 +73,12 @@ namespace EasyTab.API.Controllers
         public async Task<IActionResult> GetAllReservations(
             [FromQuery] string? q,
             [FromQuery] DateTime? date,
+            [FromQuery] string? reservationState,
             [FromQuery] int page = 0,
             [FromQuery] int pageSize = 10)
         {
             var userId = _currentUser.UserId;
-            return Ok(await _ownerService.GetAllReservations(userId, q, date, page, pageSize));
+            return Ok(await _ownerService.GetAllReservations(userId, q, date, reservationState, page, pageSize));
         }
 
         [HttpGet("check-owner/{localeId}")]

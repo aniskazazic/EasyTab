@@ -460,11 +460,10 @@ namespace EasyTab.Services.Services
             var isAdmin = _currentUser.IsAdmin;
             var authenticatedUserId = _currentUser.UserId;
 
-            var ownerCanManageWorker = await _context.Workers
+            var ownerCanManageWorker = await _context.Workers.Active()
                 .AnyAsync(worker => worker.UserId == request.Id &&
                     _context.Locales.Any(locale =>
-                        locale.Id == worker.LocaleId && locale.OwnerId == authenticatedUserId) &&
-                    !worker.IsDeleted);
+                        locale.Id == worker.LocaleId && locale.OwnerId == authenticatedUserId));
 
             if (!isAdmin && authenticatedUserId != request.Id && !ownerCanManageWorker)
             {

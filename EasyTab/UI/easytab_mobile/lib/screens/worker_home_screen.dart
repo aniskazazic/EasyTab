@@ -22,6 +22,16 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   DateTime _selectedDate = DateTime.now();
   DateTime _searchedDate = DateTime.now();
   String _searchedQuery = '';
+  static const String _activeStateFilter = 'Aktivne';
+  static const List<String> _stateFilters = [
+    _activeStateFilter,
+    'Na čekanju',
+    'Potvrđena',
+    'Završena',
+    'Otkazana',
+  ];
+  String _selectedState = _activeStateFilter;
+  String _searchedState = _activeStateFilter;
   List<Reservation> _reservations = [];
   Map<int, String?> _localeLogos = {};
   int _currentPage = 0;
@@ -57,6 +67,9 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       final result = await context.read<OwnerProvider>().getReservations(
         date: _searchedDate,
         query: _searchedQuery,
+        reservationState: _searchedState == _activeStateFilter
+            ? null
+            : _searchedState,
         page: page,
         pageSize: _pageSize,
       );
@@ -111,6 +124,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
   Future<void> _applySearch() async {
     _searchedDate = _selectedDate;
     _searchedQuery = _searchController.text.trim();
+    _searchedState = _selectedState;
     await _loadReservations();
   }
 
@@ -189,6 +203,38 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedState,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'Status',
+                          prefixIcon: const Icon(Icons.filter_list_rounded),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(22),
+                            borderSide: const BorderSide(
+                              color: Colors.black54,
+                            ),
+                          ),
+                        ),
+                        items: _stateFilters
+                            .map(
+                              (state) => DropdownMenuItem<String>(
+                                value: state,
+                                child: Text(state),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _selectedState = value);
+                          }
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -249,12 +295,7 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
             SliverFillRemaining(
               hasScrollBody: false,
               child: Center(
-                child: Text(
-                  _searchedQuery.isEmpty
-                      ? 'Nema rezervacija za datum ${DateFormat('dd.MM.yyyy').format(_searchedDate)}.'
-                      : 'Nema rezervacija za "$_searchedQuery" na datum ${DateFormat('dd.MM.yyyy').format(_searchedDate)}.',
-                  textAlign: TextAlign.center,
-                ),
+                child: Text(_emptyMessage(), textAlign: TextAlign.center),
               ),
             )
           else ...[
@@ -288,6 +329,16 @@ class _WorkerHomeScreenState extends State<WorkerHomeScreen> {
       ),
     ),
   );
+  String _emptyMessage() {
+    final date = DateFormat('dd.MM.yyyy').format(_searchedDate);
+    final status = _searchedState == _activeStateFilter
+        ? 'aktivnih rezervacija'
+        : 'rezervacija sa statusom "$_searchedState"';
+    return _searchedQuery.isEmpty
+        ? 'Nema $status za datum $date.'
+        : 'Nema $status za "$_searchedQuery" na datum $date.';
+  }
+
   String _reservationLabel(int count) {
     if (count == 1) return 'rezervacija';
     if (count >= 2 && count <= 4) return 'rezervacije';
@@ -407,6 +458,30 @@ class _ReservationCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (reservation.username?.isNotEmpty == true) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.alternate_email_rounded,
+                            size: 14,
+                            color: Color(0xFF64748B),
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              reservation.username!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Color(0xFF475569),
+                                fontSize: 12.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 5),
                     Row(
                       children: [

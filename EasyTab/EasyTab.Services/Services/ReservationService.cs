@@ -179,6 +179,7 @@ namespace EasyTab.Services.Services
             {
                 dto.FirstName = entity.User.FirstName;
                 dto.LastName = entity.User.LastName;
+                dto.Username = entity.User.Username;
                 dto.Email = entity.User.Email;
                 dto.PhoneNumber = entity.User.PhoneNumber;
             }
