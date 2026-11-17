@@ -12,6 +12,11 @@ public partial class Reservation
 
     public int TableId { get; set; }
 
+    [MaxLength(50)]
+    public string TableName { get; set; } = string.Empty;
+
+    public int TableCapacity { get; set; }
+
     public DateTime ReservationDate { get; set; }
 
     public TimeOnly StartTime { get; set; }

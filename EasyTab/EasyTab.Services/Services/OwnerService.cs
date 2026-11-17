@@ -46,7 +46,7 @@ namespace EasyTab.Services.Services
                 .Where(r => r.ReservationDate.Date == today &&
                             r.Table.LocaleId == localeId &&
                             r.ReservationState != "Otkazana")
-                .SumAsync(r => r.Table.NumberOfGuests);
+                .SumAsync(r => r.TableCapacity);
             return guests;
         }
 
@@ -207,7 +207,7 @@ namespace EasyTab.Services.Services
                     s.User.FirstName.Contains(q) ||
                     s.User.LastName.Contains(q) ||
                     s.User.Username.Contains(q) ||
-                    s.Table.Name.Contains(q));
+                    s.TableName.Contains(q));
 
             var total = await query.CountAsync();
 
@@ -226,8 +226,8 @@ namespace EasyTab.Services.Services
                     ReservationDate = s.ReservationDate,
                     StartTime = s.StartTime,
                     EndTime = s.EndTime,
-                    NumberOfGuests = s.Table.NumberOfGuests,
-                    TableName = s.Table.Name,
+                    NumberOfGuests = s.TableCapacity,
+                    TableName = s.TableName,
                     ReservationState = s.ReservationState,
                     LocaleName = s.Table.Locale.Name,
                     LocaleId = s.Table.LocaleId,

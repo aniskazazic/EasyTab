@@ -149,6 +149,16 @@ TypeAdapterConfig<TimeSpan?, TimeOnly?>.NewConfig()
 TypeAdapterConfig<TimeOnly?, TimeSpan?>.NewConfig()
     .MapWith(src => src.HasValue ? src.Value.ToTimeSpan() : (TimeSpan?)null);
 
+// Polja zahtjeva (XCoordinate) i entiteta (Xcoordinate) se razlikuju u velikom slovu, pa ih Mapster sam ne spaja.
+TypeAdapterConfig<TableInsertRequest, Table>.NewConfig()
+    .Map(dest => dest.Xcoordinate, src => src.XCoordinate)
+    .Map(dest => dest.Ycoordinate, src => src.YCoordinate);
+
+// Sva polja izmjene stola su opciona: neposlano polje ostaje kakvo je bilo.
+TypeAdapterConfig<TableUpdateRequest, Table>.NewConfig()
+    .Map(dest => dest.Xcoordinate, src => src.XCoordinate)
+    .Map(dest => dest.Ycoordinate, src => src.YCoordinate)
+    .IgnoreNullValues(true);
 
 builder.Services.AddHttpContextAccessor();
 

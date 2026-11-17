@@ -494,8 +494,16 @@ namespace EasyTab.Services.Migrations
                     b.Property<TimeOnly>("StartTime")
                         .HasColumnType("time");
 
+                    b.Property<int>("TableCapacity")
+                        .HasColumnType("int");
+
                     b.Property<int>("TableId")
                         .HasColumnType("int");
+
+                    b.Property<string>("TableName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("UserId")
                         .HasColumnType("int");

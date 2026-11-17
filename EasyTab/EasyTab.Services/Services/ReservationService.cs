@@ -70,7 +70,7 @@ namespace EasyTab.Services.Services
                 var term = string.Join(" ", search.SearchTerm.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
                     .ToLowerInvariant();
                 query = query.Where(x =>
-                    x.Table.Name.ToLower().Contains(term) ||
+                    x.TableName.ToLower().Contains(term) ||
                     x.User.FirstName.ToLower().Contains(term) ||
                     x.User.LastName.ToLower().Contains(term) ||
                     (x.User.FirstName.Trim() + " " + x.User.LastName.Trim()).ToLower().Contains(term));
@@ -164,19 +164,17 @@ namespace EasyTab.Services.Services
                 dto.PhoneNumber = entity.User.PhoneNumber;
             }
 
-            if (entity.Table != null)
-            {
-                dto.TableName = entity.Table.Name;
-                dto.NumberOfGuests = entity.Table.NumberOfGuests;
+            // Naziv i kapacitet stola su oni iz trenutka rezervacije, ne trenutne vrijednosti stola.
+            dto.TableName = entity.TableName;
+            dto.NumberOfGuests = entity.TableCapacity;
 
-                if (entity.Table.Locale != null)
-                {
-                    dto.LocaleId = entity.Table.Locale.Id;
-                    dto.LocaleName = entity.Table.Locale.Name;
-                    dto.LocaleAddress = entity.Table.Locale.Address;
-                    dto.LocaleLogo = entity.Table.Locale.Logo;
-                    dto.ReservationPrice = entity.Table.Locale.ReservationPrice;
-                }
+            if (entity.Table?.Locale != null)
+            {
+                dto.LocaleId = entity.Table.Locale.Id;
+                dto.LocaleName = entity.Table.Locale.Name;
+                dto.LocaleAddress = entity.Table.Locale.Address;
+                dto.LocaleLogo = entity.Table.Locale.Logo;
+                dto.ReservationPrice = entity.Table.Locale.ReservationPrice;
             }
 
             return dto;

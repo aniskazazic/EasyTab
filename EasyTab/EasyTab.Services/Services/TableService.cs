@@ -20,6 +20,7 @@ namespace EasyTab.Services.Services
 {
     public class TableService : BaseCRUDService<Tables, TableSearchObject, Table, TableInsertRequest, TableUpdateRequest>, ITableService
     {
+        private const int MaxListedReservations = 5;
         private readonly ILogger<TableService> _logger;
         private readonly ILocaleAccessService _localeAccessService;
         private readonly IOptions<PayPalOptions> _payPalOptions;
@@ -52,6 +53,34 @@ namespace EasyTab.Services.Services
             var updated = await base.UpdateAsync(id, request);
             await transaction.CommitAsync();
             return updated;
+        }
+
+        protected override async Task BeforeUpdate(Table entity, TableUpdateRequest request)
+        {
+            if (request.NumberOfGuests.HasValue)
+            {
+                var currentName = Context.Entry(entity).Property(table => table.Name).OriginalValue;
+                await EnsureCapacityFitsReservationsAsync(entity.Id, currentName, request.NumberOfGuests.Value);
+            }
+        }
+
+        // Poredi se kapacitet zapisan na rezervaciji s novim kapacitetom, pa povećanje nikad nije blokirano.
+        private async Task EnsureCapacityFitsReservationsAsync(int tableId, string tableName, int newCapacity)
+        {
+            var affected = await Context.Reservations.Open(LocalClock.Now)
+                .Where(reservation => reservation.TableId == tableId && reservation.TableCapacity > newCapacity)
+                .OrderBy(reservation => reservation.ReservationDate)
+                .ThenBy(reservation => reservation.StartTime)
+                .Select(reservation => new { reservation.ReservationDate, reservation.StartTime, reservation.EndTime })
+                .ToListAsync();
+            if (affected.Count == 0)
+                return;
+
+            var listed = string.Join(", ", affected.Take(MaxListedReservations).Select(reservation =>
+                $"{reservation.ReservationDate:dd.MM.yyyy} {reservation.StartTime:HH:mm}–{reservation.EndTime:HH:mm}"));
+            var more = affected.Count > MaxListedReservations ? $" i još {affected.Count - MaxListedReservations}" : string.Empty;
+            throw new UserException(
+                $"Kapacitet stola \"{tableName}\" se ne može smanjiti na {newCapacity} jer stol ima aktivne ili buduće rezervacije za veći broj gostiju: {listed}{more}. Otkažite ih u pregledu rezervacija, pa ponovo spremite izmjenu.");
         }
 
         private async Task<Table> GetTableForUpdateAsync(int id)
@@ -188,6 +217,8 @@ namespace EasyTab.Services.Services
                     if (existing != null)
                     {
                         _logger.LogInformation("Updating table from layout. TableId: {TableId}, TableName: {TableName}", table.Id, table.Name);
+                        if (existing.NumberOfGuests != table.NumberOfGuests)
+                            await EnsureCapacityFitsReservationsAsync(existing.Id, existing.Name, table.NumberOfGuests);
                         existing.Name = table.Name;
                         existing.Xcoordinate = table.XCoordinate;
                         existing.Ycoordinate = table.YCoordinate;

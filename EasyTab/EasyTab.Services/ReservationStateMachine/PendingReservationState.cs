@@ -78,7 +78,7 @@ namespace EasyTab.Services.ReservationStateMachine
                     ReservationDate = entity.ReservationDate,
                     StartTime = entity.StartTime.ToString("HH:mm"),
                     EndTime = entity.EndTime.ToString("HH:mm"),
-                    NumberOfGuests = table.NumberOfGuests
+                    NumberOfGuests = entity.TableCapacity
                 };
 
                 var publisher = _serviceProvider.GetRequiredService<IRabbitMQPublisher>();

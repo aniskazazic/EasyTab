@@ -439,6 +439,8 @@ namespace EasyTab.Services.SeedData
                     {
                         UserId = user.Id,
                         TableId = table.Id,
+                        TableName = table.Name,
+                        TableCapacity = table.NumberOfGuests,
                         ReservationDate = reservationDate,
                         StartTime = start,
                         EndTime = start.AddHours(2),

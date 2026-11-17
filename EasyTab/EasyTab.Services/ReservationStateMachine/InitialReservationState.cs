@@ -29,7 +29,8 @@ public class InitialReservationState : BaseReservationState
         var user = await _context.Users.SingleAsync(x => x.Id == checkout.UserId);
         var reservation = new Reservation
         {
-            User = user, Table = table, ReservationDate = checkout.ReservationDate!.Value,
+            User = user, Table = table, TableName = table.Name, TableCapacity = table.NumberOfGuests,
+            ReservationDate = checkout.ReservationDate!.Value,
             StartTime = checkout.StartTime!.Value, EndTime = checkout.EndTime!.Value,
             CreatedAt = DateTime.UtcNow, ReservationState = PendingReservationState.StateName
         };
@@ -77,7 +78,7 @@ public class InitialReservationState : BaseReservationState
                     ReservationDate = reservation.ReservationDate,
                     StartTime = reservation.StartTime.ToString("HH:mm"),
                     EndTime = reservation.EndTime.ToString("HH:mm"),
-                    NumberOfGuests = reservation.Table.NumberOfGuests
+                    NumberOfGuests = reservation.TableCapacity
                 });
         }
         catch (Exception ex)
