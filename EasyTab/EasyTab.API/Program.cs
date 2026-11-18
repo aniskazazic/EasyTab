@@ -160,6 +160,10 @@ TypeAdapterConfig<TableUpdateRequest, Table>.NewConfig()
     .Map(dest => dest.Ycoordinate, src => src.YCoordinate)
     .IgnoreNullValues(true);
 
+// Opis i ocjena u izmjeni recenzije su opcioni: neposlano polje ostaje kakvo je bilo.
+TypeAdapterConfig<ReviewUpdateRequest, Review>.NewConfig()
+    .IgnoreNullValues(true);
+
 builder.Services.AddHttpContextAccessor();
 
 var connectionString = builder.Configuration.GetConnectionString("EasyTabConnection");

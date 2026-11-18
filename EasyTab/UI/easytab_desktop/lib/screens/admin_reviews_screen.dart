@@ -93,88 +93,116 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   Widget _buildSearchAndFilter() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                hintText: 'Pretraži po korisniku, lokalu ili opisu...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-              onSubmitted: (_) => _onSearchPressed(),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 190,
-            child: DropdownButtonFormField<int>(
-              value: _selectedRating ?? 0,
-              decoration: InputDecoration(
-                labelText: 'Ocjena',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-              ),
-              items: ratings.entries.map((entry) {
-                return DropdownMenuItem<int>(
-                  value: entry.key,
-                  child: Text(entry.value),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedRating = value == 0 ? null : value;
-                  _currentPage = 0;
-                });
-              },
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            height: 48,
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.calendar_today, size: 18),
-              label: Text(
-                _selectedDate != null ? _formatDate(_selectedDate!) : 'Datum',
-              ),
-              onPressed: _pickDate,
-            ),
-          ),
-          if (_selectedDate != null) ...[
-            const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.close),
-              tooltip: 'Ukloni filter datuma',
-              onPressed: _clearDateFilter,
-            ),
-          ],
-          const SizedBox(width: 12),
-          SizedBox(
-            height: 48,
-            child: ElevatedButton.icon(
-              icon: const Icon(Icons.search),
-              label: const Text('Pretraži'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1E40AF),
-                foregroundColor: Colors.white,
-              ),
-              onPressed: _onSearchPressed,
-            ),
-          ),
+          _buildFilterRow(),
+          const SizedBox(height: 8),
+          _buildShowDeletedCheckbox(),
         ],
       ),
+    );
+  }
+
+  Widget _buildFilterRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: searchController,
+            decoration: InputDecoration(
+              hintText: 'Pretraži po korisniku, lokalu ili opisu...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+            onSubmitted: (_) => _onSearchPressed(),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 190,
+          child: DropdownButtonFormField<int>(
+            value: _selectedRating ?? 0,
+            decoration: InputDecoration(
+              labelText: 'Ocjena',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+            ),
+            items: ratings.entries.map((entry) {
+              return DropdownMenuItem<int>(
+                value: entry.key,
+                child: Text(entry.value),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedRating = value == 0 ? null : value;
+                _currentPage = 0;
+              });
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.calendar_today, size: 18),
+            label: Text(
+              _selectedDate != null ? _formatDate(_selectedDate!) : 'Datum',
+            ),
+            onPressed: _pickDate,
+          ),
+        ),
+        if (_selectedDate != null) ...[
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Ukloni filter datuma',
+            onPressed: _clearDateFilter,
+          ),
+        ],
+        const SizedBox(width: 12),
+        SizedBox(
+          height: 48,
+          child: ElevatedButton.icon(
+            icon: const Icon(Icons.search),
+            label: const Text('Pretraži'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1E40AF),
+              foregroundColor: Colors.white,
+            ),
+            onPressed: _onSearchPressed,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShowDeletedCheckbox() {
+    return Row(
+      children: [
+        const Text('Prikaži obrisane : '),
+        Checkbox(
+          value: showDeleted,
+          onChanged: (value) {
+            setState(() {
+              showDeleted = value ?? false;
+              _currentPage = 0;
+            });
+          },
+        ),
+      ],
     );
   }
 
@@ -322,6 +350,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
             DataColumn(label: Text('Opis')),
             DataColumn(label: Text('Ocjena')),
             DataColumn(label: Text('Datum recenzije')),
+            DataColumn(label: Text('Status')),
             DataColumn(label: Text('Akcije')),
           ],
           rows: _reviews.map((review) {
@@ -329,6 +358,8 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                 ? _formatDate(review.dateAdded!)
                 : '';
             final ratingValue = (review.rating ?? 0).clamp(0, 5);
+            final isDeleted = review.isDeleted ?? false;
+            const deletedTooltip = 'Obrisana recenzija se ne može mijenjati.';
 
             return DataRow(
               cells: [
@@ -361,6 +392,15 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                 ),
                 DataCell(Text(formattedDate)),
                 DataCell(
+                  Text(
+                    isDeleted ? 'Obrisana' : 'Aktivna',
+                    style: TextStyle(
+                      color: isDeleted ? Colors.red : Colors.green,
+                      fontWeight: isDeleted ? FontWeight.bold : null,
+                    ),
+                  ),
+                ),
+                DataCell(
                   Row(
                     children: [
                       IconButton(
@@ -371,17 +411,19 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
                             : () => _openReview(review),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        tooltip: 'Uredi',
-                        onPressed: _isMutating
+                        icon: const Icon(Icons.edit),
+                        color: Colors.blue,
+                        tooltip: isDeleted ? deletedTooltip : 'Uredi',
+                        onPressed: _isMutating || isDeleted
                             ? null
                             : () => _openReview(review, editMode: true),
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        tooltip: 'Obriši',
-                        onPressed: _isMutating
+                        icon: const Icon(Icons.delete),
+                        color: Colors.red,
+                        tooltip: isDeleted ? deletedTooltip : 'Obriši',
+                        onPressed: _isMutating || isDeleted
                             ? null
                             : () => _confirmDelete(review),
                       ),

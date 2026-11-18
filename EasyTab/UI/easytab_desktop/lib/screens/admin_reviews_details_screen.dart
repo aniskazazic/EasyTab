@@ -28,12 +28,14 @@ class _AdminReviewsDetailsScreenState extends State<AdminReviewsDetailsScreen> {
   bool _isSaving = false;
   String? _saveError;
 
+  bool get _isDeleted => widget.review.isDeleted ?? false;
+
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.review.description);
     _rating = widget.review.rating;
-    _isEditing = widget.editMode;
+    _isEditing = widget.editMode && !_isDeleted;
   }
 
   @override
@@ -183,7 +185,7 @@ class _AdminReviewsDetailsScreenState extends State<AdminReviewsDetailsScreen> {
                         backgroundColor: const Color(0xFF1E40AF),
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: _isSaving
+                      onPressed: _isSaving || _isDeleted
                           ? null
                           : _isEditing
                           ? _save
@@ -199,6 +201,14 @@ class _AdminReviewsDetailsScreenState extends State<AdminReviewsDetailsScreen> {
                     ),
                   ],
                 ),
+                if (_isDeleted)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'Recenzija je obrisana i ne može se uređivati.',
+                      style: TextStyle(color: Colors.grey.shade700),
+                    ),
+                  ),
               ],
             ),
           ),

@@ -33,20 +33,33 @@ namespace EasyTab.Services.Services
             return await base.CreateAsync(request);
         }
 
+        private static IQueryable<Review> WithDetails(IQueryable<Review> query)
+        {
+            return query.Include(x => x.User)
+                        .Include(x => x.Locale)
+                        .Include(x => x.Reactions);
+        }
+
+        public override async Task<Reviews?> GetByIdAsync(int id)
+        {
+            var entity = await WithDetails(Context.Reviews)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.Id == id && (!x.IsDeleted || _currentUser.IsAdmin));
+
+            return entity == null ? null : MapToResponse(entity);
+        }
+
         protected override IQueryable<Review> ApplyFilter(IQueryable<Review> query, ReviewSearchObject search)
         {
-            query = query.Include(x => x.User)
-                         .Include(x => x.Locale)
-                         .Include(x => x.Reactions);
+            query = WithDetails(query);
 
-            // Po defaultu prikazuj samo aktivne recenzije
-            query = query.Where(x => !x.IsDeleted);
+            // Obrisane recenzije vidi samo administrator uz IsDeleted=true, i to zajedno s aktivnima.
+            var includeDeleted = _currentUser.IsAdmin && search?.IsDeleted == true;
+            if (!includeDeleted)
+                query = query.Where(x => !x.IsDeleted);
 
             if (search?.LocaleId.HasValue == true)
                 query = query.Where(x => x.LocaleId == search.LocaleId);
-
-            if (search?.IsDeleted.HasValue == true)
-                query = query.Where(x => x.IsDeleted == search.IsDeleted);
 
             if (search?.UserId.HasValue == true)
                 query = query.Where(x => x.UserId == search.UserId);
@@ -177,6 +190,10 @@ namespace EasyTab.Services.Services
         protected override Task BeforeUpdate(Review entity, ReviewUpdateRequest request)
         {
             EnsureOwnership(entity);
+
+            if (entity.IsDeleted)
+                throw new UserException("Obrisana recenzija se ne može mijenjati.");
+
             _logger.LogInformation("Updating review. ReviewId: {ReviewId}", entity.Id);
 
             if (request.Rating.HasValue && (request.Rating < 1 || request.Rating > 5))
@@ -190,12 +207,14 @@ namespace EasyTab.Services.Services
 
         protected override async Task BeforeDelete(Review entity)
         {
-            if (_currentUser.IsAdmin || entity.UserId == _currentUser.UserId)
-                return;
-
-            var isLocaleOwner = await Context.Locales.AnyAsync(l => l.Id == entity.LocaleId && l.OwnerId == _currentUser.UserId);
-            if (!isLocaleOwner)
+            var canDelete = _currentUser.IsAdmin
+                || entity.UserId == _currentUser.UserId
+                || await Context.Locales.AnyAsync(l => l.Id == entity.LocaleId && l.OwnerId == _currentUser.UserId);
+            if (!canDelete)
                 throw new UnauthorizedAccessException("Nemate dozvolu za ovu akciju.");
+
+            if (entity.IsDeleted)
+                throw new UserException("Recenzija je već obrisana.");
         }
 
         private void EnsureOwnership(Review entity)
@@ -250,10 +269,7 @@ namespace EasyTab.Services.Services
         {
             page = Math.Max(page, 1);
             pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
-            var entities = await Context.Reviews
-                .Include(r => r.User)
-                .Include(r => r.Locale)
-                .Include(r => r.Reactions)
+            var entities = await WithDetails(Context.Reviews)
                 .Where(r => r.LocaleId == localeId && !r.IsDeleted)
                 .OrderByDescending(r => r.DateAdded)
                 .ThenByDescending(r => r.Id)

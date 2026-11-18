@@ -52,6 +52,13 @@ namespace EasyTab.Services.Services
         {
             var userId = _currentUser.UserId;
 
+            var reviewAvailable = await Context.Reviews.AnyAsync(r => r.Id == reviewId && !r.IsDeleted);
+            if (!reviewAvailable)
+            {
+                _logger.LogWarning("Reaction rejected, review unavailable. UserId: {UserId}, ReviewId: {ReviewId}", userId, reviewId);
+                throw new UserException("Recenzija više nije dostupna za reakcije.");
+            }
+
             var existing = await Context.Reactions
                 .FirstOrDefaultAsync(r => r.ReviewId == reviewId && r.UserId == userId);
 
