@@ -105,6 +105,7 @@ namespace EasyTab.Services.Services
             await using var transaction = await Context.Database.BeginTransactionAsync(CancellationToken.None);
             await ReservationOperationLock.LocaleAsync(Context, id);
             await Context.Entry(entity).ReloadAsync(CancellationToken.None);
+            await EnsureWorkingHoursFitReservationsAsync(entity, request);
             await BeforeUpdate(entity, request);
             // Čuva sve izmene
             await Context.SaveChangesAsync();
@@ -503,6 +504,32 @@ namespace EasyTab.Services.Services
                 entity.DeletedAt = null;
 
             await Task.CompletedTask;
+        }
+
+        // Trajanje se ne provjerava: rezervacija čuva svoj početak i kraj, a novo trajanje važi samo za nove termine.
+        private async Task EnsureWorkingHoursFitReservationsAsync(Locale entity, LocaleUpdateRequest request)
+        {
+            var opening = request.StartOfWorkingHours ?? entity.StartOfWorkingHours;
+            var closing = request.EndOfWorkingHours ?? entity.EndOfWorkingHours;
+            if (opening == entity.StartOfWorkingHours && closing == entity.EndOfWorkingHours)
+                return;
+
+            var openReservations = await Context.Reservations.Open(LocalClock.Now)
+                .Where(reservation => reservation.Table.LocaleId == entity.Id)
+                .OrderBy(reservation => reservation.ReservationDate)
+                .ThenBy(reservation => reservation.StartTime)
+                .Select(reservation => new AffectedReservation(reservation.ReservationDate, reservation.StartTime, reservation.EndTime, reservation.TableName))
+                .ToListAsync(CancellationToken.None);
+            // Pravilo preko ponoći se računa u memoriji, istom metodom kao ponuda termina.
+            var affected = openReservations
+                .Where(reservation => !ReservationTime.IsWithinWorkingHours(
+                    reservation.ReservationDate, reservation.StartTime, reservation.EndTime, opening, closing))
+                .ToList();
+            if (affected.Count == 0)
+                return;
+
+            throw new UserException(
+                $"Radno vrijeme se ne može promijeniti na {opening:HH:mm}–{closing:HH:mm} jer lokal ima aktivne ili buduće rezervacije izvan novog radnog vremena: {AffectedReservationsText.Describe(affected)}. Otkažite ih u pregledu rezervacija, pa ponovo spremite izmjenu.");
         }
 
         private async Task ValidateUpdateReferencesAsync(Locale entity, LocaleUpdateRequest request)
