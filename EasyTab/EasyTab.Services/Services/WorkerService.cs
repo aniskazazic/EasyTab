@@ -108,6 +108,10 @@ namespace EasyTab.Services.Services
             if (existingUser != null)
                 throw new UserException("Korisnik sa ovim emailom ili korisničkim imenom već postoji!");
 
+            var adminRoleIds = _currentUser.IsAdmin && request.RoleIds != null && request.RoleIds.Count > 0
+                ? await RoleSelectionValidator.EnsureActiveRolesAsync(Context, request.RoleIds)
+                : null;
+
             var salt = _cryptoService.GenerateSalt();
             var user = new User
             {
@@ -139,18 +143,15 @@ namespace EasyTab.Services.Services
             Context.Workers.Add(worker);
 
 
-            if (_currentUser.IsAdmin && request.RoleIds != null && request.RoleIds.Any())
+            if (adminRoleIds != null)
             {
-                foreach (var roleId in request.RoleIds)
+                foreach (var roleId in adminRoleIds)
                 {
-                    if (await Context.Roles.AnyAsync(r => r.Id == roleId))
+                    Context.UserRoles.Add(new UserRole
                     {
-                        Context.UserRoles.Add(new UserRole
-                        {
-                            User = user,
-                            RoleId = roleId
-                        });
-                    }
+                        User = user,
+                        RoleId = roleId
+                    });
                 }
             }
             else

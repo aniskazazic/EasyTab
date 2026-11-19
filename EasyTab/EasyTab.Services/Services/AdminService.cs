@@ -1,4 +1,5 @@
-﻿using EasyTab.Model.Requests;
+﻿using EasyTab.Model;
+using EasyTab.Model.Requests;
 using EasyTab.Model.Responses;
 using EasyTab.Model.Exceptions;
 using EasyTab.Services.Database;
@@ -67,10 +68,7 @@ namespace EasyTab.Services.Services
         {
             var activeUsers = await _db.Users.CountAsync(u => !u.IsDeleted);
             var deletedUsers = await _db.Users.CountAsync(u => u.IsDeleted);
-            var ownerCount = await _db.Locales.Select(l => l.OwnerId).Distinct().CountAsync();
-            var workerCount = await _db.Workers.CountAsync();
-            var totalUsers = activeUsers + deletedUsers;
-            var normalUserCount = totalUsers - ownerCount - workerCount;
+            var userRoleData = await GetUserRoleDataAsync();
 
             var categoryGroups = await _db.Locales
                 .Where(l => !l.IsDeleted)
@@ -94,11 +92,46 @@ namespace EasyTab.Services.Services
             return new AdminAnalyticsResponse
             {
                 UserStatsData = new[] { activeUsers, deletedUsers },
-                UserRoleData = new[] { ownerCount, workerCount, normalUserCount },
+                UserRoleData = userRoleData,
+                UserRoleLabels = UserRoleLabels,
                 LocaleCategoryData = categoryCounts,
                 LocaleCountyData = topCountries.Select(x => x.Count).ToArray(),
                 CountyNames = topCountries.Select(x => x.CountryName).ToArray()
             };
+        }
+
+        private static readonly string[] UserRoleLabels =
+        {
+            "Vlasnici (aktivna uloga Vlasnik, bez administratora)",
+            "Radnici (aktivna uloga Radnik i aktivan angažman, bez administratora i vlasnika)",
+            "Korisnici (ostali aktivni korisnici)",
+            "Administratori (aktivna uloga Admin)"
+        };
+
+        private async Task<int[]> GetUserRoleDataAsync()
+        {
+            const int owner = 0, worker = 1, user = 2, admin = 3;
+
+            var activeUserRoles = _db.UserRoles.Where(ur => !ur.IsDeleted && !ur.Role.IsDeleted);
+            var activeWorkers = _db.Workers.Active();
+
+            var groups = await _db.Users
+                .Where(u => !u.IsDeleted)
+                .Select(u => new
+                {
+                    IsAdmin = activeUserRoles.Any(ur => ur.UserId == u.Id && ur.Role.Name == RoleNames.Admin),
+                    IsOwner = activeUserRoles.Any(ur => ur.UserId == u.Id && ur.Role.Name == RoleNames.Vlasnik),
+                    IsWorker = activeUserRoles.Any(ur => ur.UserId == u.Id && ur.Role.Name == RoleNames.Radnik)
+                        && activeWorkers.Any(w => w.UserId == u.Id)
+                })
+                .GroupBy(x => x.IsAdmin ? admin : x.IsOwner ? owner : x.IsWorker ? worker : user)
+                .Select(g => new { Category = g.Key, Count = g.Count() })
+                .ToListAsync();
+
+            var result = new int[UserRoleLabels.Length];
+            foreach (var group in groups)
+                result[group.Category] = group.Count;
+            return result;
         }
 
         public async Task ReactivateLocale(int id)

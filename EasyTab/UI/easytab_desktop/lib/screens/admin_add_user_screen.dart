@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:easytab_desktop/exceptions/api_exception.dart';
 import 'package:easytab_desktop/layouts/master_screen.dart';
 import 'package:easytab_desktop/models/locale.dart' as models;
+import 'package:easytab_desktop/models/role.dart';
 import 'package:easytab_desktop/providers/locale_provider.dart';
+import 'package:easytab_desktop/providers/role_provider.dart';
 import 'package:easytab_desktop/providers/user_provider.dart';
 import 'package:easytab_desktop/providers/utils.dart';
 import 'package:easytab_desktop/providers/worker_provider.dart';
@@ -29,6 +31,11 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
   late UserProvider userProvider;
   late WorkerProvider workerProvider;
   late LocaleProvider localeProvider;
+  late RoleProvider roleProvider;
+
+  static const _userRoleName = 'korisnik';
+  static const _ownerRoleName = 'vlasnik';
+  static const _rolesNotOfferedOnUserTab = {'admin', 'vlasnik', 'radnik'};
 
   final _userFormKey = GlobalKey<FormBuilderState>();
   final _ownerFormKey = GlobalKey<FormBuilderState>();
@@ -42,6 +49,10 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
   List<models.Locale> _locales = [];
   bool _isLoadingLocales = true;
   bool _localeLoadFailed = false;
+  List<Role> _roles = [];
+  bool _isLoadingRoles = true;
+  bool _roleLoadFailed = false;
+  final Map<String, String> _roleErrors = {};
   bool isLoading = false;
   @override
   void initState() {
@@ -50,7 +61,47 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
     userProvider = context.read<UserProvider>();
     workerProvider = context.read<WorkerProvider>();
     localeProvider = context.read<LocaleProvider>();
+    roleProvider = context.read<RoleProvider>();
     _loadLocales();
+    _loadRoles();
+  }
+
+  static String _roleKey(Role role) => role.name?.trim().toLowerCase() ?? '';
+
+  List<Role> get _userTabRoles => _roles
+      .where((role) => !_rolesNotOfferedOnUserTab.contains(_roleKey(role)))
+      .toList();
+
+  Role? _roleByName(String name) {
+    for (final role in _roles) {
+      if (_roleKey(role) == name) return role;
+    }
+    return null;
+  }
+
+  Future<void> _loadRoles() async {
+    setState(() {
+      _isLoadingRoles = true;
+      _roleLoadFailed = false;
+    });
+    try {
+      final roles = await fetchAllPages(
+        (filter) => roleProvider.get(filter: filter),
+      );
+      if (!mounted) return;
+      final roleField = _userFormKey.currentState?.fields['roleId'];
+      final stillOffered = roles.any(
+        (role) =>
+            role.id == roleField?.value &&
+            !_rolesNotOfferedOnUserTab.contains(_roleKey(role)),
+      );
+      if (roleField != null && !stillOffered) roleField.didChange(null);
+      setState(() => _roles = roles);
+    } catch (e) {
+      if (mounted) setState(() => _roleLoadFailed = true);
+    } finally {
+      if (mounted) setState(() => _isLoadingRoles = false);
+    }
   }
 
   @override
@@ -136,7 +187,25 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
       return;
     }
 
-      _showError(userError(error));
+    final roleError = error is ApiClientException
+        ? _roleValidationError(error)
+        : null;
+    if (roleError != null) {
+      setState(() => _roleErrors[imageKey] = roleError);
+      _loadRoles();
+      return;
+    }
+
+    _showError(userError(error));
+  }
+
+  String? _roleValidationError(ApiClientException error) {
+    for (final entry in error.validationErrors.entries) {
+      if (entry.key.toLowerCase() == 'roleids' && entry.value.isNotEmpty) {
+        return entry.value.first;
+      }
+    }
+    return null;
   }
 
   Map<String, dynamic> _buildRequest(
@@ -165,12 +234,14 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
   // Spremi korisnika
   Future<void> _saveUser() async {
+    setState(() => _roleErrors.remove('user'));
     _userFormKey.currentState?.saveAndValidate();
     if (!(_userFormKey.currentState?.validate() ?? false)) return;
 
     setState(() => isLoading = true);
     try {
       var request = _buildRequest(_userFormKey, _userImage);
+      request['roleIds'] = [request.remove('roleId')];
       await userProvider.insert(request);
       _showSuccess('Korisnik uspješno dodan!');
     } catch (e) {
@@ -182,13 +253,17 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
 
   // Spremi vlasnika
   Future<void> _saveOwner() async {
+    final ownerRole = _roleByName(_ownerRoleName);
+    if (ownerRole == null) return;
+
+    setState(() => _roleErrors.remove('owner'));
     _ownerFormKey.currentState?.saveAndValidate();
     if (!(_ownerFormKey.currentState?.validate() ?? false)) return;
 
     setState(() => isLoading = true);
     try {
       var request = _buildRequest(_ownerFormKey, _ownerImage);
-      request['roleIds'] = [2]; // Owner rola
+      request['roleIds'] = [ownerRole.id];
       await userProvider.insert(request);
       _showSuccess('Vlasnik uspješno dodan!');
     } catch (e) {
@@ -208,7 +283,6 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
       var request = _buildRequest(_workerFormKey, _workerImage);
 
       request['localeId'] = _workerFormKey.currentState?.value['localeId'];
-      request['roleIds'] = [3];
 
       await workerProvider.insert(request);
       _showSuccess('Radnik uspješno dodan!');
@@ -290,6 +364,8 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
                   const SizedBox(height: 16),
                   _buildPhoneBirthRow(),
                   const SizedBox(height: 16),
+                  _buildUserRoleField(),
+                  const SizedBox(height: 16),
                   // Separator
                   Row(
                     children: [
@@ -319,7 +395,7 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
             ),
           ),
         ),
-        _buildSaveButton('Dodaj korisnika', _saveUser),
+        _buildSaveButton('Dodaj korisnika', _roles.isEmpty ? null : _saveUser),
       ],
     );
   }
@@ -352,6 +428,8 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
                   const SizedBox(height: 16),
                   _buildPhoneBirthRow(),
                   const SizedBox(height: 16),
+                  _buildOwnerRoleField(),
+                  const SizedBox(height: 16),
                   // Separator
                   Row(
                     children: [
@@ -381,7 +459,10 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
             ),
           ),
         ),
-        _buildSaveButton('Dodaj vlasnika', _saveOwner),
+        _buildSaveButton(
+          'Dodaj vlasnika',
+          _roleByName(_ownerRoleName) == null ? null : _saveOwner,
+        ),
       ],
     );
   }
@@ -446,6 +527,8 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
                   _buildUsernameEmailRow(),
                   const SizedBox(height: 16),
                   _buildPhoneBirthRow(),
+                  const SizedBox(height: 16),
+                  _buildFixedRoleField('Radnik'),
                   const SizedBox(height: 16),
 
                   // Lokal dropdown — samo za radnika
@@ -655,19 +738,117 @@ class _AdminAddUserScreenState extends State<AdminAddUserScreen>
             ),
           ],
         ),
-        if (error != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              error,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ),
+        if (error != null) _buildErrorText(error),
       ],
     );
   }
 
-  Widget _buildSaveButton(String label, VoidCallback onPressed) {
+  Widget _buildErrorText(String error) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        error,
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      ),
+    );
+  }
+
+  Widget? _buildRoleLoadState() {
+    if (_roles.isNotEmpty) return null;
+    if (_isLoadingRoles) {
+      return const Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          SizedBox(width: 12),
+          Text('Učitavanje uloga...'),
+        ],
+      );
+    }
+    if (_roleLoadFailed) {
+      return Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Uloge nije moguće učitati, pa spremanje nije moguće. '
+              'Pokušajte ponovo.',
+            ),
+          ),
+          TextButton(
+            onPressed: _loadRoles,
+            child: const Text('Pokušaj ponovo'),
+          ),
+        ],
+      );
+    }
+    return null;
+  }
+
+  Widget _buildUserRoleField() {
+    final loadState = _buildRoleLoadState();
+    if (loadState != null) return loadState;
+
+    final error = _roleErrors['user'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        FormBuilderDropdown<int>(
+          name: 'roleId',
+          initialValue: _roleByName(_userRoleName)?.id,
+          decoration: const InputDecoration(
+            labelText: 'Uloga',
+            border: OutlineInputBorder(),
+          ),
+          validator: FormBuilderValidators.required(
+            errorText: 'Odaberite ulogu',
+          ),
+          items: _userTabRoles
+              .map(
+                (role) => DropdownMenuItem(
+                  value: role.id,
+                  child: Text(role.name ?? ''),
+                ),
+              )
+              .toList(),
+        ),
+        if (error != null) _buildErrorText(error),
+      ],
+    );
+  }
+
+  Widget _buildFixedRoleField(String roleName) {
+    return InputDecorator(
+      decoration: const InputDecoration(
+        labelText: 'Uloga',
+        border: OutlineInputBorder(),
+        helperText: 'Uloga je određena vrstom naloga i ne može se mijenjati.',
+      ),
+      child: Text(roleName),
+    );
+  }
+
+  Widget _buildOwnerRoleField() {
+    final loadState = _buildRoleLoadState();
+    if (loadState != null) return loadState;
+
+    final error =
+        _roleErrors['owner'] ??
+        (_roleByName(_ownerRoleName) == null
+            ? "Uloga 'Vlasnik' više nije dostupna, pa vlasnika nije moguće dodati."
+            : null);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildFixedRoleField('Vlasnik'),
+        if (error != null) _buildErrorText(error),
+      ],
+    );
+  }
+
+  Widget _buildSaveButton(String label, VoidCallback? onPressed) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: SizedBox(

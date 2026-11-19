@@ -185,29 +185,26 @@ namespace EasyTab.Services.Services
 
             if (request.RoleIds != null && request.RoleIds.Count > 0)
             {
-                foreach (var roleId in request.RoleIds)
+                var roleIds = await RoleSelectionValidator.EnsureActiveRolesAsync(Context, request.RoleIds);
+                foreach (var roleId in roleIds)
                 {
-                    if (await Context.Roles.AnyAsync(r => r.Id == roleId))
+                    entity.UserRoles.Add(new UserRole
                     {
-                        entity.UserRoles.Add(new UserRole
-                        {
-                            RoleId = roleId
-                        });
-                    }
+                        RoleId = roleId
+                    });
                 }
             }
             else
             {
-                var defaultRole = await Context.Roles.FirstOrDefaultAsync(r => r.Name == RoleNames.Korisnik);
-                if (defaultRole != null)
-                {
-                    entity.UserRoles.Add(new UserRole
-                    {
-                        RoleId = defaultRole.Id
-                    });
+                var defaultRole = await Context.Roles.FirstOrDefaultAsync(r => r.Name == RoleNames.Korisnik && !r.IsDeleted)
+                    ?? throw new UserException($"Uloga '{RoleNames.Korisnik}' nije dostupna.");
 
-                    _logger.LogInformation("Automatski dodeljena rola 'Korisnik' korisniku {Username}", request.Username);
-                }
+                entity.UserRoles.Add(new UserRole
+                {
+                    RoleId = defaultRole.Id
+                });
+
+                _logger.LogInformation("Automatski dodeljena rola 'Korisnik' korisniku {Username}", request.Username);
             }
 
             await Task.CompletedTask;
