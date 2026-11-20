@@ -181,6 +181,7 @@ namespace EasyTab.Services.Services
                         throw new UserException("Podaci započetog plaćanja se ne mogu mijenjati.");
                     if (checkout.Status == PaymentStatus.Refunded) throw new UserException("Povrat uplate je pokrenut. Odaberite novi termin.");
                     EnsureCheckoutNotExpired(checkout);
+                    EnsureExchangeRateUnchanged(checkout);
                     if (!checkout.ReservationId.HasValue && !await IsAvailableAsync(checkout))
                         throw new UserException("Odabrani termin više nije dostupan.");
                 }
@@ -193,7 +194,7 @@ namespace EasyTab.Services.Services
                         NumberOfGuests = request.NumberOfGuests, ReservationDate = request.ReservationDate.Date,
                         StartTime = TimeOnly.FromTimeSpan(request.StartTime), EndTime = TimeOnly.FromTimeSpan(request.EndTime),
                         AmountKm = table.Locale.ReservationPrice,
-                        Amount = Math.Round(table.Locale.ReservationPrice / _payPalOptions.Value.BamToEurRate, 2),
+                        Amount = ToPayPalAmount(table.Locale.ReservationPrice),
                         Currency = _payPalOptions.Value.Currency, CreatedAt = DateTime.UtcNow, Status = PaymentStatus.Created
                     };
                     if (checkout.Amount <= 0 || checkout.AmountKm <= 0)
@@ -224,7 +225,12 @@ namespace EasyTab.Services.Services
                 await _context.SaveChangesAsync();
             }
             await orderTransaction.CommitAsync();
-            return new CreateOrderResponse { OrderId = checkout.PayPalOrderId, ApprovalUrl = checkout.ApprovalUrl };
+            return new CreateOrderResponse
+            {
+                OrderId = checkout.PayPalOrderId, ApprovalUrl = checkout.ApprovalUrl,
+                AmountKm = checkout.AmountKm, Amount = checkout.Amount, Currency = checkout.Currency,
+                ExchangeRate = _payPalOptions.Value.BamToEurRate
+            };
         }
 
         public async Task<PaymentResponse> CaptureCheckoutAsync(string orderId)
@@ -333,6 +339,16 @@ namespace EasyTab.Services.Services
             if (!checkout.ReservationId.HasValue &&
                 checkout.CreatedAt <= DateTime.UtcNow.AddMinutes(-_payPalOptions.Value.CheckoutHoldMinutes))
                 throw new UserException("Vrijeme za plaćanje je isteklo. Vratite se na odabir termina i pokrenite novo plaćanje.");
+        }
+
+        private decimal ToPayPalAmount(decimal amountKm) => Math.Round(amountKm / _payPalOptions.Value.BamToEurRate, 2);
+
+        // Kurs se ne čuva uz plaćanje: sačuvani iznos mora odgovarati trenutnom kursu da bi prikazani kurs bio onaj primijenjeni.
+        private void EnsureExchangeRateUnchanged(Payment checkout)
+        {
+            if (checkout.Amount != ToPayPalAmount(checkout.AmountKm) ||
+                !string.Equals(checkout.Currency, _payPalOptions.Value.Currency, StringComparison.OrdinalIgnoreCase))
+                throw new UserException("Kurs ili valuta naplate su promijenjeni. Vratite se na odabir termina i pokrenite novo plaćanje.");
         }
 
         private async Task<bool> IsAvailableAsync(Payment checkout)

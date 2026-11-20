@@ -1,4 +1,3 @@
-import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/locale.dart' as model;
 import 'package:easytab_mobile/models/table.dart';
 import 'package:easytab_mobile/models/time_slot.dart';
@@ -150,10 +149,6 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
     }
     setState(() => _isProcessing = true);
     try {
-      if (!await confirmReservationPayment(context, locale.reservationPrice!)) {
-        return;
-      }
-      if (!mounted) return;
       final slot = _slots[_selectedSlotIndex!];
       final request = ReservationCheckoutRequest(
         tableId: table.id!,
@@ -173,12 +168,6 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
         ),
       );
       if (mounted) Navigator.of(context).pop();
-    } on ApiClientException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
-      }
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
@@ -624,7 +613,10 @@ class _ReservationDetailsScreenState extends State<ReservationDetailsScreen> {
                 ? 'Cijena nije dostupna ili nije veća od 0 KM; plaćanje je onemogućeno.'
                 : 'Cijena: ${locale.reservationPrice!.toStringAsFixed(2)} KM',
           ),
-          const Text(paymentCurrencyNote, textAlign: TextAlign.center),
+          const Text(
+            'Iznos naplate i primijenjeni kurs prikazuju se u potvrdi plaćanja.',
+            textAlign: TextAlign.center,
+          ),
           if (_selectedSlotIndex == null)
             const Text('Odaberite termin za plaćanje.'),
           if (_isProcessing)

@@ -1,5 +1,6 @@
 import 'package:easytab_mobile/exceptions/api_exception.dart';
 import 'package:easytab_mobile/models/create_order_response.dart';
+import 'package:easytab_mobile/models/payment_response.dart';
 import 'package:easytab_mobile/models/reservation_checkout_request.dart';
 import 'package:easytab_mobile/providers/auth_provider.dart';
 import 'package:easytab_mobile/providers/payment_provider.dart';
@@ -11,21 +12,22 @@ import 'package:provider/provider.dart';
 import 'package:easytab_mobile/widgets/form_feedback.dart';
 import 'package:easytab_mobile/providers/utils.dart';
 
-const paymentCurrencyNote =
-    'Naplata se vrši u EUR po fiksnom kursu 1 EUR = 1,95583 KM';
+String _chargeDetails(CreateOrderResponse order) =>
+    'Cijena rezervacije: ${order.amountKm.toStringAsFixed(2)} KM\n'
+    'PayPal naplaćuje: ${order.amount.toStringAsFixed(2)} ${order.currency}\n'
+    'Primijenjeni kurs: 1 ${order.currency} = ${order.exchangeRate} KM\n'
+    'Iznos u ${order.currency} je zaokružen na 2 decimale.';
 
-Future<bool> confirmReservationPayment(
+Future<bool> _confirmPayment(
   BuildContext context,
-  double price,
+  CreateOrderResponse order,
 ) async =>
     await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         scrollable: true,
         title: dialogTitle(ctx, 'Potvrda plaćanja'),
-        content: Text(
-          'Plaćate ${price.toStringAsFixed(2)} KM za rezervaciju.\n\n$paymentCurrencyNote',
-        ),
+        content: Text(_chargeDetails(order)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -62,21 +64,20 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
   final _payments = PaymentProvider();
   CreateOrderResponse? _order;
   bool _approved = false;
-  bool _paid = false;
   bool _busy = false;
-  double? _paidAmount;
+  PaymentResponse? _payment;
   String? _message;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _pay(confirmed: true);
+      if (mounted) _pay();
     });
   }
 
-  Future<void> _pay({bool confirmed = false}) async {
-    if (_busy || _paid) return;
+  Future<void> _pay() async {
+    if (_busy || _payment != null) return;
     setState(() {
       _busy = true;
       _message = null;
@@ -84,18 +85,24 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
     final reservations = context.read<ReservationProvider>();
     final recommendations = context.read<RecommendationProvider>();
     try {
-      if (!confirmed &&
-          !await confirmReservationPayment(context, widget.price)) {
-        return;
-      }
+      final order = _order ?? await _payments.createOrder(widget.request);
       if (!mounted) return;
-      _order ??= await _payments.createOrder(widget.request);
-      if (!mounted) return;
+      setState(() => _order = order);
       if (!_approved) {
+        if (!await _confirmPayment(context, order)) {
+          if (mounted) {
+            setState(
+              () => _message =
+                  'Plaćanje nije pokrenuto. Rezervacija nije kreirana. Možete pokušati ponovo ili zatvoriti ekran.',
+            );
+          }
+          return;
+        }
+        if (!mounted) return;
         final result = await Navigator.of(context).push<String>(
           MaterialPageRoute(
             builder: (_) =>
-                PayPalCheckoutScreen(approvalUrl: _order!.approvalUrl),
+                PayPalCheckoutScreen(approvalUrl: order.approvalUrl),
           ),
         );
         if (!mounted) return;
@@ -108,19 +115,14 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
         }
         _approved = true;
       }
-      final payment = await _payments.capture(_order!.orderId);
+      final payment = await _payments.capture(order.orderId);
       if (!payment.isCompleted) {
         throw ApiClientException(
           'Naplata nije potvrđena. Provjerite status ponovnim pokušajem.',
         );
       }
       recommendations.invalidate();
-      if (mounted) {
-        setState(() {
-          _paid = true;
-          _paidAmount = payment.amountKm;
-        });
-      }
+      if (mounted) setState(() => _payment = payment);
     } on ApiClientException catch (e) {
       if (mounted) setState(() => _message = e.message);
     } catch (_) {
@@ -183,7 +185,7 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
               ],
             ),
             const SizedBox(height: 24),
-            if (_paid) ...[
+            if (_payment != null) ...[
               if (_busy) ...[
                 const LinearProgressIndicator(),
                 const Text(
@@ -192,7 +194,8 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
               ],
               const Icon(Icons.check_circle, color: Colors.green, size: 64),
               Text(
-                'Plaćeno · ${_paidAmount!.toStringAsFixed(2)} KM',
+                'Plaćeno · ${_payment!.amountKm.toStringAsFixed(2)} KM '
+                '(${_payment!.amount.toStringAsFixed(2)} ${_payment!.currency})',
                 textAlign: TextAlign.center,
               ),
               const Text(
@@ -200,8 +203,13 @@ class _ReservationPaymentScreenState extends State<ReservationPaymentScreen> {
                 textAlign: TextAlign.center,
               ),
             ] else ...[
-              Text('Cijena: ${widget.price.toStringAsFixed(2)} KM'),
-              const Text(paymentCurrencyNote),
+              if (_order == null) ...[
+                Text('Cijena: ${widget.price.toStringAsFixed(2)} KM'),
+                const Text(
+                  'Iznos naplate i primijenjeni kurs preuzimaju se sa servera prije potvrde plaćanja.',
+                ),
+              ] else
+                Text(_chargeDetails(_order!)),
               const Text('Rezervacija se kreira tek nakon uspješne naplate.'),
               if (_busy) ...[
                 const LinearProgressIndicator(),

@@ -7,6 +7,8 @@ class PaymentResponse {
   final int id;
   final int reservationId;
   final double amountKm;
+  final double amount;
+  final String currency;
   final String status;
   final String payPalOrderId;
 
@@ -14,6 +16,8 @@ class PaymentResponse {
     required this.id,
     required this.reservationId,
     required this.amountKm,
+    required this.amount,
+    required this.currency,
     required this.status,
     required this.payPalOrderId,
   });
