@@ -22,7 +22,10 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   int _totalCount = 0;
   int _currentPage = 0;
   final int _pageSize = 10;
-  bool showDeleted = false;
+  static const String _statusAll = 'Sve';
+  static const String _statusActive = 'Aktivne';
+  static const String _statusDeleted = 'Obrisane';
+  String _statusFilter = _statusActive;
   List<Review> _reviews = [];
   bool _initialized = false;
   DateTime? _selectedDate;
@@ -93,14 +96,15 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
   Widget _buildSearchAndFilter() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildFilterRow(),
-          const SizedBox(height: 8),
-          _buildShowDeletedCheckbox(),
-        ],
-      ),
+      child: _buildFilterRow(),
+    );
+  }
+
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     );
   }
 
@@ -129,16 +133,7 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
           width: 190,
           child: DropdownButtonFormField<int>(
             value: _selectedRating ?? 0,
-            decoration: InputDecoration(
-              labelText: 'Ocjena',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
-            ),
+            decoration: _dropdownDecoration('Ocjena'),
             items: ratings.entries.map((entry) {
               return DropdownMenuItem<int>(
                 value: entry.key,
@@ -148,6 +143,28 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
             onChanged: (value) {
               setState(() {
                 _selectedRating = value == 0 ? null : value;
+                _currentPage = 0;
+              });
+            },
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 150,
+          child: DropdownButtonFormField<String>(
+            initialValue: _statusFilter,
+            decoration: _dropdownDecoration('Status'),
+            items: const [_statusAll, _statusActive, _statusDeleted]
+                .map(
+                  (status) => DropdownMenuItem<String>(
+                    value: status,
+                    child: Text(status),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              setState(() {
+                _statusFilter = value ?? _statusActive;
                 _currentPage = 0;
               });
             },
@@ -189,23 +206,6 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
     );
   }
 
-  Widget _buildShowDeletedCheckbox() {
-    return Row(
-      children: [
-        const Text('Prikaži obrisane : '),
-        Checkbox(
-          value: showDeleted,
-          onChanged: (value) {
-            setState(() {
-              showDeleted = value ?? false;
-              _currentPage = 0;
-            });
-          },
-        ),
-      ],
-    );
-  }
-
   Future<void> _loadReviews() async {
     setState(() {
       isLoading = true;
@@ -224,7 +224,8 @@ class _AdminReviewsScreenState extends State<AdminReviewsScreen> {
         "Page": _currentPage + 1,
         "PageSize": _pageSize,
         "IncludeTotalCount": true,
-        "IsDeleted": showDeleted,
+        if (_statusFilter == _statusDeleted) "IsDeleted": true,
+        if (_statusFilter == _statusAll) "IncludeDeleted": true,
         if (searchController.text.trim().isNotEmpty)
           "Text": searchController.text.trim(),
         if (_selectedRating != null) "Rating": _selectedRating,

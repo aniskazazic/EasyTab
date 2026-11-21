@@ -53,9 +53,9 @@ namespace EasyTab.Services.Services
         {
             query = WithDetails(query);
 
-            // Obrisane recenzije vidi samo administrator uz IsDeleted=true, i to zajedno s aktivnima.
-            var includeDeleted = _currentUser.IsAdmin && search?.IsDeleted == true;
-            if (!includeDeleted)
+            if (_currentUser.IsAdmin && search?.IsDeleted.HasValue == true)
+                query = query.Where(x => x.IsDeleted == search.IsDeleted.Value);
+            else if (!_currentUser.IsAdmin || search?.IncludeDeleted != true)
                 query = query.Where(x => !x.IsDeleted);
 
             if (search?.LocaleId.HasValue == true)

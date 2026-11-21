@@ -167,8 +167,10 @@ namespace EasyTab.Services.Services
         {
             page = Math.Max(page, 0);
             pageSize = Math.Clamp(pageSize, 1, 100);
+            if (date.HasValue)
+                ReservationTime.EnsureSupportedDate(date.Value);
             var selectedDate = (date?.Date ?? LocalClock.Now.Date);
-            var previousDate = selectedDate == DateTime.MinValue.Date ? selectedDate : selectedDate.AddDays(-1);
+            var previousDate = selectedDate.AddDays(-1);
 
             if (!string.IsNullOrWhiteSpace(reservationState) && !FilterableReservationStates.Contains(reservationState))
                 throw new UserException("Nepoznat status rezervacije.");
@@ -189,11 +191,8 @@ namespace EasyTab.Services.Services
             else if (worker != null)
                 query = query.Where(x => x.Table.LocaleId == worker.LocaleId);
 
-            // Bez odabranog statusa lista prikazuje aktivne rezervacije (na čekanju i potvrđene).
             if (string.IsNullOrWhiteSpace(reservationState))
-                query = query.Where(x =>
-                    x.ReservationState == PendingReservationState.StateName ||
-                    x.ReservationState == ConfirmedReservationState.StateName);
+                query = query.Open(LocalClock.Now);
             else
                 query = query.Where(x => x.ReservationState == reservationState);
 

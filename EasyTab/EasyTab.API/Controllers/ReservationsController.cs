@@ -44,7 +44,7 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPut("confirm/{id}")]
-        [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public async Task<IActionResult> ConfirmReservation(int id)
         {
             var reservation = await _reservationService.ConfirmAsync(id);
@@ -52,7 +52,7 @@ namespace EasyTab.API.Controllers
         }
 
         [HttpPut("complete/{id}")]
-        [Authorization(RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik)]
+        [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public async Task<IActionResult> CompleteReservation(int id)
         {
             var reservation = await _reservationService.CompleteAsync(id);

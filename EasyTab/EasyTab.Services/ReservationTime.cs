@@ -1,7 +1,18 @@
+using EasyTab.Model.Exceptions;
+
 namespace EasyTab.Services;
 
 public static class ReservationTime
 {
+    private static readonly DateTime MinSupportedDate = new(2000, 1, 1);
+    private static readonly DateTime MaxSupportedDate = new(2100, 12, 31);
+
+        public static void EnsureSupportedDate(DateTime date)
+    {
+        if (date.Date < MinSupportedDate || date.Date > MaxSupportedDate)
+            throw new UserException($"Datum mora biti između {MinSupportedDate:dd.MM.yyyy}. i {MaxSupportedDate:dd.MM.yyyy}.");
+    }
+
     public static DateTime GetStart(DateTime reservationDate, TimeOnly startTime)
         => GetStart(reservationDate, startTime.ToTimeSpan());
 
@@ -18,7 +29,6 @@ public static class ReservationTime
         TimeOnly openingTime, TimeOnly closingTime)
         => reservationDate.Date.AddDays(closingTime < openingTime && startTime < openingTime ? -1 : 0);
 
-    // Termin je unutar radnog vremena ako je cijeli u prozoru svog radnog dana, kao u ponudi termina.
     public static bool IsWithinWorkingHours(DateTime reservationDate, TimeOnly startTime, TimeOnly endTime,
         TimeOnly openingTime, TimeOnly closingTime)
     {

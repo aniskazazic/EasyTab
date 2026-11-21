@@ -13,6 +13,7 @@ namespace EasyTab.Model.SearchObjects
         public int? Rating { get; set; }
         public int? LocaleId { get; set; }
         public bool? IsDeleted { get; set; }
+        public bool? IncludeDeleted { get; set; }
         public string? SortBy { get; set; }
         public string? Text { get; set; }
         public DateTime? DateFrom { get; set; }

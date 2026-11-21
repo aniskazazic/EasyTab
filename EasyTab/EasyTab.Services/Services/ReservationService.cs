@@ -84,11 +84,12 @@ namespace EasyTab.Services.Services
 
             if (search?.ReservationDate.HasValue == true)
             {
+                ReservationTime.EnsureSupportedDate(search.ReservationDate.Value);
                 var date = search.ReservationDate.Value.Date;
                 var nextDate = date.AddDays(1);
                 if (_currentUser.Role == RoleNames.Vlasnik && search.IsUpcoming != false)
                 {
-                    var previousDate = date == DateTime.MinValue.Date ? date : date.AddDays(-1);
+                    var previousDate = date.AddDays(-1);
                     query = query.Where(x =>
                         (x.ReservationDate >= date && x.ReservationDate < nextDate) ||
                         (x.ReservationDate >= previousDate && x.ReservationDate < date &&
@@ -303,8 +304,9 @@ namespace EasyTab.Services.Services
 
         public async Task<List<TimeSlots>> GetAvailableSlotsAsync(int tableId, DateTime date, int? excludedCheckoutId = null)
         {
-            if (date.Date == DateTime.MinValue.Date || date.Date >= DateTime.MaxValue.Date.AddDays(-1))
-                throw new UserException("Datum radnog dana je izvan dozvoljenog raspona.");
+            ReservationTime.EnsureSupportedDate(date);
+
+            int? viewerId = excludedCheckoutId.HasValue ? null : _currentUser.UserId;
 
             var localeEntity = await Context.Tables.OnLayout()
                 .Where(x => x.Id == tableId).Select(x => x.Locale).AsNoTracking().FirstOrDefaultAsync();
@@ -340,6 +342,7 @@ namespace EasyTab.Services.Services
                 .ActiveCheckouts(_payPalOptions.Value.CheckoutHoldMinutes)
                 .Where(p => p.TableId == tableId &&
                     (!excludedCheckoutId.HasValue || p.Id != excludedCheckoutId.Value) &&
+                    (!viewerId.HasValue || p.UserId != viewerId.Value) &&
                     p.ReservationDate >= from && p.ReservationDate < until &&
                     p.StartTime.HasValue && p.EndTime.HasValue)
                 .Select(p => new { p.ReservationDate, p.StartTime, p.EndTime }).ToListAsync();
@@ -421,7 +424,7 @@ namespace EasyTab.Services.Services
                 throw new UserException("Rezervacija nije pronađena!");
             }
 
-            await _localeAccessService.EnsureCanManageLocaleAsync(reservation.Table.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(reservation.Table.LocaleId);
 
             var state = GetStateMachine(reservation.ReservationState);
             return await state.ConfirmAsync(id, _currentUser.UserId);
@@ -437,7 +440,7 @@ namespace EasyTab.Services.Services
                 throw new UserException("Rezervacija nije pronađena!");
             }
 
-            await _localeAccessService.EnsureCanManageLocaleAsync(reservation.Table.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(reservation.Table.LocaleId);
 
             var state = GetStateMachine(reservation.ReservationState);
             return await state.CompleteAsync(id);
@@ -459,6 +462,12 @@ namespace EasyTab.Services.Services
                 throw new UserException("Nemate dozvolu za pregled ove rezervacije.");
 
             var actions = GetStateMachine(reservation.ReservationState).GetAllowedActions();
+
+            if (!_currentUser.IsAdmin && _currentUser.Role != RoleNames.Vlasnik)
+            {
+                actions.Remove(nameof(BaseReservationState.ConfirmAsync));
+                actions.Remove(nameof(BaseReservationState.CompleteAsync));
+            }
             var hasStarted = ReservationTime.HasStarted(reservation.ReservationDate, reservation.StartTime);
             if (!hasStarted)
                 actions.Remove(nameof(BaseReservationState.CompleteAsync));

@@ -170,7 +170,8 @@ namespace EasyTab.Services.Services
                 await EnsureLocaleActiveAsync(request.TableId);
                 if (!await _context.Tables.OnLayout().AnyAsync(table => table.Id == request.TableId))
                     throw new UserException("Stol više nije dostupan za rezervaciju.");
-                var existingCheckout = await _context.Payments.SingleOrDefaultAsync(x => x.CheckoutId == request.CheckoutId);
+                var existingCheckout = await _context.Payments.SingleOrDefaultAsync(x => x.CheckoutId == request.CheckoutId)
+                    ?? await FindOwnActiveCheckoutAsync(request);
                 if (existingCheckout != null)
                 {
                     checkout = existingCheckout;
@@ -203,7 +204,6 @@ namespace EasyTab.Services.Services
                     _context.Payments.Add(checkout);
                     await _context.SaveChangesAsync();
                 }
-                // Save the immutable price before an external call; retries must use the identical payload.
                 await transaction.CommitAsync();
             }
 
@@ -239,7 +239,7 @@ namespace EasyTab.Services.Services
                 ?? throw new NotFoundException("Pokušaj plaćanja nije pronađen.");
             if (_currentUser.UserId <= 0 || checkout.UserId != _currentUser.UserId)
                 throw new ForbiddenException("Nemate pristup ovom plaćanju.");
-            // Persist intent before contacting PayPal, allowing recovery without the phone.
+
             await _context.Payments.Where(x => x.Id == checkout.Id && x.CaptureRequestedAt == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.CaptureRequestedAt, DateTime.UtcNow));
             return await CompleteAsync(checkout.Id, allowCapture: true)
@@ -259,7 +259,6 @@ namespace EasyTab.Services.Services
             }
             if (checkout.Status == PaymentStatus.Refunded) throw new UserException("Povrat uplate je pokrenut. Termin nije bio dostupan; rezervacija nije kreirana.");
 
-            // An approved order has not been charged yet. Recheck under the same lock as deactivation.
             var localeInactive = await _context.Tables.AsNoTracking()
                 .AnyAsync(table => table.Id == tableId && table.Locale.IsDeleted, CancellationToken.None);
             var order = await _payPalService.GetOrderAsync(checkout.PayPalOrderId!);
@@ -323,6 +322,18 @@ namespace EasyTab.Services.Services
             return _mapper.Map<PaymentResponse>(created.Payment);
         }
 
+        private Task<Payment?> FindOwnActiveCheckoutAsync(ReservationCheckoutRequest request)
+        {
+            var startTime = TimeOnly.FromTimeSpan(request.StartTime);
+            var endTime = TimeOnly.FromTimeSpan(request.EndTime);
+            return _context.Payments.ActiveCheckouts(_payPalOptions.Value.CheckoutHoldMinutes)
+                .Where(x => x.UserId == _currentUser.UserId && x.TableId == request.TableId &&
+                            x.ReservationDate == request.ReservationDate.Date && x.StartTime == startTime &&
+                            x.EndTime == endTime && x.NumberOfGuests == request.NumberOfGuests)
+                .OrderByDescending(x => x.CreatedAt)
+                .FirstOrDefaultAsync();
+        }
+
         private async Task LockTableAsync(int tableId)
         {
             await ReservationOperationLock.TableAsync(_context, tableId);
@@ -343,7 +354,6 @@ namespace EasyTab.Services.Services
 
         private decimal ToPayPalAmount(decimal amountKm) => Math.Round(amountKm / _payPalOptions.Value.BamToEurRate, 2);
 
-        // Kurs se ne čuva uz plaćanje: sačuvani iznos mora odgovarati trenutnom kursu da bi prikazani kurs bio onaj primijenjeni.
         private void EnsureExchangeRateUnchanged(Payment checkout)
         {
             if (checkout.Amount != ToPayPalAmount(checkout.AmountKm) ||

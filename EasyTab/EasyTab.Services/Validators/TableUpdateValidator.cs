@@ -8,8 +8,10 @@ namespace EasyTab.Services.Validators
         public TableUpdateValidator()
         {
             RuleFor(x => x.Name)
+                .Cascade(CascadeMode.Stop)
+                .NotEmpty().WithMessage(TableRules.NameRequired)
                 .MaximumLength(TableRules.NameMaxLength).WithMessage(TableRules.NameTooLong)
-                .When(x => !string.IsNullOrEmpty(x.Name));
+                .When(x => x.Name != null);
 
             RuleFor(x => x.NumberOfGuests)
                 .InclusiveBetween(TableRules.MinGuests, TableRules.MaxGuests).WithMessage(TableRules.GuestsOutOfRange)

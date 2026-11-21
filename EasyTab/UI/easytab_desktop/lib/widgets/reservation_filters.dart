@@ -135,6 +135,17 @@ class ReservationFilters extends StatelessWidget {
         icon: const Icon(Icons.clear),
         onPressed: onClear,
       );
+      // Visina 56 je visina polja u istom redu, pa su dugmad poravnata s njima.
+      final sizedDateButton = SizedBox(
+        width: 150,
+        height: 48,
+        child: dateButton,
+      );
+      final sizedSearchButton = SizedBox(
+        width: 125,
+        height: 48,
+        child: searchButton,
+      );
 
       if (!expandToFill) {
         return Wrap(
@@ -147,8 +158,8 @@ class ReservationFilters extends StatelessWidget {
               SizedBox(width: 220, child: localeField),
             SizedBox(width: 180, child: stateField),
             SizedBox(width: 190, child: paymentField),
-            dateButton,
-            searchButton,
+            sizedDateButton,
+            sizedSearchButton,
             if (showClear) clearButton,
           ],
         );
@@ -158,7 +169,7 @@ class ReservationFilters extends StatelessWidget {
         builder: (context, constraints) {
           final actions = [
             const SizedBox(width: 12),
-            SizedBox(width: 132, height: 56, child: searchButton),
+            sizedSearchButton,
             if (showClear) ...[const SizedBox(width: 12), clearButton],
           ];
           if (constraints.maxWidth >= 960) {
@@ -170,7 +181,7 @@ class ReservationFilters extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(flex: 2, child: paymentField),
                 const SizedBox(width: 12),
-                SizedBox(width: 160, height: 56, child: dateButton),
+                sizedDateButton,
                 ...actions,
               ],
             );
