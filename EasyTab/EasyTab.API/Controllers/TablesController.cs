@@ -35,7 +35,7 @@ namespace EasyTab.API.Controllers
         public async Task<IActionResult> SaveLayout([FromBody] TableLayoutRequest request)
         {
             await _tableService.SaveLayoutAsync(request);
-            return Ok(new { Message = "Tables saved" });
+            return Ok(new { Message = "Stolovi su sačuvani." });
         }
     }
 }

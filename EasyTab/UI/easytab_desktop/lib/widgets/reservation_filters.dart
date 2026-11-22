@@ -135,7 +135,7 @@ class ReservationFilters extends StatelessWidget {
         icon: const Icon(Icons.clear),
         onPressed: onClear,
       );
-      // Visina 56 je visina polja u istom redu, pa su dugmad poravnata s njima.
+      // Visina 48 je visina polja u istom redu (desktop koristi kompaktnu gustoću), pa su dugmad poravnata s njima.
       final sizedDateButton = SizedBox(
         width: 150,
         height: 48,

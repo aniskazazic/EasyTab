@@ -60,7 +60,7 @@ namespace EasyTab.Services.Services
             };
 
             var notifications = await query
-                .Skip((page - 1) * pageSize)
+                .Skip((int)Math.Min(((long)page - 1) * pageSize, int.MaxValue))
                 .Take(pageSize)
                 .ToListAsync();
 

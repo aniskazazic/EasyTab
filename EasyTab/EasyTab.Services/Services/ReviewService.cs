@@ -78,24 +78,26 @@ namespace EasyTab.Services.Services
 
             if (search?.DateFrom.HasValue == true)
             {
+                ReservationTime.EnsureSupportedDate(search.DateFrom.Value);
                 var dateFrom = search.DateFrom.Value.ToUniversalTime();
                 query = query.Where(x => x.DateAdded >= dateFrom);
             }
 
             if (search?.DateTo.HasValue == true)
             {
+                ReservationTime.EnsureSupportedDate(search.DateTo.Value);
                 var dateTo = search.DateTo.Value.ToUniversalTime();
                 query = query.Where(x => x.DateAdded < dateTo);
             }
 
             query = search?.SortBy?.ToLower() switch
             {
-                "mostlikes" => query.OrderByDescending(x => x.Reactions.Count(r => r.IsLike)),
-                "mostdislikes" => query.OrderByDescending(x => x.Reactions.Count(r => !r.IsLike)),
-                "highestrating" => query.OrderByDescending(x => x.Rating),
-                "lowestrating" => query.OrderBy(x => x.Rating),
-                "latest" => query.OrderByDescending(x => x.DateAdded),
-                "earliest" => query.OrderBy(x => x.DateAdded),
+                "mostlikes" => query.OrderByDescending(x => x.Reactions.Count(r => r.IsLike)).ThenByDescending(x => x.Id),
+                "mostdislikes" => query.OrderByDescending(x => x.Reactions.Count(r => !r.IsLike)).ThenByDescending(x => x.Id),
+                "highestrating" => query.OrderByDescending(x => x.Rating).ThenByDescending(x => x.Id),
+                "lowestrating" => query.OrderBy(x => x.Rating).ThenByDescending(x => x.Id),
+                "latest" => query.OrderByDescending(x => x.DateAdded).ThenByDescending(x => x.Id),
+                "earliest" => query.OrderBy(x => x.DateAdded).ThenByDescending(x => x.Id),
                 _ => query.OrderByDescending(x => x.Id)
             };
 

@@ -8,6 +8,7 @@ namespace EasyTab.Services.Validators
         public TableInsertValidator()
         {
             RuleFor(x => x.Name)
+                .Cascade(CascadeMode.Stop)
                 .NotEmpty().WithMessage(TableRules.NameRequired)
                 .MaximumLength(TableRules.NameMaxLength).WithMessage(TableRules.NameTooLong);
 

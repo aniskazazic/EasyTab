@@ -68,7 +68,7 @@ Future<DateTimeRange?> selectReportPeriod(BuildContext context) {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Back'),
+              child: const Text('Nazad'),
             ),
             Tooltip(
               message: error ?? 'Generiši PDF za odabrani period',

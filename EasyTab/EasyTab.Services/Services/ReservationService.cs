@@ -253,12 +253,15 @@ namespace EasyTab.Services.Services
             if (!_currentUser.IsAdmin && _currentUser.Role != RoleNames.Vlasnik)
                 throw new ForbiddenException("Nemate dozvolu za pregled izvještaja o plaćanju.");
 
+            if (search.From.HasValue)
+                ReservationTime.EnsureSupportedDate(search.From.Value);
+            if (search.To.HasValue)
+                ReservationTime.EnsureSupportedDate(search.To.Value);
+
             var to = search.To?.Date ?? LocalClock.Now.Date;
             var from = search.From?.Date ?? to.AddDays(-29);
             if (to < from)
                 throw new UserException("Datum do ne smije biti prije datuma od.");
-            if (to == DateTime.MaxValue.Date)
-                throw new UserException("Datum do je izvan dozvoljenog raspona.");
 
             if (!_currentUser.IsAdmin && search.LocaleId.HasValue &&
                 !await Context.Locales.AnyAsync(l => l.Id == search.LocaleId.Value && l.OwnerId == _currentUser.UserId))
@@ -306,6 +309,8 @@ namespace EasyTab.Services.Services
         {
             ReservationTime.EnsureSupportedDate(date);
 
+            // Bez excludedCheckoutId ovo je prikaz termina prijavljenom gostu, pa se njegovi aktivni checkouti ne računaju kao zauzeti.
+            // IsAvailableAsync uvijek šalje excludedCheckoutId, pa ta putanja ne čita trenutnog korisnika i radi i u pozadinskom poslu.
             int? viewerId = excludedCheckoutId.HasValue ? null : _currentUser.UserId;
 
             var localeEntity = await Context.Tables.OnLayout()
@@ -468,11 +473,8 @@ namespace EasyTab.Services.Services
                 actions.Remove(nameof(BaseReservationState.ConfirmAsync));
                 actions.Remove(nameof(BaseReservationState.CompleteAsync));
             }
-            var hasStarted = ReservationTime.HasStarted(reservation.ReservationDate, reservation.StartTime);
-            if (!hasStarted)
+            if (!ReservationTime.HasStarted(reservation.ReservationDate, reservation.StartTime))
                 actions.Remove(nameof(BaseReservationState.CompleteAsync));
-            else if (!IsLocaleStaff)
-                actions.Remove(nameof(BaseReservationState.CancelAsync));
             return actions;
         }
 

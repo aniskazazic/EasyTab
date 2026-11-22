@@ -35,7 +35,7 @@ namespace EasyTab.API.Controllers
         public async Task<IActionResult> SaveLayout([FromBody] ZoneLayoutRequest request)
         {
             await _zoneService.SaveLayoutAsync(request);
-            return Ok(new { Message = "Zones saved" });
+            return Ok(new { Message = "Zone su sačuvane." });
         }
 
     }

@@ -58,7 +58,7 @@ namespace EasyTab.Services.BaseServices.Implementation
             query = ApplySort(query, search);
 
             query = query
-                .Skip((page - 1) * pageSize)
+                .Skip((int)Math.Min(((long)page - 1) * pageSize, int.MaxValue))
                 .Take(pageSize);
 
             var entities = await query.ToListAsync();
