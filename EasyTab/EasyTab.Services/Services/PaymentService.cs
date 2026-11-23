@@ -116,7 +116,7 @@ namespace EasyTab.Services.Services
 
             if (reservation == null)
             {
-                throw new NotFoundException($"Rezervacija sa ID {reservationId} nije pronađena.");
+                throw new NotFoundException("Rezervacija nije pronađena.");
             }
 
             var currentUserId = _currentUser.UserId;

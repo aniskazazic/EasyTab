@@ -266,21 +266,5 @@ namespace EasyTab.Services.Services
             _logger.LogDebug("Rating distribution fetched. LocaleId: {LocaleId}", localeId);
             return counts;
         }
-
-        public async Task<List<Reviews>> GetByLocaleId(int localeId, int page = 1, int pageSize = 100)
-        {
-            page = Math.Max(page, 1);
-            pageSize = Math.Clamp(pageSize, 1, MaxPageSize);
-            var entities = await WithDetails(Context.Reviews)
-                .Where(r => r.LocaleId == localeId && !r.IsDeleted)
-                .OrderByDescending(r => r.DateAdded)
-                .ThenByDescending(r => r.Id)
-                .Skip((int)Math.Min(((long)page - 1) * pageSize, int.MaxValue))
-                .Take(pageSize)
-                .ToListAsync();
-
-            var dtos = entities.Select(e => MapToResponse(e)).ToList();
-            return dtos;
-        }
     }
 }

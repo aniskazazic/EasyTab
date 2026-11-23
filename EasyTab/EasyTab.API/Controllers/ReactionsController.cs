@@ -31,12 +31,5 @@ namespace EasyTab.API.Controllers
             await _reactionService.RemoveReactionAsync(reviewId);
             return Ok(new { Message = "Reakcija uklonjena!" });
         }
-
-        [HttpGet("count/{reviewId}")]
-        public async Task<IActionResult> GetReactionCounts(int reviewId)
-        {
-            var result = await _reactionService.GetReactionCountsAsync(reviewId);
-            return Ok(result);
-        }
     }
 }

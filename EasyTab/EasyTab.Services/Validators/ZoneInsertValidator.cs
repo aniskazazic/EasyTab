@@ -8,11 +8,12 @@ namespace EasyTab.Services.Validators
         public ZoneInsertValidator()
         {
             RuleFor(x => x.Name)
-                .NotEmpty().WithMessage("Naziv zone je obavezan.")
-                .MaximumLength(50).WithMessage("Naziv zone ne može imati više od 50 karaktera.");
+                .Cascade(CascadeMode.Stop)
+                .NotEmpty().WithMessage(ZoneRules.NameRequired)
+                .MaximumLength(ZoneRules.NameMaxLength).WithMessage(ZoneRules.NameTooLong);
 
             RuleFor(x => x.LocaleId)
-                .GreaterThan(0).WithMessage("Lokal je obavezan.");
+                .GreaterThan(0).WithMessage(ZoneRules.LocaleRequired);
 
             RuleFor(x => x.Width)
                 .GreaterThan(0).WithMessage("Širina zone mora biti veća od 0.");

@@ -90,7 +90,7 @@ namespace EasyTab.Services.Services
             var entity = await Context.Locales.FindAsync(id);
             if (entity == null)
             {
-                throw new KeyNotFoundException($"Lokala sa ID {id} ne postoji.");
+                throw new KeyNotFoundException("Lokal nije pronađen.");
             }
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(id);

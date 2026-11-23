@@ -3,7 +3,6 @@ using EasyTab.Model.Models;
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.Interfaces;
-using EasyTab.Services.Services;
 using Microsoft.AspNetCore.Mvc;
 using EasyTab.API.Filters;
 
@@ -47,13 +46,6 @@ namespace EasyTab.API.Controllers
         {
             await _reviewService.DeleteAsync(id);
             return Ok(new { Message = "Recenzija obrisana!" });
-        }
-
-        [HttpGet("by-locale/{localeId}")]
-        public async Task<IActionResult> GetReviewsByLocaleId(int localeId, [FromQuery] int page = 1, [FromQuery] int pageSize = 100)
-        {
-            var reviews = await _reviewService.GetByLocaleId(localeId, page, pageSize);
-            return Ok(reviews);
         }
     }
 }

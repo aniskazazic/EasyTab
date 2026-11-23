@@ -63,6 +63,9 @@ namespace EasyTab.Services.Services
 
         public async Task<Favourites> AddToFavouritesAsync(int localeId)
         {
+            if (!await Context.Locales.AnyAsync(l => l.Id == localeId && !l.IsDeleted))
+                throw new UserException("Lokal nije pronađen ili više nije aktivan.");
+
             var userId = _currentUser.UserId;
             var existing = await Context.Favourites
                 .FirstOrDefaultAsync(f => f.UserId == userId && f.LocaleId == localeId);

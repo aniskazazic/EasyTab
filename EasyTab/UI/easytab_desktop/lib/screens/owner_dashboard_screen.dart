@@ -124,7 +124,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
     });
     try {
       final stats = await ownerProvider.getStats(localeId);
-      debugPrint('tableDistribution: ${stats.tableDistribution}');
       if (mounted &&
           version == _statsRequestVersion &&
           activeLocaleId == localeId) {
@@ -138,7 +137,6 @@ class _OwnerDashboardScreenState extends State<OwnerDashboardScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error loading stats: $e');
       if (mounted &&
           version == _statsRequestVersion &&
           activeLocaleId == localeId) {

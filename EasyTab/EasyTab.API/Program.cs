@@ -44,8 +44,6 @@ if (File.Exists(envFile))
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-
 builder.Services.AddScoped<ICountryService, CountryService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<LookupCacheVersionService>();
@@ -115,6 +113,7 @@ builder.Services.AddScoped<IValidator<LocaleInsertRequest>, LocaleInsertValidato
 builder.Services.AddScoped<IValidator<LocaleUpdateRequest>, LocaleUpdateValidator>();
 builder.Services.AddScoped<IValidator<ZoneInsertRequest>, ZoneInsertValidator>();
 builder.Services.AddScoped<IValidator<ZoneUpdateRequest>, ZoneUpdateValidator>();
+builder.Services.AddScoped<IValidator<ZoneLayoutRequest>, ZoneLayoutValidator>();
 builder.Services.AddScoped<IValidator<TableInsertRequest>, TableInsertValidator>();
 builder.Services.AddScoped<IValidator<TableUpdateRequest>, TableUpdateValidator>();
 builder.Services.AddScoped<IValidator<TableLayoutRequest>, TableLayoutValidator>();
@@ -156,6 +155,17 @@ TypeAdapterConfig<TableInsertRequest, Table>.NewConfig()
 
 // Sva polja izmjene stola su opciona: neposlano polje ostaje kakvo je bilo.
 TypeAdapterConfig<TableUpdateRequest, Table>.NewConfig()
+    .Map(dest => dest.Xcoordinate, src => src.XCoordinate)
+    .Map(dest => dest.Ycoordinate, src => src.YCoordinate)
+    .IgnoreNullValues(true);
+
+// Zona ima istu razliku u velikom slovu koordinata kao stol.
+TypeAdapterConfig<ZoneInsertRequest, Zone>.NewConfig()
+    .Map(dest => dest.Xcoordinate, src => src.XCoordinate)
+    .Map(dest => dest.Ycoordinate, src => src.YCoordinate);
+
+// Sva polja izmjene zone su opciona: neposlano polje ostaje kakvo je bilo.
+TypeAdapterConfig<ZoneUpdateRequest, Zone>.NewConfig()
     .Map(dest => dest.Xcoordinate, src => src.XCoordinate)
     .Map(dest => dest.Ycoordinate, src => src.YCoordinate)
     .IgnoreNullValues(true);
@@ -243,8 +253,6 @@ builder.Services.AddAuthentication(options => // dodavanje authentfikacije i aut
 });
 builder.Services.AddAuthorization();
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-
 builder.Services.AddEndpointsApiExplorer();
 
 builder.Services.AddSwaggerGen(
@@ -292,7 +300,6 @@ builder.Services.AddDbContext<_220030Context>(options =>
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();

@@ -2,7 +2,6 @@
 using EasyTab.Model.Requests;
 using EasyTab.Model.SearchObjects;
 using EasyTab.Services.BaseServices.Interfaces;
-using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +15,5 @@ namespace EasyTab.Services.Interfaces
         Task<CanReviewResponse> CanReviewAsync(int localeId);
         Task<ReviewAverage> GetAverageRatingAsync(int localeId);
         Task<ReviewRatingCount> GetRatingCountsAsync(int localeId);
-
-        Task<List<Reviews>> GetByLocaleId(int localeId, int page = 1, int pageSize = 100);
     }
 }

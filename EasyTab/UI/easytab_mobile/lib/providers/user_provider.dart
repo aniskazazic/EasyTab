@@ -21,15 +21,4 @@ class UserProvider extends BaseProvider<User> {
     );
     validateResponse(response);
   }
-
-  Future<List<User>> getOwners() async {
-    var result = await get(filter: {});
-    return result.items
-            ?.where(
-              (u) =>
-                  u.userRoles?.any((r) => r.role?.name == 'Vlasnik') ?? false,
-            )
-            .toList() ??
-        [];
-  }
 }

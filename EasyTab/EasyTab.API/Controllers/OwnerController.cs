@@ -34,13 +34,6 @@ namespace EasyTab.API.Controllers
         }
 
         [Authorization(RoleNames.Vlasnik)]
-        [HttpGet("active-tables")]
-        public async Task<IActionResult> GetActiveTables(int localeId)
-        {
-            return Ok(await _ownerService.GetActiveTables(localeId));
-        }
-
-        [Authorization(RoleNames.Vlasnik)]
         [HttpGet("today-reserved-tables")]
         public async Task<IActionResult> GetTodaysReservedTables(int localeId)
         {
@@ -52,13 +45,6 @@ namespace EasyTab.API.Controllers
         public async Task<IActionResult> GetTotalTables(int localeId)
         {
             return Ok(await _ownerService.GetTotalTables(localeId));
-        }
-
-        [Authorization(RoleNames.Vlasnik)]
-        [HttpGet("my-locale/{localeId}")]
-        public async Task<IActionResult> GetMyLocale(int localeId)
-        {
-            return Ok(await _ownerService.GetMyLocale(localeId)); 
         }
 
         [Authorization(RoleNames.Vlasnik)]
@@ -79,13 +65,6 @@ namespace EasyTab.API.Controllers
         {
             var userId = _currentUser.UserId;
             return Ok(await _ownerService.GetAllReservations(userId, q, date, reservationState, page, pageSize));
-        }
-
-        [HttpGet("check-owner/{localeId}")]
-        [Authorization]
-        public async Task<IActionResult> CheckIfOwner(int localeId)
-        {
-            return Ok(await _ownerService.CheckIfOwner(localeId, _currentUser.UserId));
         }
 
         [HttpGet("check-owner-or-worker/{localeId}")]

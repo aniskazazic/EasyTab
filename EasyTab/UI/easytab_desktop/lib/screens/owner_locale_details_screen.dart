@@ -834,9 +834,10 @@ class _OwnerLocaleDetailsScreenState extends State<OwnerLocaleDetailsScreen> {
                       errorText: 'Država je obavezna',
                     ),
                     decoration: const InputDecoration(
+                      labelText: "Država",
                       border: OutlineInputBorder(),
+                      hintText: 'Odaberite državu',
                     ),
-                    hint: const Text('Odaberite državu'),
                     items: _countries
                         .map(
                           (c) => DropdownMenuItem(

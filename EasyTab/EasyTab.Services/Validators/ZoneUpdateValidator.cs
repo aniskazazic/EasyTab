@@ -8,8 +8,10 @@ namespace EasyTab.Services.Validators
         public ZoneUpdateValidator()
         {
             RuleFor(x => x.Name)
-                .MaximumLength(50).WithMessage("Naziv zone ne može imati više od 50 karaktera.")
-                .When(x => !string.IsNullOrEmpty(x.Name));
+                .Cascade(CascadeMode.Stop)
+                .NotEmpty().WithMessage(ZoneRules.NameRequired)
+                .MaximumLength(ZoneRules.NameMaxLength).WithMessage(ZoneRules.NameTooLong)
+                .When(x => x.Name != null);
 
             RuleFor(x => x.Width)
                 .GreaterThan(0).WithMessage("Širina zone mora biti veća od 0.")

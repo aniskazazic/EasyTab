@@ -64,8 +64,13 @@ namespace EasyTab.Services.Services
             var userId = _currentUser.UserId;
             var role = _currentUser.Role;
 
+            // Admin smije upravljati svakim lokalom, ali lokal mora postojati, inače bi upis pao tek na stranom ključu (500).
             if (_currentUser.IsAdmin)
+            {
+                if (!await _context.Locales.AnyAsync(locale => locale.Id == localeId))
+                    throw new UserException("Lokal nije pronađen.");
                 return;
+            }
 
             var isOwner = role == RoleNames.Vlasnik && await _context.Locales
                 .AnyAsync(locale => locale.Id == localeId && locale.OwnerId == userId);

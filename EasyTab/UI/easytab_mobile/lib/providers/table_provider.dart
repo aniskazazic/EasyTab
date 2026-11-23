@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:easytab_mobile/models/table.dart';
 import 'package:easytab_mobile/providers/base_provider.dart';
-import 'package:http/http.dart' as http;
 
 class TableProvider extends BaseProvider<Tables> {
   TableProvider() : super("Tables");
@@ -11,23 +9,5 @@ class TableProvider extends BaseProvider<Tables> {
 
   Future<List<Tables>> getByLocale(int localeId) async {
     return getLookupItems(filter: {'LocaleId': localeId});
-  }
-
-  Future<void> saveLayout(int localeId, List<Tables> tables) async {
-    var url = "${BaseProvider.baseUrl}/Tables/save-layout";
-    var uri = Uri.parse(url);
-
-    var body = jsonEncode({
-      "localeId": localeId,
-      "tables": tables.map((t) => t.toJson()).toList(),
-    });
-
-    var response = await sendRequestWithRetry(
-      () => http.post(uri, headers: createHeaders(), body: body),
-    );
-
-    if (!isValidResponse(response)) {
-      throw Exception("Greška pri snimanju rasporeda stolova");
-    }
   }
 }

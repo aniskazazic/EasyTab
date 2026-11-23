@@ -59,6 +59,23 @@ namespace EasyTab.Services.Services
             return result;
         }
 
+        protected override Task BeforeInsert(City entity, CityInsertRequest request)
+        {
+            return EnsureCountryExistsAsync(request.CountryId);
+        }
+
+        protected override Task BeforeUpdate(City entity, CityUpdateRequest request)
+        {
+            return EnsureCountryExistsAsync(request.CountryId);
+        }
+
+        // Validator provjerava samo da je država odabrana; nepostojeća država bi pala tek na stranom ključu (500).
+        private async Task EnsureCountryExistsAsync(int countryId)
+        {
+            if (!await _context.Countries.AnyAsync(country => country.Id == countryId))
+                throw new UserException("Odabrana država ne postoji.");
+        }
+
         public override async Task<bool> DeleteAsync(int id)
         {
             if (await _context.Locales.AnyAsync(locale => locale.CityId == id))

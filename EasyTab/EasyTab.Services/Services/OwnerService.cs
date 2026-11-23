@@ -33,7 +33,7 @@ namespace EasyTab.Services.Services
             var count = await _db.Reservations
                 .Where(x => x.ReservationDate.Date == today &&
                             x.Table.LocaleId == localeId &&
-                            x.ReservationState != "Otkazana")
+                            x.ReservationState != CancelledReservationState.StateName)
                 .CountAsync();
             return count;
         }
@@ -45,31 +45,9 @@ namespace EasyTab.Services.Services
             var guests = await _db.Reservations
                 .Where(r => r.ReservationDate.Date == today &&
                             r.Table.LocaleId == localeId &&
-                            r.ReservationState != "Otkazana")
+                            r.ReservationState != CancelledReservationState.StateName)
                 .SumAsync(r => r.TableCapacity);
             return guests;
-        }
-
-        public async Task<int> GetActiveTables(int localeId)
-        {
-            await _localeAccessService.EnsureCanManageLocaleAsync(localeId);
-            var now = LocalClock.Now;
-            var today = now.Date;
-            var yesterday = today.AddDays(-1);
-            var time = TimeOnly.FromDateTime(now);
-            var count = await _db.Reservations
-                .Where(r => r.Table.Xcoordinate >= 0 && r.Table.Ycoordinate >= 0 &&
-                            r.Table.LocaleId == localeId &&
-                            (r.ReservationState == PendingReservationState.StateName ||
-                             r.ReservationState == ConfirmedReservationState.StateName) &&
-                            ((r.ReservationDate.Date == today && r.StartTime <= time &&
-                              (r.EndTime < r.StartTime || r.EndTime > time)) ||
-                             (r.ReservationDate.Date == yesterday && r.EndTime < r.StartTime &&
-                              r.EndTime > time)))
-                .Select(r => r.TableId)
-                .Distinct()
-                .CountAsync();
-            return count;
         }
 
         public async Task<int> GetTodaysReservedTables(int localeId)
@@ -96,38 +74,6 @@ namespace EasyTab.Services.Services
                 .Where(t => t.LocaleId == localeId)
                 .CountAsync();
             return count;
-        }
-
-        public async Task<OwnerLocaleResponse> GetMyLocale(int localeId)
-        {
-            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(localeId);
-            var locale = await _db.Locales
-                .Include(l => l.City)
-                .Include(l => l.Category)
-                .FirstOrDefaultAsync(l => l.Id == localeId);
-
-            if (locale == null)
-            {
-                _logger.LogWarning("Locale details not found. LocaleId: {LocaleId}", localeId);
-                throw new UserException("Lokal nije pronađen!");
-            }
-
-            return new OwnerLocaleResponse
-            {
-                Id = locale.Id,
-                Name = locale.Name,
-                Address = locale.Address,
-                StartOfWorkingHours = locale.StartOfWorkingHours,
-                EndOfWorkingHours = locale.EndOfWorkingHours,
-                LengthOfReservation = locale.LengthOfReservation,
-                Logo = locale.Logo,
-                CityId = locale.CityId,
-                CategoryId = locale.CategoryId,
-                OwnerId = locale.OwnerId,
-                IsDeleted = locale.IsDeleted,
-                DeletedAt = locale.DeletedAt,
-                PhoneNumber = locale.PhoneNumber
-            };
         }
 
         public async Task<List<TableDistributionResponse>> GetTableDistribution(int localeId)
@@ -230,23 +176,11 @@ namespace EasyTab.Services.Services
                     ReservationState = s.ReservationState,
                     LocaleName = s.Table.Locale.Name,
                     LocaleId = s.Table.LocaleId,
-                    IsCancelled = s.ReservationState == "Otkazana"
+                    IsCancelled = s.ReservationState == CancelledReservationState.StateName
                 })
                 .ToListAsync();
 
             return new OwnerReservationsPageResponse { Items = result, TotalCount = total };
-        }
-
-        public async Task<bool> CheckIfOwner(int localeId, int userId)
-        {
-            var locale = await _db.Locales.FirstOrDefaultAsync(x => x.Id == localeId);
-            if (locale == null)
-            {
-                _logger.LogWarning("Owner check failed because locale was not found. LocaleId: {LocaleId}", localeId);
-                throw new UserException("Lokal nije pronađen!");
-            }
-            var isOwner = locale.OwnerId == userId;
-            return isOwner;
         }
 
         public async Task<bool> CheckIfOwnerOrWorker(int localeId, int userId)

@@ -108,16 +108,5 @@ namespace EasyTab.Services.Services
             await Context.SaveChangesAsync();
             _logger.LogInformation("Reaction removed. UserId: {UserId}, ReviewId: {ReviewId}", userId, reviewId);
         }
-
-        public async Task<ReactionsCount> GetReactionCountsAsync(int reviewId)
-        {
-            var counts = new ReactionsCount
-            {
-                Likes = await Context.Reactions.CountAsync(r => r.ReviewId == reviewId && r.IsLike),
-                Dislikes = await Context.Reactions.CountAsync(r => r.ReviewId == reviewId && !r.IsLike)
-            };
-
-            return counts;
-        }
     }
 }

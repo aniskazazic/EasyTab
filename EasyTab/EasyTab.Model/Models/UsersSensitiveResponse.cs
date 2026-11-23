@@ -1,10 +1,4 @@
-﻿using EasyTab.Model.Access;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using static System.Collections.Specialized.BitVector32;
-
-namespace EasyTab.Model.Models
+﻿namespace EasyTab.Model.Models
 {
     public partial class UsersSensitiveResponse : Users
     {

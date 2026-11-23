@@ -1,7 +1,5 @@
-import 'dart:convert';
 import 'package:easytab_mobile/models/zone.dart';
 import 'package:easytab_mobile/providers/base_provider.dart';
-import 'package:http/http.dart' as http;
 
 class ZoneProvider extends BaseProvider<Zone> {
   ZoneProvider() : super("Zones");
@@ -11,23 +9,5 @@ class ZoneProvider extends BaseProvider<Zone> {
 
   Future<List<Zone>> getByLocale(int localeId) async {
     return getLookupItems(filter: {'LocaleId': localeId});
-  }
-
-  Future<void> saveLayout(int localeId, List<Zone> zones) async {
-    var url = "${BaseProvider.baseUrl}/Zones/save-layout";
-    var uri = Uri.parse(url);
-
-    var body = jsonEncode({
-      "localeId": localeId,
-      "zones": zones.map((z) => z.toJson()).toList(),
-    });
-
-    var response = await sendRequestWithRetry(
-      () => http.post(uri, headers: createHeaders(), body: body),
-    );
-
-    if (!isValidResponse(response)) {
-      throw Exception("Greška pri snimanju rasporeda zona");
-    }
   }
 }

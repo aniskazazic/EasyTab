@@ -10,6 +10,5 @@ namespace EasyTab.Services.Interfaces
     {
         Task<Reactions> ReactAsync(int reviewId, bool isLike);
         Task RemoveReactionAsync(int reviewId);
-        Task<ReactionsCount> GetReactionCountsAsync(int reviewId);
     }
 }

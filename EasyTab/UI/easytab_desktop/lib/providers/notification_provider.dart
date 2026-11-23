@@ -207,24 +207,6 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> markAllAsRead() async {
-    try {
-      final response = await AuthProvider.sendAuthorizedRequest(
-        () => http.put(
-          Uri.parse('${BaseProvider.baseUrl}/Notifications/read-all'),
-          headers: _headers(),
-        ),
-      );
-      _validateResponse(response);
-      notifications = notifications
-          .map((item) => item.copyWith(isRead: true))
-          .toList();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Greška pri označavanju desktop notifikacija: $e');
-    }
-  }
-
   void _handleNotificationReceived(List<Object?>? arguments) {
     if (!_sessionActive || !AuthProvider.hasActiveSession) return;
     try {

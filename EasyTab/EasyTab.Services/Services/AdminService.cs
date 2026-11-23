@@ -163,7 +163,7 @@ namespace EasyTab.Services.Services
             if (locale == null)
             {
                 _logger.LogWarning("Cannot update locale because it was not found. LocaleId: {LocaleId}", id);
-                throw new UserException($"Lokal sa ID {id} nije pronađen!");
+                throw new UserException("Lokal nije pronađen.");
             }
 
             locale.Name = request.LocaleName;

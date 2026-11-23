@@ -35,16 +35,10 @@ namespace EasyTab.Services.BaseServices.Implementation
             "Username", "FirstName", "LastName", "Email", "Rating", "IsDeleted"
         };
 
-        public virtual Task<Model.PagedResult<TModel>> GetAsync(TSearch search)
-        {
-            return ExecutePagedAsync(search);
-        }
-
-        private async Task<Model.PagedResult<TModel>> ExecutePagedAsync(TSearch search)
+        public virtual async Task<Model.PagedResult<TModel>> GetAsync(TSearch search)
         {
             IQueryable<TDbEntity> query = Context.Set<TDbEntity>();
             query = ApplyFilter(query, search);
-            query = await IncludeRelatedEntitiesAsync(search, query);
 
             var page = Math.Max(search.Page ?? 1, 1);
             var pageSize = Math.Clamp(search.PageSize ?? DefaultPageSize, 1, MaxPageSize);
@@ -125,22 +119,5 @@ namespace EasyTab.Services.BaseServices.Implementation
         {
             return Mapper.Map<TModel>(entity);
         }
-
-
-        public virtual Task<Model.PagedResult<TModel>> GetAllAsync(TSearch? search = null)
-        {
-            search ??= Activator.CreateInstance<TSearch>()
-                ?? throw new InvalidOperationException("Nije moguće pripremiti parametre pretrage.");
-
-            return ExecutePagedAsync(search);
-        }
-
-        protected virtual async Task<IQueryable<TDbEntity>> IncludeRelatedEntitiesAsync(TSearch? search, IQueryable<TDbEntity> query = null)
-        {
-            // Override in derived classes to include related entities if necessary
-            return await Task.FromResult(query);
-        }
-
-
     }
 }

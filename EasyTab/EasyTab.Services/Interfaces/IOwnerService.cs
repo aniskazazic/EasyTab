@@ -11,13 +11,10 @@ namespace EasyTab.Services.Interfaces
     {
         Task<int> GetTodaysReservations(int localeId);
         Task<int> GetTodaysGuests(int localeId);
-        Task<int> GetActiveTables(int localeId);
         Task<int> GetTodaysReservedTables(int localeId);
         Task<int> GetTotalTables(int localeId);
-        Task<OwnerLocaleResponse> GetMyLocale(int localeId);
         Task<List<TableDistributionResponse>> GetTableDistribution(int localeId);
         Task<OwnerReservationsPageResponse> GetAllReservations(int userId, string? q, DateTime? date, string? reservationState, int page, int pageSize);
-        Task<bool> CheckIfOwner(int localeId, int userId);
         Task<bool> CheckIfOwnerOrWorker(int localeId, int userId);
     }
 }

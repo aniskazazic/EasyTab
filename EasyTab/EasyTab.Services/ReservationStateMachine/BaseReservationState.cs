@@ -92,21 +92,21 @@ namespace EasyTab.Services.ReservationStateMachine
         {
             switch (stateName)
             {
-                case "Na čekanju":
+                case PendingReservationState.StateName:
                 case "Pending":
                 case nameof(PendingReservationState):
                     return _serviceProvider.GetService<PendingReservationState>()!;
                 case nameof(InitialReservationState):
                     return _serviceProvider.GetService<InitialReservationState>()!;
-                case "Potvrđena":
+                case ConfirmedReservationState.StateName:
                 case "Confirmed":
                 case nameof(ConfirmedReservationState):
                     return _serviceProvider.GetService<ConfirmedReservationState>()!;
-                case "Otkazana":
+                case CancelledReservationState.StateName:
                 case "Cancelled":
                 case nameof(CancelledReservationState):
                     return _serviceProvider.GetService<CancelledReservationState>()!;
-                case "Završena":
+                case CompletedReservationState.StateName:
                 case "Completed":
                 case nameof(CompletedReservationState):
                     return _serviceProvider.GetService<CompletedReservationState>()!;

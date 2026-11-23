@@ -111,20 +111,24 @@ git clone https://github.com/aniskazazic/EasyTab.git
 
 ### 2. Priprema konfiguracije
 
-Konfiguracijski fajl **`.env`** mora biti pored `docker-compose.yml`.
+Konfiguracijski fajl **`.env`** mora biti pored `docker-compose.yml`, u folderu `EasyTab` unutar repozitorija. Nakon kloniranja to je `EasyTab/EasyTab/.env`, u istom folderu gdje su `docker-compose.yml`, `.env.example` i `.env-tajne.zip`.
 
-Za pokretanje s pripremljenom konfiguracijom raspakovati `.env` iz arhive `.env-tajne.zip` u taj repozitorij. Lozinka arhive dostavlja se odvojeno uz predaju rada.
+Za pokretanje s pripremljenom konfiguracijom raspakovati `.env` iz arhive `.env-tajne.zip` u taj isti folder. Lozinka arhive dostavlja se odvojeno uz predaju rada.
 
-Za vlastitu konfiguraciju kopirati javni šablon:
+Za vlastitu konfiguraciju kopirati javni šablon i popuniti sve prazne vrijednosti:
 
 ```sh
-cd EasyTab
+cd EasyTab/EasyTab
 cp .env.example .env
 ```
 
+`.env.example` sadrži samo nazive ključeva i javne podrazumijevane vrijednosti, pa sam po sebi nije dovoljan. Bez stvarnih vrijednosti (lozinka SQL Servera, JWT ključ, RabbitMQ, SMTP i PayPal sandbox podaci) servisi se ne pokreću ispravno, a API odbija start dok PayPal konfiguracija nije potpuna.
+
+`PayPal__ReturnUrl` i `PayPal__CancelUrl` moraju završavati sa `/paypal/return` i `/paypal/cancel` (npr. `https://example.com/paypal/return`), jer mobilna aplikacija po tom završetku adrese prepoznaje povratak iz PayPala.
+
 ### 3. Pokretanje servisa
 
-Iz repozitorija `EasyTab`, u kojem su `docker-compose.yml` i `.env`:
+Iz foldera `EasyTab/EasyTab`, u kojem su `docker-compose.yml` i `.env`:
 
 ```sh
 docker compose up --build
@@ -161,6 +165,8 @@ docker compose up --build
 
 **`down -v` briše SQL volumen i sve podatke u njemu.**
 
+Ako je projekat na tom računaru već ranije pokretan iz foldera istog imena, prije pregleda pokrenuti `docker compose down -v`, pa `docker compose up --build`. Stari volumen inače zadržava stare podatke, a seed računa datume rezervacija u odnosu na dan kada je pokrenut, pa ih tek svjež seed postavlja oko današnjeg datuma.
+
 ## Pokretanje desktop aplikacije — Windows
 
 1. Raspakujte arhivu izdanja (build) sa GitHub-a Release
@@ -174,6 +180,22 @@ docker compose up --build
 3. Deinstalirajte sve prethodne verzije aplikacije
 4. Prenesite i instalirajte .apk datoteku na emulator 
 5. Pokrenite EasyTab na uređaju
+
+## Pokretanje klijenata iz izvornog koda
+
+Adresa API-ja zadaje se pri pokretanju ili buildu, preko `--dart-define=API_BASE_URL=...`. Bez tog parametra koriste se podrazumijevane adrese: `http://localhost:5241` za desktop i `http://10.0.2.2:5241` za mobilnu aplikaciju (adresa računara iz Android emulatora).
+
+```sh
+cd EasyTab/EasyTab/UI/easytab_desktop
+flutter run -d windows --dart-define=API_BASE_URL=http://localhost:5241
+```
+
+```sh
+cd EasyTab/EasyTab/UI/easytab_mobile
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5241
+```
+
+Isti parametar važi i za `flutter build windows --release` i `flutter build apk --release`.
 
 ## Testni računi
 

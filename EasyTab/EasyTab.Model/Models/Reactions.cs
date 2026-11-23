@@ -13,10 +13,4 @@ namespace EasyTab.Model.Models
         public int UserId { get; set; }
         public bool IsLike { get; set; }
     }
-    public class ReactionsCount
-    {
-        public int Likes { get; set; }
-        public int Dislikes { get; set; }
-    }
-
 }

@@ -246,7 +246,7 @@ namespace EasyTab.Services.Services
             if (entity == null)
             {
                 _logger.LogWarning("User not found for update. UserId: {UserId}", id);
-                throw new UserException($"Korisnik sa ID {id} nije pronađen.");
+                throw new UserException("Korisnik nije pronađen.");
             }
 
             // Check if email or username already exists

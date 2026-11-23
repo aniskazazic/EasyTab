@@ -327,7 +327,7 @@ namespace EasyTab.Services.PayPal
                 }
 
                 // 5) Korisniku vrati prilagođenu poruku ovisno o grešci
-                throw CreateUserFriendlyException(content, "Placanje trenutno nije moguce. Pokusajte kasnije.");
+                throw CreateUserFriendlyException(content, "Plaćanje trenutno nije moguće. Pokušajte kasnije.");
             }
 
             var orderResponse = DeserializeResponse<PayPalOrderResponse>(content, response, "CaptureOrder");

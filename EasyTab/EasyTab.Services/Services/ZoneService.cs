@@ -20,12 +20,14 @@ namespace EasyTab.Services.Services
     {
         private readonly ILogger<ZoneService> _logger;
         private readonly ILocaleAccessService _localeAccessService;
+        private readonly IValidator<ZoneLayoutRequest> _layoutValidator;
 
-        public ZoneService(_220030Context context, IMapper mapper, ILogger<ZoneService> logger, IValidator<ZoneInsertRequest> insertValidator, IValidator<ZoneUpdateRequest> updateValidator, ILocaleAccessService localeAccessService) 
+        public ZoneService(_220030Context context, IMapper mapper, ILogger<ZoneService> logger, IValidator<ZoneInsertRequest> insertValidator, IValidator<ZoneUpdateRequest> updateValidator, ILocaleAccessService localeAccessService, IValidator<ZoneLayoutRequest> layoutValidator)
             : base(context, mapper, insertValidator, updateValidator)
         {
             _logger = logger;
             _localeAccessService = localeAccessService;
+            _layoutValidator = layoutValidator;
         }
 
         public override async Task<Zones> CreateAsync(ZoneInsertRequest request)
@@ -64,6 +66,7 @@ namespace EasyTab.Services.Services
         public async Task SaveLayoutAsync(ZoneLayoutRequest request)
         {
             await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
+            await _layoutValidator.ValidateAndThrowAsync(request);
 
             var existingZones = await Context.Zones
                  .Where(x => x.LocaleId == request.LocaleId)

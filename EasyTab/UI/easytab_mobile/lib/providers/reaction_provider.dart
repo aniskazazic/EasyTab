@@ -22,11 +22,6 @@ class ReactionProvider extends BaseProvider<Reaction> {
     notifyListeners();
   }
 
-  void clearUserReactions() {
-    _userReactionByReviewId.clear();
-    _loadedUserId = null;
-  }
-
   Future<void> loadUserReactions(int userId) async {
     final reactions = <Reaction>[];
     var page = 1;
