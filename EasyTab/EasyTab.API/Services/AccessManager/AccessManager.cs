@@ -5,27 +5,29 @@ using EasyTab.Model.Models;
 using EasyTab.Services.Database;
 using EasyTab.Services.Interfaces;
 using FluentValidation;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace EasyTab.API.Services.AccessManager
 {
     public class AccessManager : IAccessManager
     {
+        private const int RefreshTokenLifetimeDays = 7;
+
         private readonly IUserService _userService;
-        private readonly IConfiguration _configuration;
+        private readonly JwtTokenOptions _jwtTokenOptions;
         private readonly ICryptoService _cryptoService;
         private readonly IRefreshTokenService _refreshTokenService;
         private readonly IValidator<UserLoginRequest> _loginValidator;
         private readonly ICurrentUserService _currentUser;
 
-        public AccessManager(IUserService userService, IConfiguration configuration, ICryptoService cryptoService, IRefreshTokenService refreshTokenService, IValidator<UserLoginRequest> loginValidator, ICurrentUserService currentUser)
+        public AccessManager(IUserService userService, IOptions<JwtTokenOptions> jwtTokenOptions, ICryptoService cryptoService, IRefreshTokenService refreshTokenService, IValidator<UserLoginRequest> loginValidator, ICurrentUserService currentUser)
         {
             _userService = userService;
-            _configuration = configuration;
+            _jwtTokenOptions = jwtTokenOptions.Value;
             _cryptoService = cryptoService;
             _refreshTokenService = refreshTokenService;
             _loginValidator = loginValidator;
@@ -53,7 +55,7 @@ namespace EasyTab.API.Services.AccessManager
             {
                 Token = refreshTokenValue,
                 UserId = user.Id,
-                ExpiresAt = DateTime.UtcNow.AddDays(7)
+                ExpiresAt = DateTime.UtcNow.AddDays(RefreshTokenLifetimeDays)
             };
 
             await _refreshTokenService.CreateSessionAsync(refreshToken);
@@ -68,13 +70,6 @@ namespace EasyTab.API.Services.AccessManager
 
         private string GenerateToken(Users user, int sessionId)
         {
-            string secretKeyString = _configuration["JwtToken:SecretKey"] ?? string.Empty;
-            var issuer = _configuration["JwtToken:Issuer"];
-            var audience = _configuration["JwtToken:Audience"];
-            var durationInMinutes = int.Parse(_configuration["JwtToken:DurationInMinutes"] ?? "1");
-
-            var secretKey = Encoding.ASCII.GetBytes(secretKeyString);
-
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(new[]
@@ -87,10 +82,10 @@ namespace EasyTab.API.Services.AccessManager
                     new Claim(ClaimNames.Role, user.Role),
                     new Claim(ClaimNames.IsDeleted, user.IsDeleted.ToString())
                 }),
-                Expires = DateTime.UtcNow.AddMinutes(durationInMinutes),
-                Issuer = issuer,
-                Audience = audience,
-                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(secretKey), SecurityAlgorithms.HmacSha256Signature)
+                Expires = DateTime.UtcNow.AddMinutes(_jwtTokenOptions.DurationInMinutes),
+                Issuer = _jwtTokenOptions.Issuer,
+                Audience = _jwtTokenOptions.Audience,
+                SigningCredentials = new SigningCredentials(_jwtTokenOptions.GetSigningKey(), SecurityAlgorithms.HmacSha256Signature)
             };
 
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -140,7 +135,7 @@ namespace EasyTab.API.Services.AccessManager
 
             var refreshTokenValue = GenerateRefreshToken();
             var rotated = await _refreshTokenService.RotateSessionAsync(
-                refreshToken.Id, user.Id, request.RefreshToken, refreshTokenValue, DateTime.UtcNow.AddDays(7));
+                refreshToken.Id, user.Id, request.RefreshToken, refreshTokenValue, DateTime.UtcNow.AddDays(RefreshTokenLifetimeDays));
             if (!rotated)
             {
                 throw new InvalidRefreshTokenException("Refresh token više nije validan.");

@@ -12,5 +12,8 @@ namespace EasyTab.Services.PayPal
         public string Currency { get; set; } = string.Empty;
         public decimal BamToEurRate { get; set; }
         public int CheckoutHoldMinutes { get; set; }
+
+        // Jedino pravilo obračuna iznosa za PayPal: koriste ga i naplata (PaymentService) i seed.
+        public decimal ToPayPalAmount(decimal amountKm) => Math.Round(amountKm / BamToEurRate, 2);
     }
 }

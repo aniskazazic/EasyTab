@@ -33,7 +33,7 @@ services:
       - ConnectionStrings__EasyTabConnection=Server=easytab-sql;Database=220030;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;
       - TZ=Europe/Sarajevo
       - RabbitMQ__Host=easytab-rabbitmq
-      - RabbitMQ__Port=${RabbitMQ__Port:-5672}
+      - RabbitMQ__Port=${RabbitMQ__Port}
       - RabbitMQ__Username=${RABBITMQ_DEFAULT_USER}
       - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
       - PayPal__ClientId=${PayPal__ClientId}
@@ -90,10 +90,9 @@ services:
       - .env
     environment:
       - RabbitMQ__Host=easytab-rabbitmq
-      - RabbitMQ__Port=${RabbitMQ__Port:-5672}
+      - RabbitMQ__Port=${RabbitMQ__Port}
       - RabbitMQ__Username=${RABBITMQ_DEFAULT_USER}
       - RabbitMQ__Password=${RABBITMQ_DEFAULT_PASS}
-      - Email__SecureSocketOptions=${Email__SecureSocketOptions:-StartTls}
     depends_on:
       easytab-rabbitmq:
         condition: service_healthy

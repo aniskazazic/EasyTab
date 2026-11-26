@@ -65,9 +65,9 @@ namespace EasyTab.Subscriber.Services
         }
 
         private SecureSocketOptions GetSecureSocketOptions() =>
-            _configuration["Email:SecureSocketOptions"]?.Trim().ToLowerInvariant() switch
+            RequireSetting("Email:SecureSocketOptions").Trim().ToLowerInvariant() switch
             {
-                null or "" or "starttls" => SecureSocketOptions.StartTls,
+                "starttls" => SecureSocketOptions.StartTls,
                 "sslonconnect" => SecureSocketOptions.SslOnConnect,
                 "auto" => SecureSocketOptions.Auto,
                 "none" => SecureSocketOptions.None,

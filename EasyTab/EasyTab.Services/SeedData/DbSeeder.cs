@@ -1,8 +1,10 @@
 using EasyTab.Common.Services.CryptoService;
 using EasyTab.Services.Database;
+using EasyTab.Services.PayPal;
 using EasyTab.Services.ReservationStateMachine;
 using EasyTab.Services.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Reflection;
 using EasyTab.Model;
 
@@ -13,12 +15,14 @@ namespace EasyTab.Services.SeedData
         private readonly _220030Context _context;
         private readonly ICryptoService _cryptoService;
         private readonly LookupCacheVersionService _cacheVersions;
+        private readonly IOptions<PayPalOptions> _payPalOptions;
 
-        public DbSeeder(_220030Context context, ICryptoService cryptoService, LookupCacheVersionService cacheVersions)
+        public DbSeeder(_220030Context context, ICryptoService cryptoService, LookupCacheVersionService cacheVersions, IOptions<PayPalOptions> payPalOptions)
         {
             _context = context;
             _cryptoService = cryptoService;
             _cacheVersions = cacheVersions;
+            _payPalOptions = payPalOptions;
         }
 
         public async Task SeedAsync()
@@ -77,7 +81,7 @@ namespace EasyTab.Services.SeedData
             _context.Reservations.AddRange(reservations);
             await _context.SaveChangesAsync();
 
-            var payments = CreatePayments(reservations, tables, locales);
+            var payments = CreatePayments(reservations, tables, locales, _payPalOptions.Value);
             _context.Payments.AddRange(payments);
             await _context.SaveChangesAsync();
 
@@ -468,10 +472,12 @@ namespace EasyTab.Services.SeedData
             return reservations;
         }
 
+        // Kurs i valuta dolaze iz PayPal__BamToEurRate i PayPal__Currency, a iznos se računa istim pravilom kao pri naplati.
         private static List<Payment> CreatePayments(
             IReadOnlyList<Reservation> reservations,
             IReadOnlyList<Table> tables,
-            IReadOnlyList<Locale> locales)
+            IReadOnlyList<Locale> locales,
+            PayPalOptions payPal)
         {
             var localesById = locales.ToDictionary(l => l.Id);
             var tablesById = tables.ToDictionary(t => t.Id);
@@ -480,20 +486,21 @@ namespace EasyTab.Services.SeedData
                 .ToList();
 
             var payments = new List<Payment>();
-            const decimal rate = 1.95583m;
 
             foreach (var res in completedReservations)
             {
-                var localeId = tablesById.TryGetValue(res.TableId, out var table) ? table.LocaleId : 0;
-                var priceKm = localesById.TryGetValue(localeId, out var loc) ? loc.ReservationPrice : 15.00m;
-                var priceEur = Math.Round(priceKm / rate, 2);
+                if (!tablesById.TryGetValue(res.TableId, out var table) ||
+                    !localesById.TryGetValue(table.LocaleId, out var locale))
+                    throw new InvalidOperationException("Seed rezervacija nema stol ili lokal.");
+
+                var priceKm = locale.ReservationPrice;
 
                 payments.Add(new Payment
                 {
                     ReservationId = res.Id,
                     AmountKm = priceKm,
-                    Amount = priceEur,
-                    Currency = "EUR",
+                    Amount = payPal.ToPayPalAmount(priceKm),
+                    Currency = payPal.Currency,
                     ApprovalUrl = null,
                     PayPalOrderId = $"SEED-ORDER-{res.Id:D6}",
                     PayPalCaptureId = $"SEED-CAPTURE-{res.Id:D6}",

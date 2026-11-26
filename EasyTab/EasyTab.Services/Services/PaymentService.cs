@@ -352,7 +352,7 @@ namespace EasyTab.Services.Services
                 throw new UserException("Vrijeme za plaćanje je isteklo. Vratite se na odabir termina i pokrenite novo plaćanje.");
         }
 
-        private decimal ToPayPalAmount(decimal amountKm) => Math.Round(amountKm / _payPalOptions.Value.BamToEurRate, 2);
+        private decimal ToPayPalAmount(decimal amountKm) => _payPalOptions.Value.ToPayPalAmount(amountKm);
 
         private void EnsureExchangeRateUnchanged(Payment checkout)
         {

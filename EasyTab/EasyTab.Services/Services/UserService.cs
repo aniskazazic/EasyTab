@@ -20,6 +20,8 @@ namespace EasyTab.Services.Services
 {
     public class UserService : BaseCRUDService<Users, UserSearchObject, User, UserInsertRequest, UserUpdateRequest>, IUserService
     {
+        private const int PasswordResetCodeLifetimeMinutes = 15;
+
         private readonly ILogger<IUserService> _logger;
         private readonly ICryptoService _cryptoService;
         private readonly IRabbitMQPublisher _rabbitMQPublisher;
@@ -537,7 +539,7 @@ namespace EasyTab.Services.Services
                 UserId = user.Id,
                 CodeHash = hash,
                 CodeSalt = salt,
-                ExpiryTime = DateTime.UtcNow.AddMinutes(15),
+                ExpiryTime = DateTime.UtcNow.AddMinutes(PasswordResetCodeLifetimeMinutes),
                 CreatedAt = DateTime.UtcNow
             };
 

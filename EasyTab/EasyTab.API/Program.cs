@@ -22,6 +22,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Diagnostics;
@@ -87,6 +88,18 @@ builder.Services.AddOptions<PayPalOptions>()
     .ValidateOnStart();
 builder.Services.AddHttpClient<IPayPalService, PayPalService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+
+builder.Services.AddOptions<JwtTokenOptions>()
+    .Bind(builder.Configuration.GetSection(JwtTokenOptions.SectionName))
+    .Validate(
+        options =>
+            !string.IsNullOrWhiteSpace(options.SecretKey) &&
+            Encoding.UTF8.GetByteCount(options.SecretKey) >= JwtTokenOptions.MinimumSecretKeyBytes &&
+            !string.IsNullOrWhiteSpace(options.Issuer) &&
+            !string.IsNullOrWhiteSpace(options.Audience) &&
+            options.DurationInMinutes > 0,
+        "JWT konfiguracija nije potpuna. Popunite JwtToken__SecretKey (najmanje 32 bajta), JwtToken__Issuer i JwtToken__Audience, a JwtToken__DurationInMinutes postavite na broj minuta veći od 0.")
+    .ValidateOnStart();
 
 builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, UserIdProvider>();
@@ -211,13 +224,17 @@ builder.Services.AddAuthentication(options => // dodavanje authentfikacije i aut
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-}).AddJwtBearer(o =>
+}).AddJwtBearer();
+// Provjera tokena koristi iste JwtTokenOptions kojima AccessManager potpisuje token.
+builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+    .Configure<IOptions<JwtTokenOptions>>((o, jwtTokenOptions) =>
 {
+    var jwtToken = jwtTokenOptions.Value;
     o.TokenValidationParameters = new TokenValidationParameters
     {
-        ValidIssuer = builder.Configuration["JwtToken:Issuer"],
-        ValidAudience = builder.Configuration["JwtToken:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtToken:SecretKey"] ?? string.Empty)),
+        ValidIssuer = jwtToken.Issuer,
+        ValidAudience = jwtToken.Audience,
+        IssuerSigningKey = jwtToken.GetSigningKey(),
         RoleClaimType = ClaimNames.Role,
         ValidateIssuer = true,
         ValidateAudience = true,

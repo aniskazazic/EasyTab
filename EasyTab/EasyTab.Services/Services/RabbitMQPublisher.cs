@@ -15,7 +15,7 @@ namespace EasyTab.Services.Services
         {
             _logger = logger;
             var host = RequireSetting(configuration, "RabbitMQ:Host");
-            var port = configuration.GetValue<int?>("RabbitMQ:Port") ?? 5672;
+            var port = int.Parse(RequireSetting(configuration, "RabbitMQ:Port"));
             var username = RequireSetting(configuration, "RabbitMQ:Username");
             var password = RequireSetting(configuration, "RabbitMQ:Password");
 
