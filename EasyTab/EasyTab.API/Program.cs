@@ -69,7 +69,10 @@ builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IOwnerService, OwnerService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<INotificationPushService, SignalRNotificationPushService>();
+builder.Services.AddSingleton(RabbitMQPublisher.CreateQueue());
 builder.Services.AddSingleton<IRabbitMQPublisher, RabbitMQPublisher>();
+// Registruje se prije ostalih pozadinskih servisa, pa se pri gašenju zaustavlja posljednji i objavi i njihove poruke.
+builder.Services.AddHostedService<RabbitMQPublisherBackgroundService>();
 builder.Services.AddHostedService<ReservationStatusBackgroundService>();
 
 builder.Services.AddOptions<PayPalOptions>()

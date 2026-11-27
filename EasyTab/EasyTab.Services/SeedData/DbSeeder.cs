@@ -78,6 +78,7 @@ namespace EasyTab.Services.SeedData
                 locale => locale.Id,
                 locale => users.Values.First(user => user.Id == locale.OwnerId));
             var reservations = CreateReservations(users, tables, localeOwnersById);
+            reservations.AddRange(CreateDemoReservations(users, tables, locales, workers));
             _context.Reservations.AddRange(reservations);
             await _context.SaveChangesAsync();
 
@@ -412,6 +413,8 @@ namespace EasyTab.Services.SeedData
         {
             var reservationUsers = RegularUserUsernames.Select(username => users[username]).ToList();
             var reservations = new List<Reservation>();
+            var today = LocalClock.Now.Date;
+            var utcNow = DateTime.UtcNow;
             var states = new[]
             {
                 PendingReservationState.StateName,
@@ -427,10 +430,10 @@ namespace EasyTab.Services.SeedData
                     var state = states[stateIndex];
                     var reservationDate = stateIndex switch
                     {
-                        0 => DateTime.UtcNow.Date.AddDays(5 + itemIndex),
-                        1 => DateTime.UtcNow.Date.AddDays(12 + itemIndex),
-                        2 => DateTime.UtcNow.Date.AddDays(-(10 + itemIndex)),
-                        _ => DateTime.UtcNow.Date.AddDays(-(25 + itemIndex))
+                        0 => today.AddDays(5 + itemIndex),
+                        1 => today.AddDays(12 + itemIndex),
+                        2 => today.AddDays(-(10 + itemIndex)),
+                        _ => today.AddDays(-(25 + itemIndex))
                     };
                     var user = reservationUsers[(stateIndex * 30 + itemIndex) % reservationUsers.Count];
                     var tableIndex = stateIndex == 3 && itemIndex == 0
@@ -448,7 +451,8 @@ namespace EasyTab.Services.SeedData
                         ReservationDate = reservationDate,
                         StartTime = start,
                         EndTime = start.AddHours(2),
-                        CreatedAt = reservationDate.AddDays(-2),
+                        // Buduća rezervacija je kreirana prije nekoliko sati, a prošla dva dana prije termina, pa nijedno vrijeme nije u budućnosti.
+                        CreatedAt = reservationDate > today ? utcNow.AddHours(-(3 + itemIndex)) : reservationDate.AddDays(-2),
                         ReservationState = state
                     };
 
@@ -470,6 +474,72 @@ namespace EasyTab.Services.SeedData
             }
 
             return reservations;
+        }
+
+        // Potvrđene rezervacije za danas i sutra u lokalu u kojem radi "radnik". To je i prvi lokal korisnika "vlasnik"
+        // na dashboardu, pa ih odmah vide vlasnik, radnik i gosti "korisnik" i "mobile". Plaćanja se seedaju samo za završene.
+        private static List<Reservation> CreateDemoReservations(
+            IReadOnlyDictionary<string, User> users,
+            IReadOnlyList<Table> tables,
+            IReadOnlyList<Locale> locales,
+            IReadOnlyList<Worker> workers)
+        {
+            // Ukupan broj je uvijek isti, pa popularnost lokala (i preporuke) ne zavisi od sata u kojem se seed pokrene.
+            const int demoReservationCount = 5;
+            const int upcomingTodayLimit = 2;
+            var minimumLeadTime = TimeSpan.FromHours(1);
+            var localNow = LocalClock.Now;
+            var utcNow = DateTime.UtcNow;
+
+            var localeId = workers.Single(worker => worker.UserId == users["radnik"].Id).LocaleId;
+            var locale = locales.Single(item => item.Id == localeId);
+            var localeTables = tables.Where(table => table.LocaleId == localeId).OrderBy(table => table.Id).ToList();
+            var guests = new[] { users["korisnik"], users["mobile"] };
+            var slotLength = TimeSpan.FromHours(locale.LengthOfReservation);
+
+            // Termini kao u ponudi slobodnih termina: od otvaranja, korakom trajanja rezervacije, dok kraj ne pređe zatvaranje.
+            List<DateTime> SlotStarts(DateTime date)
+            {
+                var close = ReservationTime.GetEnd(date, locale.StartOfWorkingHours, locale.EndOfWorkingHours);
+                var slots = new List<DateTime>();
+                for (var start = ReservationTime.GetStart(date, locale.StartOfWorkingHours); start + slotLength <= close; start += slotLength)
+                    slots.Add(start);
+                return slots;
+            }
+
+            var todaySlots = SlotStarts(localNow.Date);
+            var tomorrowSlots = SlotStarts(localNow.Date.AddDays(1));
+
+            // Danas: termin koji je upravo u toku (ako je seed u radno vrijeme) i termini koji počinju bar sat poslije seeda.
+            var starts = todaySlots.Where(start => start <= localNow && localNow < start + slotLength)
+                .Concat(todaySlots.Where(start => start >= localNow + minimumLeadTime).Take(upcomingTodayLimit))
+                .ToList();
+
+            // Sutra: ostatak, uzastopno od trećine radnog dana (za radno vrijeme 08-22 od 12:00).
+            var firstTomorrowSlot = tomorrowSlots.Count / 3;
+            starts.AddRange(Enumerable.Range(0, demoReservationCount - starts.Count)
+                .Select(index => tomorrowSlots[(firstTomorrowSlot + index) % tomorrowSlots.Count]));
+
+            // Svaka rezervacija je na drugom stolu, a ostale seed rezervacije su najmanje pet dana daleko, pa nema preklapanja.
+            return starts.Select((start, index) =>
+            {
+                var table = localeTables[index];
+                var createdAt = utcNow.AddHours(-(3 + index));
+                return new Reservation
+                {
+                    UserId = guests[index % guests.Length].Id,
+                    TableId = table.Id,
+                    TableName = table.Name,
+                    TableCapacity = table.NumberOfGuests,
+                    ReservationDate = start.Date,
+                    StartTime = TimeOnly.FromDateTime(start),
+                    EndTime = TimeOnly.FromDateTime(start + slotLength),
+                    CreatedAt = createdAt,
+                    ReservationState = ConfirmedReservationState.StateName,
+                    ApprovedById = locale.OwnerId,
+                    ApprovedAt = createdAt.AddHours(2)
+                };
+            }).ToList();
         }
 
         // Kurs i valuta dolaze iz PayPal__BamToEurRate i PayPal__Currency, a iznos se računa istim pravilom kao pri naplati.
