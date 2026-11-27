@@ -388,7 +388,7 @@ namespace EasyTab.Services.Services
             if (reservation == null)
             {
                 _logger.LogWarning("Cannot cancel reservation because it was not found. ReservationId: {ReservationId}", id);
-                throw new UserException("Rezervacija nije pronađena!");
+                throw new NotFoundException("Rezervacija nije pronađena.");
             }
 
             if (string.IsNullOrWhiteSpace(reason))
@@ -426,7 +426,7 @@ namespace EasyTab.Services.Services
                 .FirstOrDefaultAsync(x => x.Id == id);
             if (reservation == null)
             {
-                throw new UserException("Rezervacija nije pronađena!");
+                throw new NotFoundException("Rezervacija nije pronađena.");
             }
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(reservation.Table.LocaleId);
@@ -442,7 +442,7 @@ namespace EasyTab.Services.Services
                 .FirstOrDefaultAsync(x => x.Id == id);
             if (reservation == null)
             {
-                throw new UserException("Rezervacija nije pronađena!");
+                throw new NotFoundException("Rezervacija nije pronađena.");
             }
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(reservation.Table.LocaleId);
@@ -460,11 +460,11 @@ namespace EasyTab.Services.Services
                 .FirstOrDefaultAsync(x => x.Id == id);
             if (reservation == null)
             {
-                throw new UserException("Rezervacija nije pronađena!");
+                throw new NotFoundException("Rezervacija nije pronađena.");
             }
 
             if (!CanAccessReservation(reservation))
-                throw new UserException("Nemate dozvolu za pregled ove rezervacije.");
+                throw new ForbiddenException("Nemate dozvolu za pregled ove rezervacije.");
 
             var actions = GetStateMachine(reservation.ReservationState).GetAllowedActions();
 

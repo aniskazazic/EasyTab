@@ -18,12 +18,12 @@ namespace EasyTab.API.Filters
         {
             _logger.LogError(context.Exception, "Došlo je do greške.");
 
-            // FluentValidation exceptions should be converted into model state errors
+            // Greške FluentValidation-a idu u ModelState, svaka uz svoje polje.
             if (context.Exception is FluentValidation.ValidationException fvEx)
             {
                 foreach (var error in fvEx.Errors)
                 {
-                    // use property name (empty string for general errors) to key the message
+                    // Ključ je naziv polja; opšta greška bez polja dobija prazan ključ.
                     context.ModelState.AddModelError(error.PropertyName ?? string.Empty, error.ErrorMessage);
                 }
 
@@ -76,7 +76,7 @@ namespace EasyTab.API.Filters
                     c => c.Key,
                     c => c.Value!.Errors.Select(z => z.ErrorMessage).ToList());
 
-            // Single human-readable line for mobile/clients; "clientError" is used for ClientException.
+            // Klijenti prikazuju polje "message": prva poruka iz grešaka, a "errors" nosi poruke po poljima.
             var allMessages = list.Values.SelectMany(v => v).Where(m => !string.IsNullOrWhiteSpace(m)).ToList();
             var message = allMessages.FirstOrDefault()
                 ?? (context.Exception is UserException ? context.Exception.Message : null)

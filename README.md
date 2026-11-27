@@ -122,7 +122,7 @@ cd EasyTab/EasyTab
 cp .env.example .env
 ```
 
-`.env.example` sadrži samo nazive ključeva i javne podrazumijevane vrijednosti, pa sam po sebi nije dovoljan. Bez stvarnih vrijednosti (lozinka SQL Servera, JWT ključ, RabbitMQ, SMTP i PayPal sandbox podaci) servisi se ne pokreću ispravno, a API odbija start dok PayPal konfiguracija nije potpuna.
+`.env.example` sadrži samo nazive ključeva i javne podrazumijevane vrijednosti, pa sam po sebi nije dovoljan. Bez stvarnih vrijednosti (lozinka SQL Servera, JWT ključ, RabbitMQ, SMTP i PayPal sandbox podaci) servisi se ne pokreću ispravno, a API odbija start dok PayPal ili JWT konfiguracija nije potpuna.
 
 `PayPal__ReturnUrl` i `PayPal__CancelUrl` moraju završavati sa `/paypal/return` i `/paypal/cancel` (npr. `https://example.com/paypal/return`), jer mobilna aplikacija po tom završetku adrese prepoznaje povratak iz PayPala.
 
@@ -134,7 +134,7 @@ Iz foldera `EasyTab/EasyTab`, u kojem su `docker-compose.yml` i `.env`:
 docker compose up --build
 ```
 
-Compose podiže SQL Server, RabbitMQ, API i Subscriber. API pri pokretanju automatski primjenjuje EF Core migracije i priprema početne podatke. Sačekati završetak migracija i seeda prije prijave kroz klijente.
+Compose podiže SQL Server, RabbitMQ, API i Subscriber. API pri pokretanju automatski primjenjuje EF Core migracije i priprema početne podatke. Prije prijave kroz klijente sačekati da se u logu API-ja pojavi poruka „EasyTab API je spreman za rad.“.
 
 ### 4. Servisi i portovi
 
@@ -167,9 +167,11 @@ docker compose up --build
 
 Ako je projekat na tom računaru već ranije pokretan iz foldera istog imena, prije pregleda pokrenuti `docker compose down -v`, pa `docker compose up --build`. Stari volumen inače zadržava stare podatke, a seed računa datume rezervacija u odnosu na dan kada je pokrenut, pa ih tek svjež seed postavlja oko današnjeg datuma.
 
+Seed dodaje i pet potvrđenih rezervacija za danas i sutra u lokalu **Tima-Irma** (vlasnik `vlasnik`, radnik `radnik`, gosti `korisnik` i `mobile`). Ako je seed pokrenut u radno vrijeme lokala, jedna rezervacija je za termin koji je upravo u toku. Za danas se dodaju najviše dvije koje počinju bar sat poslije seeda, a ostatak je za sutra. Vlasnički dashboard i radnička lista zato odmah imaju rezervacije za tekući dan.
+
 ## Pokretanje desktop aplikacije — Windows
 
-1. Raspakujte arhivu izdanja (build) sa GitHub-a Release
+1. Raspakujte ZIP arhivu iz GitHub Release-a
 2. Otvoriti Release folder
 3. Pokrenuti `easytab_desktop.exe`
 
@@ -218,7 +220,7 @@ Računi `mobile`, `korisnik` i `amina` imaju seedovane interakcije koje omoguća
 
 ## Plaćanje — PayPal sandbox
 
-Plaćanje se izvršava kroz PayPal sandbox. Backend čuva iznose u KM, a naplatu šalje u EUR prema kursu `PayPal__BamToEurRate` iz `.env`.
+Plaćanje se izvršava kroz PayPal sandbox. Backend čuva iznose u KM, a naplatu šalje u valuti `PayPal__Currency` (EUR) prema kursu `PayPal__BamToEurRate`, oboje iz `.env`.
 
 **Za email obavijesti koristi se stvarna adresa EasyTab korisničkog računa. PayPal sandbox adrese navedene ispod koriste se za prijavu u sandbox plaćanje.**
 
@@ -241,21 +243,21 @@ Nakon uspješne naplate kreira se rezervacija koja čeka potvrdu lokala. Otkaziv
 
 Detaljan opis algoritma nalazi se u [dokumentaciji sistema preporuke](recommender-dokumentacija.md).
 
-## 🚢 GitHub Release
+## GitHub Release
 
 Build fajlovi za pregled rada objavljuju se kroz [GitHub Releases](https://github.com/aniskazazic/EasyTab/releases) i ne dodaju se u Git historiju repozitorija.
 
-Za svaku predaju priprema se jedan Release s jednom ZIP arhivom, npr. `fit-build-2026-11-08.zip`, sljedeće strukture:
+Za svaku predaju priprema se jedan Release s jednom ZIP arhivom `fit-build-20gg-mm-dd.zip`, sljedeće strukture:
 
 ```text
-fit-build-2026-11-08.zip
+fit-build-20gg-mm-dd.zip
 ├── easytab_mobile/
 │   └── app-release.apk
 └── easytab_desktop/
-    └── Release/
+    └── build/windows/x64/runner/Release/
         ├── easytab_desktop.exe
-        ├── data/
         ├── flutter_windows.dll
+        └── data/
         └── ostale potrebne DLL datoteke
 ```
 

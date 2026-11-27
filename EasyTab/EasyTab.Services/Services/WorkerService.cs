@@ -267,7 +267,7 @@ namespace EasyTab.Services.Services
                 .FirstOrDefaultAsync(x => x.Id == id);
 
             if (worker == null)
-                throw new UserException("Radnik nije pronađen");
+                throw new UserException("Radnik nije pronađen.");
 
             await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(worker.LocaleId);
 

@@ -208,8 +208,6 @@ namespace EasyTab.Services.Services
 
                 _logger.LogInformation("Automatski dodeljena rola 'Korisnik' korisniku {Username}", request.Username);
             }
-
-            await Task.CompletedTask;
         }
 
         public override async Task<Users?> UpdateAsync(int id, UserUpdateRequest request)
@@ -352,12 +350,6 @@ namespace EasyTab.Services.Services
             return Mapper.Map<Users>(entity);
         }
 
-
-        protected override async Task BeforeUpdate(User entity, UserUpdateRequest request)
-        {
-            await Task.CompletedTask;
-        }
-
         public override async Task<bool> DeleteAsync(int id)
         {
             if (!_currentUser.IsAdmin)
@@ -375,7 +367,7 @@ namespace EasyTab.Services.Services
             if (user == null)
             {
                 _logger.LogWarning("User not found for delete. UserId: {UserId}", id);
-                throw new UserException("Korisnik nije pronađen");
+                throw new UserException("Korisnik nije pronađen.");
             }
 
             // Soft delete User
@@ -425,7 +417,7 @@ namespace EasyTab.Services.Services
             if (user != null)
             {
                 response = Mapper.Map<UsersSensitiveResponse>(user);
-                response.Role = user.UserRoles.First().Role.Name;
+                response.Role = GetActiveRoleName(user);
             }
 
             return response;
@@ -446,10 +438,31 @@ namespace EasyTab.Services.Services
             if (user != null)
             {
                 response = Mapper.Map<Users>(user);
-                response.Role = user.UserRoles.First().Role.Name;
+                response.Role = GetActiveRoleName(user);
             }
 
             return response;
+        }
+
+        // Ista prednost kao u administratorskoj statistici (AdminService): Admin → Vlasnik → Radnik → Korisnik.
+        private static readonly string[] RolePriority = { RoleNames.Admin, RoleNames.Vlasnik, RoleNames.Radnik, RoleNames.Korisnik };
+
+        // Uzima samo aktivne uloge (ni veza ni uloga nisu obrisane). Obrisan nalog i nalog bez aktivne uloge
+        // dobijaju prazan naziv, a prijavu tada odbija AccessManager.
+        private static string GetActiveRoleName(User user)
+        {
+            if (user.IsDeleted)
+                return string.Empty;
+
+            var activeRoles = user.UserRoles
+                .Where(userRole => !userRole.IsDeleted && !userRole.Role.IsDeleted)
+                .OrderBy(userRole => userRole.RoleId)
+                .Select(userRole => userRole.Role.Name)
+                .ToList();
+
+            return RolePriority.FirstOrDefault(activeRoles.Contains)
+                ?? activeRoles.FirstOrDefault()
+                ?? string.Empty;
         }
 
         public async Task ChangePasswordAsync(UserPasswordChangeRequest request)
@@ -476,19 +489,19 @@ namespace EasyTab.Services.Services
 
             if (user == null)
             {
-                throw new UserException("Korisnik nije pronađen !");
+                throw new UserException("Korisnik nije pronađen.");
             }
 
             var changingAnotherUserAsAdmin = isAdmin && authenticatedUserId != request.Id;
             if (!changingAnotherUserAsAdmin &&
                 !_cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password))
             {
-                throw new UserException("Pogrešni kredencijali !");
+                throw new UserException("Pogrešni kredencijali.");
             }
 
             if (!request.NewPassword.Equals(request.ConfirmNewPassword))
             {
-                throw new UserException("Lozinka i potvrda lozinke moraju biti iste !");
+                throw new UserException("Lozinka i potvrda lozinke moraju biti iste.");
             }
 
             user.PasswordSalt = _cryptoService.GenerateSalt();

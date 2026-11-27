@@ -193,7 +193,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
               } on Exception catch (e) {
                 if (mounted &&
                     e is ApiClientException &&
-                    e.message == 'Pogrešni kredencijali !') {
+                    e.message == 'Pogrešni kredencijali.') {
                   _formKey.currentState?.fields['password']?.invalidate(
                     'Stara lozinka nije ispravna.',
                   );

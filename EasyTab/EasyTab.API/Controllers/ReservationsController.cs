@@ -19,11 +19,6 @@ namespace EasyTab.API.Controllers
             _reservationService = service;
         }
 
-        [HttpPost]
-        [Authorization]
-        public Task<Reservations> Create([FromBody] ReservationInsertRequest request)
-            => _reservationService.CreateAsync(request);
-
         [HttpGet("payment-summary")]
         [Authorization(RoleNames.Admin, RoleNames.Vlasnik)]
         public Task<PaymentSummary> GetPaymentSummary([FromQuery] PaymentSummarySearchObject search)

@@ -32,7 +32,7 @@ namespace EasyTab.Services.Services
 
         public override async Task<Zones> CreateAsync(ZoneInsertRequest request)
         {
-            await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             _logger.LogInformation("Creating zone. ZoneName: {ZoneName}", request.Name);
             return await base.CreateAsync(request);
         }
@@ -41,7 +41,7 @@ namespace EasyTab.Services.Services
         {
             var zone = await Context.Zones.FindAsync(id);
             if (zone != null)
-                await _localeAccessService.EnsureCanManageLocaleAsync(zone.LocaleId);
+                await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(zone.LocaleId);
             _logger.LogInformation("Updating zone. ZoneId: {ZoneId}, ZoneName: {ZoneName}", id, request.Name);
             return await base.UpdateAsync(id, request);
         }
@@ -50,7 +50,7 @@ namespace EasyTab.Services.Services
         {
             var zone = await Context.Zones.FindAsync(id);
             if (zone != null)
-                await _localeAccessService.EnsureCanManageLocaleAsync(zone.LocaleId);
+                await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(zone.LocaleId);
             _logger.LogWarning("Deleting zone. ZoneId: {ZoneId}", id);
             return await base.DeleteAsync(id);
         }
@@ -65,7 +65,7 @@ namespace EasyTab.Services.Services
 
         public async Task SaveLayoutAsync(ZoneLayoutRequest request)
         {
-            await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             await _layoutValidator.ValidateAndThrowAsync(request);
 
             var existingZones = await Context.Zones

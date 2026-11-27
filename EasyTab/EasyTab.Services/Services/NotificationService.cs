@@ -1,3 +1,4 @@
+using EasyTab.Model.Exceptions;
 using EasyTab.Model.Models;
 using EasyTab.Model;
 using EasyTab.Model.SearchObjects;
@@ -73,13 +74,13 @@ namespace EasyTab.Services.Services
 
         public async Task MarkAsReadAsync(int notificationId)
         {
+            // Tuđa notifikacija daje isti odgovor kao nepostojeća, pa se ne otkriva da postoji.
             var notification = await _context.Notifications
-                .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == _currentUser.UserId);
-            if (notification != null)
-            {
-                notification.IsRead = true;
-                await _context.SaveChangesAsync();
-            }
+                .FirstOrDefaultAsync(n => n.Id == notificationId && n.UserId == _currentUser.UserId)
+                ?? throw new NotFoundException("Notifikacija nije pronađena.");
+
+            notification.IsRead = true;
+            await _context.SaveChangesAsync();
         }
 
         public async Task MarkAllAsReadAsync()

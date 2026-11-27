@@ -16,6 +16,7 @@ namespace EasyTab.API.Services.AccessManager
     public class AccessManager : IAccessManager
     {
         private const int RefreshTokenLifetimeDays = 7;
+        private const string NoActiveRoleMessage = "Korisnički račun nema aktivnu ulogu. Obratite se administratoru.";
 
         private readonly IUserService _userService;
         private readonly JwtTokenOptions _jwtTokenOptions;
@@ -47,6 +48,12 @@ namespace EasyTab.API.Services.AccessManager
             if (user == null || user.IsDeleted || !_cryptoService.Verify(user.PasswordHash, user.PasswordSalt, request.Password))
             {
                 throw new UserException("Pogrešno korisničko ime ili lozinka.");
+            }
+
+            // Poruka o ulozi ide tek poslije ispravne lozinke, pa ne otkriva da nalog postoji.
+            if (string.IsNullOrEmpty(user.Role))
+            {
+                throw new UserException(NoActiveRoleMessage);
             }
 
             var refreshTokenValue = GenerateRefreshToken();
@@ -131,6 +138,11 @@ namespace EasyTab.API.Services.AccessManager
             if (user.IsDeleted)
             {
                 throw new UserException("Korisnik nije aktivan!");
+            }
+
+            if (string.IsNullOrEmpty(user.Role))
+            {
+                throw new UserException(NoActiveRoleMessage);
             }
 
             var refreshTokenValue = GenerateRefreshToken();

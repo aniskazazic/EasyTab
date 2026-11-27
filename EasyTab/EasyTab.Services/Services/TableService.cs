@@ -36,7 +36,7 @@ namespace EasyTab.Services.Services
 
         public override async Task<Tables> CreateAsync(TableInsertRequest request)
         {
-            await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             TableLayoutExtensions.ValidatePosition(request.XCoordinate, request.YCoordinate);
             _logger.LogInformation("Creating table. TableName: {TableName}", request.Name);
             return await base.CreateAsync(request);
@@ -46,7 +46,7 @@ namespace EasyTab.Services.Services
         {
             await using var transaction = await Context.Database.BeginTransactionAsync();
             var table = await GetTableForUpdateAsync(id);
-            await _localeAccessService.EnsureCanManageLocaleAsync(table.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(table.LocaleId);
             TableLayoutExtensions.ValidatePosition(request.XCoordinate, request.YCoordinate);
             _logger.LogInformation("Updating table. TableId: {TableId}, TableName: {TableName}", id, request.Name);
             var updated = await base.UpdateAsync(id, request);
@@ -93,7 +93,7 @@ namespace EasyTab.Services.Services
         {
             await using var transaction = await Context.Database.BeginTransactionAsync();
             var table = await GetTableForUpdateAsync(id);
-            await _localeAccessService.EnsureCanManageLocaleAsync(table.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(table.LocaleId);
             await EnsureCanDeleteAsync(new[] { id });
             _logger.LogWarning("Deleting table. TableId: {TableId}", id);
             table.RemoveFromLayout();
@@ -165,7 +165,7 @@ namespace EasyTab.Services.Services
 
         public async Task SaveLayoutAsync(TableLayoutRequest request)
         {
-            await _localeAccessService.EnsureCanManageLocaleAsync(request.LocaleId);
+            await _localeAccessService.EnsureCanManageLocaleAsOwnerAsync(request.LocaleId);
             _logger.LogInformation("Saving table layout. LocaleId: {LocaleId}", request.LocaleId);
             await _layoutValidator.ValidateAndThrowAsync(request);
 

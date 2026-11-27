@@ -222,7 +222,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddAuthentication(options => // dodavanje authentfikacije i autorizacije u projekat
+builder.Services.AddAuthentication(options => // dodavanje autentifikacije i autorizacije u projekat
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;

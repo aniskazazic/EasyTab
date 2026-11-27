@@ -111,7 +111,7 @@ namespace EasyTab.Services.Services
 
         public async Task<OwnerReservationsPageResponse> GetAllReservations(int userId, string? q, DateTime? date, string? reservationState, int page, int pageSize)
         {
-            page = Math.Max(page, 0);
+            page = Math.Max(page, 1);
             pageSize = Math.Clamp(pageSize, 1, 100);
             if (date.HasValue)
                 ReservationTime.EnsureSupportedDate(date.Value);
@@ -160,7 +160,7 @@ namespace EasyTab.Services.Services
                 .OrderByDescending(s => s.ReservationDate)
                 .ThenByDescending(s => s.StartTime)
                 .ThenBy(s => s.Id)
-                .Skip((int)Math.Min((long)page * pageSize, int.MaxValue))
+                .Skip((int)Math.Min(((long)page - 1) * pageSize, int.MaxValue))
                 .Take(pageSize)
                 .Select(s => new OwnerReservationListItemResponse
                 {

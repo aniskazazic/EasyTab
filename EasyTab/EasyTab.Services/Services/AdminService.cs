@@ -1,5 +1,4 @@
 ﻿using EasyTab.Model;
-using EasyTab.Model.Requests;
 using EasyTab.Model.Responses;
 using EasyTab.Model.Exceptions;
 using EasyTab.Services.Database;
@@ -23,45 +22,6 @@ namespace EasyTab.Services.Services
         {
             _db = db;
             _logger = logger;
-        }
-        public async Task<AdminLocalePageResponse> GetAllLocales(string? search, bool showDeleted, int page, int pageSize)
-        {
-            page = Math.Max(page, 0);
-            pageSize = Math.Clamp(pageSize, 1, 100);
-
-            var query = _db.Locales
-                .Include(l => l.City).ThenInclude(c => c.Country)
-                .Include(l => l.Category)
-                .AsQueryable();
-
-            if (!showDeleted)
-                query = query.Where(x => !x.IsDeleted);
-
-            if (!string.IsNullOrWhiteSpace(search))
-                query = query.Where(x => x.Name.ToLower().Contains(search.ToLower()));
-
-            var total = await query.CountAsync();
-
-            var result = await query
-                .OrderBy(c => c.Id)
-                .Skip((int)Math.Min((long)page * pageSize, int.MaxValue))
-                .Take(pageSize)
-                .Select(c => new AdminLocaleListItemResponse
-                {
-                    Id = c.Id,
-                    LocaleName = c.Name,
-                    City = c.City.Name,
-                    Country = c.City.Country.Name,
-                    Category = c.Category.Name,
-                    Address = c.Address,
-                    IsDeleted = c.IsDeleted,
-                    CountryId = c.City.CountryId,
-                    CityId = c.CityId,
-                    CategoryId = c.CategoryId
-                })
-                .ToListAsync();
-
-            return new AdminLocalePageResponse { Items = result, TotalCount = total };
         }
 
         public async Task<AdminAnalyticsResponse> GetAnalytics()
@@ -154,25 +114,6 @@ namespace EasyTab.Services.Services
             await _db.SaveChangesAsync();
             await transaction.CommitAsync(CancellationToken.None);
             _logger.LogInformation("Locale reactivated successfully. LocaleId: {LocaleId}", id);
-        }
-
-        public async Task UpdateLocale(int id, AdminUpdateLocaleRequest request)
-        {
-            _logger.LogInformation("Updating locale through admin panel. LocaleId: {LocaleId}", id);
-            var locale = await _db.Locales.FirstOrDefaultAsync(x => x.Id == id);
-            if (locale == null)
-            {
-                _logger.LogWarning("Cannot update locale because it was not found. LocaleId: {LocaleId}", id);
-                throw new UserException("Lokal nije pronađen.");
-            }
-
-            locale.Name = request.LocaleName;
-            locale.CityId = request.CityId;
-            locale.Address = request.Address;
-            locale.CategoryId = request.CategoryId;
-
-            await _db.SaveChangesAsync();
-            _logger.LogInformation("Locale updated successfully. LocaleId: {LocaleId}", id);
         }
     }
 }

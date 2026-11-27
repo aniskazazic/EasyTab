@@ -21,7 +21,7 @@ class OwnerProvider extends BaseProvider<Locale> {
     final base = BaseProvider.baseUrl;
     final params = <String, String>{
       'date': date.toIso8601String().split('T').first,
-      'page': page.toString(),
+      'page': (page + 1).toString(),
       'pageSize': pageSize.toString(),
     };
     if (query.trim().isNotEmpty) params['q'] = query.trim();

@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json.Serialization;
-using static System.Collections.Specialized.BitVector32;
 
 namespace EasyTab.Model.Models
 {

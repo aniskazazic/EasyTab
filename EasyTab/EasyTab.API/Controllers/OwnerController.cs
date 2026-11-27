@@ -60,7 +60,7 @@ namespace EasyTab.API.Controllers
             [FromQuery] string? q,
             [FromQuery] DateTime? date,
             [FromQuery] string? reservationState,
-            [FromQuery] int page = 0,
+            [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
             var userId = _currentUser.UserId;
